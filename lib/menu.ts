@@ -167,11 +167,18 @@ export async function openSettings(current: KitsuneConfig): Promise<KitsuneConfi
   })) as boolean | null;
   if (newShowMem === null) return null;
 
+  const newAutoNext = guard(await confirm({
+    message: "Auto-advance to next episode when one finishes? (5-second OSD countdown in MPV)",
+    initialValue: current.autoNext,
+  })) as boolean | null;
+  if (newAutoNext === null) return null;
+
   const updated: KitsuneConfig = {
     provider:   newProvider,
     subLang:    newSubLang,
     headless:   newHeadless,
     showMemory: newShowMem,
+    autoNext:   newAutoNext,
   };
 
   await saveConfig(updated);

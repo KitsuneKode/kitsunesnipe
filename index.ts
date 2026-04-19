@@ -12,6 +12,7 @@ import { launchMpv } from "./lib/mpv";
 import { checkDeps, pickWithFzf, pickSubtitleWithFzf } from "./lib/ui";
 import { loadConfig, saveConfig, type KitsuneConfig } from "./lib/config";
 import { drawMenu, openSettings, readSingleKey, bold, cyan, dim, green, yellow } from "./lib/menu";
+import { initLogger, dbg } from "./lib/logger";
 
 // =============================================================================
 // 1. FLAGS  (all optional — omit everything to run fully interactively)
@@ -28,6 +29,7 @@ const { values } = parseArgs({
     type:          { type: "string",  short: "t" }, // movie | series
     "sub-lang":    { type: "string",  short: "l" }, // en | ar | fzf | none
     "no-headless": { type: "boolean", short: "H" }, // force visible browser
+    "debug":       { type: "boolean", short: "d" }, // verbose debug output to stderr
   },
   strict: true,
   allowPositionals: true,
@@ -116,6 +118,12 @@ function startPrefetch(url: string) {
 // =============================================================================
 (async () => {
   intro(`${bold("KitsuneSnipe")} 🦊`);
+
+  // ── Debug mode ────────────────────────────────────────────────────────────
+  const debugEnabled = !!(values.debug) || process.env.KITSUNE_DEBUG === "1";
+  initLogger(debugEnabled);
+  if (debugEnabled) log.warn("Debug mode on — verbose output to stderr  (pipe with 2>&1 | jq)");
+  dbg("main", "session start", { debugEnabled });
 
   // ── Dependency check ──────────────────────────────────────────────────────
   const deps = await checkDeps();
@@ -331,6 +339,7 @@ function startPrefetch(url: string) {
         subtitle:     finalSubtitle,
         displayTitle: buildDisplayTitle(),
         startAt,
+        autoNext:     config.autoNext && currentType === "series",
       });
 
       // ── Persist watch position ─────────────────────────────────────────────
@@ -349,6 +358,19 @@ function startPrefetch(url: string) {
 
         const pct = result.duration > 0 ? Math.round((result.watchedSeconds / result.duration) * 100) : 0;
         log.success(`Saved position: ${yellow(formatTimestamp(result.watchedSeconds))} ${dim(`(${pct}%)`)}`);
+      }
+
+      // ── Auto-advance on natural EOF ────────────────────────────────────────
+      // The Lua script already showed a 5-second countdown inside MPV and quit.
+      // endReason="eof"  → countdown completed, advance automatically.
+      // endReason="quit" → user pressed q to cancel, fall through to menu.
+      if (result.endReason === "eof" && config.autoNext && currentType === "series") {
+        log.info(`Auto-advancing to ${cyan(`S${currentSeason}E${currentEpisode + 1}`)}…`);
+        currentEpisode++;
+        // resolveStream at the top of the loop will pick up the in-flight
+        // pre-fetch (which was started before MPV launched). If that episode
+        // doesn't exist, the scraper will fail and the menu will show naturally.
+        continue;
       }
     }
 
