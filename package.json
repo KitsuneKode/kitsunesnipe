@@ -1,5 +1,5 @@
 {
-  "name": "scrap-cineby",
+  "name": "stream-snacher",
   "private": true,
   "type": "module",
   "module": "cineby.ts",
