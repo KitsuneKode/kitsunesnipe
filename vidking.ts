@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import { spawn } from "child_process";
+import { appendFile } from "fs/promises";
 
 (async () => {
   const browser = await chromium.launch({ headless: false });
@@ -7,6 +8,7 @@ import { spawn } from "child_process";
 
   await context.addInitScript(() => {
     Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+    //@ts-ignore
     window.close = () => console.log("[X] Blocked window.close()");
   });
 
@@ -14,9 +16,22 @@ import { spawn } from "child_process";
 
   let streamFound = false;
 
+  // Function to log stream details to logs.txt
+  const logStream = async (url: string, headers: Record<string, string>) => {
+    try {
+      const logEntry = `\n=== Stream Log ===\nTimestamp: ${new Date().toISOString()}\nURL: ${url}\nHeaders:\n${JSON.stringify(headers, null, 2)}\n===================\n`;
+      await appendFile("logs.txt", logEntry, "utf8");
+    } catch (logError) {
+      console.error("[!] Failed to write to log file:", logError);
+    }
+  };
+
   const launchMpv = async (url: string, headers: Record<string, string>) => {
     if (streamFound) return;
     streamFound = true;
+
+    // Log the stream details
+    await logStream(url, headers);
 
     console.log("\n=================================================");
     console.log("🎉 BINGO! STREAM FOUND. LAUNCHING MPV...");
@@ -62,8 +77,8 @@ import { spawn } from "child_process";
   page.on("request", checkRequest);
 
   try {
-    // Testing with a sample movie ID on Vidking
-    await page.goto("https://www.vidking.net/embed/movie/1078605", {
+    // Testing with TMDB ID 127529 (Bloodhounds Korean drama) on Vidking
+    await page.goto("https://www.vidking.net/embed/tv/127529/1/1", {
       waitUntil: "domcontentloaded",
     });
 
