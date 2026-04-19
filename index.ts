@@ -172,8 +172,9 @@ async function scrapeStream(targetUrl: string): Promise<any> {
         // Catch Master Stream
         if (url.includes(".m3u8") && !streamFound) {
           streamFound = true;
-          console.log("[+] Master stream found! Waiting 1.5s for subtitles...");
+          console.log("[+] Master stream found! Waiting 2.5s to securely catch subtitles...");
 
+          // 💥 FIX 2: Increased timeout to 2.5s to win the JSON parsing race condition
           setTimeout(() => {
             resolve({
               url,
@@ -181,7 +182,7 @@ async function scrapeStream(targetUrl: string): Promise<any> {
               subtitle: capturedSubtitleUrl,
               title: scrapedTitle,
             });
-          }, 1500);
+          }, 2500);
         }
       });
 
@@ -218,6 +219,10 @@ async function scrapeStream(targetUrl: string): Promise<any> {
           try {
             // Wait a tiny bit for React/Vue to mount the DOM components
             await page.waitForTimeout(500);
+
+            // 💥 FIX 1: Force click the center of the player!
+            // This wakes up lazy players (like Vidking) to trigger the subtitle fetch.
+            await page.mouse.click(500, 500);
 
             if (targetUrl.includes("vidking.net")) {
               // Vidking injects the title into an H1 tag inside the player UI
@@ -277,7 +282,6 @@ async function scrapeStream(targetUrl: string): Promise<any> {
     return null;
   }
 }
-
 // =================================================================
 // 4. THE INTERACTIVE PLAYBACK LOOP
 // =================================================================
