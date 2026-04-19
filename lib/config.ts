@@ -7,6 +7,7 @@ export type KitsuneConfig = {
   subLang:    string;
   headless:   boolean;
   showMemory: boolean;
+  autoNext:   boolean; // auto-advance to next episode on natural EOF
 };
 
 export const DEFAULT_CONFIG: KitsuneConfig = {
@@ -14,6 +15,7 @@ export const DEFAULT_CONFIG: KitsuneConfig = {
   subLang:    "en",
   headless:   true,
   showMemory: false,
+  autoNext:   true,
 };
 
 const CONFIG_DIR  = join(process.env.HOME ?? "~", ".config", "kitsunesnipe");
