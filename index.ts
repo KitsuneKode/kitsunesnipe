@@ -1,358 +1,400 @@
-import { chromium, type Browser } from "playwright";
-import { spawn } from "child_process";
-import { appendFile, readFile, writeFile } from "fs/promises";
-import { existsSync } from "fs";
+#!/usr/bin/env bun
+import { intro, outro, text, select, confirm, spinner, log, isCancel, cancel } from "@clack/prompts";
 import { parseArgs } from "util";
-import * as readline from "readline";
 
-// =================================================================
-// 1. CLI ARGUMENT PARSING
-// =================================================================
+import { searchVideasy, type SearchResult } from "./lib/search";
+import { displayPoster, isKittyCompatible } from "./lib/image";
+import { getHistory, saveHistory, isFinished, formatTimestamp, type HistoryEntry } from "./lib/history";
+import { getCachedStream } from "./lib/cache";
+import { buildUrl } from "./lib/urls";
+import { scrapeStream, type StreamData } from "./lib/scraper";
+import { launchMpv } from "./lib/mpv";
+import { checkDeps, pickWithFzf, pickSubtitleWithFzf } from "./lib/ui";
+import { loadConfig, saveConfig, type KitsuneConfig } from "./lib/config";
+import { drawMenu, openSettings, readSingleKey, bold, cyan, dim, green, yellow } from "./lib/menu";
+
+// =============================================================================
+// 1. FLAGS  (all optional — omit everything to run fully interactively)
+// =============================================================================
 const { values } = parseArgs({
   args: Bun.argv,
   options: {
-    id: { type: "string" },
-    title: { type: "string", default: "Unknown Show" },
-    season: { type: "string", default: "1" },
-    episode: { type: "string", default: "1" },
-    provider: { type: "string", default: "cineby" }, // "cineby" or "vidking"
+    id:            { type: "string",  short: "i" }, // TMDB ID (skip search)
+    search:        { type: "string",  short: "S" }, // pre-fill search query
+    title:         { type: "string",  short: "T" }, // override display title in MPV
+    season:        { type: "string",  short: "s" },
+    episode:       { type: "string",  short: "e" },
+    provider:      { type: "string",  short: "p" }, // vidking | cineby
+    type:          { type: "string",  short: "t" }, // movie | series
+    "sub-lang":    { type: "string",  short: "l" }, // en | ar | fzf | none
+    "no-headless": { type: "boolean", short: "H" }, // force visible browser
   },
   strict: true,
   allowPositionals: true,
 });
 
-if (!values.id) {
-  console.error("❌ Error: You must provide a TMDB ID. Usage: bun run index.ts --id 127529");
-  process.exit(1);
+// =============================================================================
+// 2. SESSION STATE
+// =============================================================================
+let currentId:       string;
+let currentTitle:    string;
+let currentSeason:   number;
+let currentEpisode:  number;
+let currentProvider: string;
+let currentType:     "movie" | "series";
+let currentSubLang:  string;
+let useHeadless:     boolean;
+let config:          KitsuneConfig;
+
+// In-memory pre-fetch slot — holds a pending scrape for the next episode
+let prefetchedStream: { url: string; data: Promise<StreamData | null> } | null = null;
+
+let hasFzf = true;
+
+// =============================================================================
+// 3. HELPERS
+// =============================================================================
+
+function cancelAndExit(): never {
+  cancel("Cancelled.");
+  process.exit(0);
 }
 
-// Global State
-let currentId = values.id;
-let currentTitle = values.title as string;
-let currentSeason = parseInt(values.season as string);
-let currentEpisode = parseInt(values.episode as string);
-let currentProvider = values.provider as string;
-
-// =================================================================
-// 2. IO & LOGGING MANAGER
-// =================================================================
-class IOManager {
-  private static CACHE_FILE = "stream_cache.json";
-  private static LOG_FILE = "logs.txt";
-  private static CACHE_TTL = 1000 * 60 * 60; // 1 Hour
-
-  static async getCachedStream(url: string): Promise<any> {
-    if (!existsSync(this.CACHE_FILE)) return null;
-    try {
-      const cache = JSON.parse(await readFile(this.CACHE_FILE, "utf-8"));
-      const entry = cache[url];
-      if (entry && Date.now() - entry.timestamp < this.CACHE_TTL) {
-        return entry;
-      }
-    } catch (e) {
-      return null;
-    }
-    return null;
-  }
-
-  static async saveCacheAndLog(
-    targetUrl: string,
-    streamUrl: string,
-    headers: Record<string, string>,
-    subtitle: string | null,
-    title: string,
-  ) {
-    try {
-      // 1. Write to Cache
-      let cacheData: any = {};
-      if (existsSync(this.CACHE_FILE))
-        cacheData = JSON.parse(await readFile(this.CACHE_FILE, "utf-8"));
-      cacheData[targetUrl] = { url: streamUrl, headers, subtitle, title, timestamp: Date.now() };
-      await writeFile(this.CACHE_FILE, JSON.stringify(cacheData, null, 2), "utf8");
-
-      // 2. Append to Logs
-      const logEntry = `\n=== Stream Log ===\nTime: ${new Date().toISOString()}\nTarget: ${targetUrl}\nStream: ${streamUrl}\nSubtitle: ${subtitle || "None"}\nScraped Title: ${title}\nHeaders:\n${JSON.stringify(headers, null, 2)}\n===================\n`;
-      await appendFile(this.LOG_FILE, logEntry, "utf8");
-    } catch (e) {
-      console.error("[!] IO Error:", e);
-    }
-  }
+function guard<T>(value: T | symbol): T {
+  if (isCancel(value)) cancelAndExit();
+  return value as T;
 }
 
-// =================================================================
-// 3. CORE LOGIC (Strictly separated Scraping and Playback)
-// =================================================================
-
-function buildUrl(provider: string, id: string, s: number, e: number) {
-  if (provider === "vidking") return `https://www.vidking.net/embed/tv/${id}/${s}/${e}`;
-  return `https://www.cineby.sc/tv/${id}/${s}/${e}?play=true`;
-}
-
-function launchMpv(
-  url: string,
-  headers: Record<string, string>,
-  subtitle: string | null,
-  scrapedTitle: string,
-): Promise<void> {
-  return new Promise((resolve) => {
-    // If the user passed --title in CLI, use it. Otherwise, use the scraped title!
-    const finalShowName = currentTitle !== "Unknown Show" ? currentTitle : scrapedTitle;
-    const displayTitle = `${finalShowName} - Season ${currentSeason} Episode ${currentEpisode}`;
-
-    console.log("\n=================================================");
-    console.log(`🎉 LAUNCHING MPV: ${displayTitle}`);
-    console.log("=================================================\n");
-
-    const mpvArgs = [url];
-    if (headers["referer"]) mpvArgs.push(`--referrer=${headers["referer"]}`);
-    if (headers["user-agent"]) mpvArgs.push(`--user-agent=${headers["user-agent"]}`);
-    if (headers["origin"]) mpvArgs.push(`--http-header-fields=Origin: ${headers["origin"]}`);
-    if (subtitle) mpvArgs.push(`--sub-file=${subtitle}`);
-
-    // Inject the clean title into MPV
-    mpvArgs.push(`--force-media-title=${displayTitle}`);
-
-    const mpv = spawn("mpv", mpvArgs, { stdio: "inherit" });
-
-    mpv.on("close", () => {
-      console.log(`\n[+] mpv playback finished.`);
-      resolve();
-    });
-
-    mpv.on("error", (err) => {
-      console.error("\n[!] Failed to launch mpv. Is it installed?", err.message);
-      resolve();
-    });
-  });
-}
-
-// Scrape strictly returns the data, it does NOT trigger playback itself.
-async function scrapeStream(targetUrl: string): Promise<any> {
-  let browser: Browser | null = null;
-  try {
-    browser = await chromium.launch({ headless: false });
-    const context = await browser.newContext();
-
-    await context.addInitScript(() => {
-      Object.defineProperty(navigator, "webdriver", { get: () => undefined });
-      // @ts-ignore
-      window.close = () => console.log("[X] Blocked window.close()");
-      // @ts-ignore
-      window.addEventListener("beforeunload", (e) => {
-        e.preventDefault();
-        e.returnValue = "Blocked";
-      });
-    });
-
-    const page = await context.newPage();
-    page.on("dialog", (dialog) => dialog.dismiss());
-
-    let capturedSubtitleUrl: string | null = null;
-    let scrapedTitle = "Unknown Show";
-
-    // Use a Promise to completely pause until the stream and subtitles are caught
-    const streamData: any = await new Promise((resolve) => {
-      let streamFound = false;
-
-      // 1. CATCH DIRECT URLS (Cineby & Standard files)
-      page.on("request", (request) => {
-        const url = request.url();
-
-        // Catch direct Subtitles (Ignore the Vidking 'search' JSON endpoint here)
-        if (
-          (url.includes(".vtt") || url.includes(".srt") || url.includes("sub.wyzie.io/c/")) &&
-          !url.includes("search")
-        ) {
-          if (!capturedSubtitleUrl) {
-            console.log(`\n[💬 DIRECT SUBTITLE CAUGHT] URL: ${url}\n`);
-            capturedSubtitleUrl = url;
-          }
-        }
-
-        // Catch Master Stream
-        if (url.includes(".m3u8") && !streamFound) {
-          streamFound = true;
-          console.log("[+] Master stream found! Waiting 2.5s to securely catch subtitles...");
-
-          // 💥 FIX 2: Increased timeout to 2.5s to win the JSON parsing race condition
-          setTimeout(() => {
-            resolve({
-              url,
-              headers: request.headers(),
-              subtitle: capturedSubtitleUrl,
-              title: scrapedTitle,
-            });
-          }, 2500);
-        }
-      });
-
-      // 2. CATCH & PARSE JSON RESPONSES (Vidking Registry)
-      page.on("response", async (response) => {
-        const url = response.url();
-
-        // When Vidking hits the subtitle API, we intercept the JSON answer
-        if (url.includes("sub.wyzie.io/search")) {
-          try {
-            const json = await response.json();
-
-            if (Array.isArray(json) && json.length > 0) {
-              // Smart extract: Find the English sub, or default to index 0
-              const englishSub = json.find((sub: any) => sub.language === "en") || json[0];
-
-              if (!capturedSubtitleUrl && englishSub?.url) {
-                capturedSubtitleUrl = englishSub.url;
-                console.log(`\n[💬 VIDKING SUBTITLE PARSED] English URL: ${capturedSubtitleUrl}\n`);
-              }
-            }
-          } catch (e) {
-            // Ignore if the request aborted or wasn't valid JSON
-          }
-        }
-      });
-
-      console.log(`Navigating to: ${targetUrl}`);
-
-      // Navigate and grab the title immediately after DOM loads
-      page
-        .goto(targetUrl, { waitUntil: "domcontentloaded" })
-        .then(async () => {
-          try {
-            // Wait a tiny bit for React/Vue to mount the DOM components
-            await page.waitForTimeout(500);
-
-            // 💥 FIX 1: Force click the center of the player!
-            // This wakes up lazy players (like Vidking) to trigger the subtitle fetch.
-            await page.mouse.click(500, 500);
-
-            if (targetUrl.includes("vidking.net")) {
-              // Vidking injects the title into an H1 tag inside the player UI
-              const h1Element = await page.$("h1");
-              if (h1Element) {
-                const textContent = await h1Element.innerText();
-                if (textContent) {
-                  scrapedTitle = textContent.trim() || "Unknown Show";
-                  console.log(`[+] Scraped Vidking Title: ${scrapedTitle}`);
-                }
-              }
-            } else {
-              // Cineby sets the HTML <title> tag
-              const rawTitle = await page.title();
-              if (rawTitle) {
-                scrapedTitle =
-                  rawTitle
-                    ?.replace(/watch/i, "") // 1. Remove the word "Watch"
-                    ?.replace(/^[^a-zA-Z0-9]+/, "") // 2. Nuke leading symbols (removes the " / ")
-                    ?.split(/[-|]/)[0] // 3. Cut off trailing garbage at dashes/pipes
-                    ?.trim() || "Unknown Show";
-                console.log(`[+] Scraped Cineby Title: ${scrapedTitle}`);
-              }
-            }
-          } catch (e) {
-            console.log("[!] Could not grab page title, using fallback.");
-          }
-        })
-        .catch(() => {});
-
-      // Custom timeout loop (20 seconds max)
-      (async () => {
-        for (let i = 0; i < 20; i++) {
-          if (streamFound) return; // The setTimeout above will handle the resolution
-          await new Promise((r) => setTimeout(r, 1000));
-        }
-        if (!streamFound) resolve(null); // Timeout hit
-      })();
-    });
-
-    // Cleanup browser regardless of success/fail
-    await browser.close().catch(() => {});
-
-    if (streamData) {
-      await IOManager.saveCacheAndLog(
-        targetUrl,
-        streamData.url,
-        streamData.headers,
-        streamData.subtitle,
-        streamData.title,
-      );
-    }
-    return streamData;
-  } catch (error: any) {
-    console.error(`\n❌ Scrape Error: ${error.message}`);
-    await browser?.close().catch(() => {});
-    return null;
-  }
-}
-// =================================================================
-// 4. THE INTERACTIVE PLAYBACK LOOP
-// =================================================================
-
-// Create a readline interface for async prompts (fixes the Ctrl+C bug)
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
+process.on("SIGINT", () => {
+  process.stdout.write("\n");
+  outro("See you next time 🦊");
+  process.exit(0);
 });
 
-const askQuestion = (query: string): Promise<string> => {
-  return new Promise((resolve) => rl.question(query, resolve));
-};
+function buildDisplayTitle(): string {
+  return currentType === "movie"
+    ? currentTitle
+    : `${currentTitle} - S${currentSeason}E${currentEpisode}`;
+}
 
+// =============================================================================
+// 4. STREAM RESOLUTION  (pre-fetch → disk cache → fresh scrape)
+// =============================================================================
+
+async function resolveStream(targetUrl: string): Promise<StreamData | null> {
+  // 1. In-memory pre-fetch (started during previous episode's MPV session)
+  if (prefetchedStream?.url === targetUrl) {
+    const s = spinner();
+    s.start("Awaiting pre-fetched stream…");
+    const data = await prefetchedStream.data;
+    prefetchedStream = null;
+    s.stop(data ? "Stream ready." : "Pre-fetch missed — scraping fresh.");
+    if (data) return data;
+  } else if (prefetchedStream) {
+    prefetchedStream = null; // stale (user jumped episodes)
+  }
+
+  // 2. Disk cache (1-hour TTL)
+  const cached = await getCachedStream(targetUrl);
+  if (cached) { log.success("Cache hit — skipping scraper."); return cached; }
+
+  // 3. Fresh scrape
+  const s = spinner();
+  s.start("Scraping stream…");
+  const data = await scrapeStream(targetUrl, currentSubLang, useHeadless);
+  s.stop(data ? "Stream found." : "Failed to find stream.");
+  return data;
+}
+
+function startPrefetch(url: string) {
+  if (prefetchedStream?.url === url) return;
+  prefetchedStream = { url, data: scrapeStream(url, currentSubLang, true) };
+}
+
+// =============================================================================
+// 5. MAIN
+// =============================================================================
 (async () => {
-  // Graceful Shutdown Handler
-  process.on("SIGINT", () => {
-    console.log("\n\n[🛑] Received Ctrl+C. Shutting down StreamSnatcher cleanly... 🦊");
-    rl.close();
-    process.exit(0);
-  });
+  intro(`${bold("KitsuneSnipe")} 🦊`);
 
+  // ── Dependency check ──────────────────────────────────────────────────────
+  const deps = await checkDeps();
+  hasFzf = deps.fzf;
+
+  // ── Load config (persisted defaults) ─────────────────────────────────────
+  // Flags override config; config overrides built-in defaults.
+  config          = await loadConfig();
+  currentProvider = (values.provider as string)    ?? config.provider;
+  currentSubLang  = (values["sub-lang"] as string) ?? config.subLang;
+  useHeadless     = values["no-headless"] ? false   : config.headless;
+
+  log.info(
+    `${dim("Provider")} ${cyan(currentProvider)}  ` +
+    `${dim("Subs")} ${cyan(currentSubLang)}  ` +
+    `${dim("Browser")} ${cyan(useHeadless ? "headless" : "visible")}  ` +
+    dim("· change anytime with [c]"),
+  );
+
+  // ── Search / direct ID ────────────────────────────────────────────────────
+  let picked: SearchResult | null = null;
+
+  if (values.id) {
+    currentId    = values.id as string;
+    currentType  = (values.type as "movie" | "series") ?? "series";
+    currentTitle = (values.title as string) ?? "Unknown";
+    picked       = { id: currentId, type: currentType, title: currentTitle, year: "?", overview: "", posterPath: null };
+  } else {
+    const rawQuery = (values.search as string) ||
+      (guard(await text({ message: "Search:", placeholder: "Breaking Bad" })) as string);
+
+    const s = spinner();
+    s.start("Searching…");
+    let results: SearchResult[] = [];
+    try {
+      results = await searchVideasy(rawQuery);
+      s.stop(`${results.length} results`);
+    } catch {
+      s.stop("Search failed.");
+      log.error("Could not reach search API. Check your connection.");
+      process.exit(1);
+    }
+
+    if (results.length === 0) { log.error("No results found."); process.exit(1); }
+
+    const fmt = (r: SearchResult) =>
+      `${r.title} (${r.year}) — ${r.type === "series" ? "Series" : "Movie"}  [${r.overview}]`;
+
+    picked = await pickWithFzf(results, fmt, { prompt: "Select title", hasFzf });
+    if (!picked) cancelAndExit();
+
+    currentId    = picked.id;
+    currentType  = picked.type;
+    currentTitle = (values.title as string) || picked.title;
+  }
+
+  // ── Show what was picked (type + title) ──────────────────────────────────
+  const typeIcon  = currentType === "movie" ? "🎬" : "📺";
+  const typeLabel = currentType === "movie" ? "Movie" : "Series";
+  log.step(`${typeIcon}  ${bold(currentTitle)}  ${dim(`(${typeLabel} · TMDB ${currentId})`)}`);
+
+  // ── Poster preview (Kitty / Ghostty only) ─────────────────────────────────
+  if (picked?.posterPath && isKittyCompatible()) {
+    await displayPoster(picked.posterPath);
+  }
+
+  // ── Season / Episode (series only) ────────────────────────────────────────
+
+  // Validates that the user entered a positive whole number.
+  const validateNum = (label: string) => (v: string | undefined): string | undefined => {
+    const t = (v ?? "").trim();
+    if (!t) return `${label} is required`;
+    if (!/^\d+$/.test(t)) return "Enter a whole number  (e.g. 1, 3, 12)";
+    if (parseInt(t, 10) < 1) return "Must be 1 or higher";
+    return undefined;
+  };
+
+  // Prompt for season and episode with live validation.
+  const pickEpisode = async (initSeason: string, initEpisode: string) => {
+    const s = Number(guard(await text({
+      message:      "Season:",
+      initialValue: initSeason,
+      validate:     validateNum("Season"),
+    })));
+    const e = Number(guard(await text({
+      message:      "Episode:",
+      initialValue: initEpisode,
+      validate:     validateNum("Episode"),
+    })));
+    return { season: s, episode: e };
+  };
+
+  if (currentType === "series") {
+    // Flags always win — skip all prompts
+    if (values.season || values.episode) {
+      const s = parseInt((values.season  as string) ?? "1", 10);
+      const e = parseInt((values.episode as string) ?? "1", 10);
+      currentSeason  = Number.isFinite(s) && s >= 1 ? s : 1;
+      currentEpisode = Number.isFinite(e) && e >= 1 ? e : 1;
+    } else {
+      const hist = await getHistory(currentId);
+
+      if (hist) {
+        const finished  = isFinished(hist);
+        const nextEp    = hist.episode + 1;
+        const pct       = hist.duration ? Math.round((hist.timestamp / hist.duration) * 100) : 0;
+        const resumeAt  = formatTimestamp(hist.timestamp);
+
+        if (!finished) {
+          log.info(
+            `Last watched: ${cyan(`S${hist.season}E${hist.episode}`)}  ` +
+            `stopped at ${yellow(resumeAt)}  ${dim(`(${pct}%)`)}`,
+          );
+        } else {
+          log.info(`Last finished: ${cyan(`S${hist.season}E${hist.episode}`)}`);
+        }
+
+        // Single select replaces the two-step confirm flow
+        const choice = guard(await select({
+          message: "Where to start?",
+          options: [
+            ...(!finished ? [
+              { value: "resume",  label: `Resume S${hist.season}E${hist.episode} from ${resumeAt}` },
+              { value: "restart", label: `Restart S${hist.season}E${hist.episode} from the beginning` },
+            ] : []),
+            { value: "next",   label: `Next episode  S${hist.season}E${nextEp}` },
+            { value: "pick",   label: "Pick season & episode…" },
+          ],
+          initialValue: finished ? "next" : "resume",
+        })) as "resume" | "restart" | "next" | "pick";
+
+        if (choice === "resume") {
+          currentSeason  = hist.season;
+          currentEpisode = hist.episode;
+        } else if (choice === "restart") {
+          currentSeason  = hist.season;
+          currentEpisode = hist.episode;
+        } else if (choice === "next") {
+          currentSeason  = hist.season;
+          currentEpisode = nextEp;
+        } else {
+          const ep = await pickEpisode(String(hist.season), String(hist.episode));
+          currentSeason  = ep.season;
+          currentEpisode = ep.episode;
+        }
+      } else {
+        // No history — always show the picker (pre-filled at S1E1)
+        const ep = await pickEpisode("1", "1");
+        currentSeason  = ep.season;
+        currentEpisode = ep.episode;
+      }
+    }
+  } else {
+    currentSeason  = 1;
+    currentEpisode = 1;
+  }
+
+  // =============================================================================
+  // 6. PLAYBACK LOOP
+  // =============================================================================
   while (true) {
-    const targetUrl = buildUrl(currentProvider, currentId, currentSeason, currentEpisode);
-    console.log(
-      `\n▶️ PREPARING: Season ${currentSeason}, Episode ${currentEpisode} [${currentProvider}]`,
+    const targetUrl = buildUrl(currentProvider, currentId, currentType, currentSeason, currentEpisode);
+
+    log.step(
+      currentType === "movie"
+        ? `Movie: ${bold(currentTitle)}  ${dim("[" + currentProvider + "]")}`
+        : `${cyan(`S${currentSeason}E${currentEpisode}`)} — ${bold(currentTitle)}  ${dim("[" + currentProvider + "]")}`,
     );
 
-    // 1. Fetch data (either from Cache or Scraper)
-    let streamInfo = await IOManager.getCachedStream(targetUrl);
+    // Resolve stream (pre-fetch → cache → scrape)
+    let streamInfo = await resolveStream(targetUrl);
 
-    if (streamInfo) {
-      console.log("[⚡ CACHE HIT] Valid stream found in cache. Bypassing scraper...");
-    } else {
-      streamInfo = await scrapeStream(targetUrl);
+    // Auto-fallback: if primary fails, silently try the other provider
+    if (!streamInfo) {
+      const fallback = currentProvider === "vidking" ? "cineby" : "vidking";
+      log.warn(`${currentProvider} failed — trying ${fallback}…`);
+      const fallbackUrl = buildUrl(fallback, currentId, currentType, currentSeason, currentEpisode);
+      const s = spinner();
+      s.start(`Scraping via ${fallback}…`);
+      streamInfo = await scrapeStream(fallbackUrl, currentSubLang, useHeadless);
+      s.stop(streamInfo ? `Got stream via ${fallback}.` : `${fallback} also failed.`);
     }
 
-    // 2. Play video if data was found
-    if (streamInfo) {
-      // The script will PAUSE right here until you physically close mpv
-      await launchMpv(streamInfo.url, streamInfo.headers, streamInfo.subtitle, streamInfo.title);
+    if (!streamInfo) {
+      log.error("Could not retrieve stream. Episode may not exist yet or both providers are blocked.");
     } else {
-      console.log(
-        "\n⚠️ Failed to retrieve episode. It might not exist yet or the provider blocked us.",
-      );
+      // ── Subtitle selection ─────────────────────────────────────────────────
+      let finalSubtitle = streamInfo.subtitle;
+      if (currentSubLang === "fzf" && streamInfo.subtitleList?.length) {
+        log.info(`${streamInfo.subtitleList.length} subtitle tracks found`);
+        finalSubtitle = await pickSubtitleWithFzf(streamInfo.subtitleList, { hasFzf });
+      } else if (currentSubLang === "none") {
+        finalSubtitle = null;
+      }
+
+      // ── Start pre-fetching next episode while MPV is open ─────────────────
+      if (currentType === "series") {
+        startPrefetch(buildUrl(currentProvider, currentId, currentType, currentSeason, currentEpisode + 1));
+      }
+
+      // ── Resume from saved position ─────────────────────────────────────────
+      let startAt = 0;
+      const hist  = await getHistory(currentId);
+      if (hist && hist.season === currentSeason && hist.episode === currentEpisode && !isFinished(hist)) {
+        startAt = hist.timestamp;
+        log.info(`Resuming from ${formatTimestamp(startAt)}`);
+      }
+
+      // ── Launch MPV ─────────────────────────────────────────────────────────
+      const result = await launchMpv({
+        url:          streamInfo.url,
+        headers:      streamInfo.headers,
+        subtitle:     finalSubtitle,
+        displayTitle: buildDisplayTitle(),
+        startAt,
+      });
+
+      // ── Persist watch position ─────────────────────────────────────────────
+      if (result.watchedSeconds > 10) {
+        const entry: HistoryEntry = {
+          title:     currentTitle,
+          type:      currentType,
+          season:    currentSeason,
+          episode:   currentEpisode,
+          timestamp: result.watchedSeconds,
+          duration:  result.duration,
+          provider:  currentProvider,
+          watchedAt: new Date().toISOString(),
+        };
+        await saveHistory(currentId, entry);
+
+        const pct = result.duration > 0 ? Math.round((result.watchedSeconds / result.duration) * 100) : 0;
+        log.success(`Saved position: ${yellow(formatTimestamp(result.watchedSeconds))} ${dim(`(${pct}%)`)}`);
+      }
     }
 
-    // 3. Prompt user ONLY after playback ends or fails
-    console.log("\n-------------------------------------------------");
-    console.log("Options: [n]ext episode | [p]revious episode | [s]ext season | [q]uit");
+    // ── Post-playback menu ─────────────────────────────────────────────────
+    drawMenu({
+      type:       currentType,
+      title:      currentTitle,
+      season:     currentSeason,
+      episode:    currentEpisode,
+      provider:   currentProvider,
+      showMemory: config.showMemory,
+    });
 
-    // Asynchronous prompt allows Ctrl+C to work perfectly
-    const answer = await askQuestion("What next? ");
-    const choice = answer.trim().toLowerCase();
+    const k = await readSingleKey();
+    process.stdout.write("\n");
 
-    if (choice === "q" || choice === "quit") {
-      console.log("Exiting StreamSnatcher. See you next time! 🦊");
-      rl.close();
+    if (k === "q" || k === "\x1b") {
+      outro("See you next time 🦊");
       process.exit(0);
-    } else if (choice === "n") {
+    } else if (k === "c") {
+      const updated = await openSettings(config);
+      if (updated) {
+        const providerChanged = updated.provider !== currentProvider;
+        config          = updated;
+        currentProvider = updated.provider;
+        currentSubLang  = updated.subLang;
+        useHeadless     = updated.headless;
+        if (providerChanged) prefetchedStream = null;
+      }
+    } else if (k === "r") {
+      // replay — loop restarts with same episode, same url
+    } else if (k === "n" && currentType === "series") {
       currentEpisode++;
-    } else if (choice === "p") {
+    } else if (k === "p" && currentType === "series") {
+      prefetchedStream = null;
       if (currentEpisode > 1) currentEpisode--;
-      else console.log("Already at episode 1!");
-    } else if (choice === "s") {
+      else log.warn("Already at episode 1.");
+    } else if (k === "s" && currentType === "series") {
+      prefetchedStream = null;
       currentSeason++;
       currentEpisode = 1;
-    } else {
-      console.log("Invalid choice, exiting.");
-      rl.close();
-      process.exit(0);
+    } else if (k === "o" && currentType === "series") {
+      prefetchedStream = null;
+      currentProvider = currentProvider === "vidking" ? "cineby" : "vidking";
+      log.info(`Switched to ${green(currentProvider)}`);
     }
+    // Any unknown key replays the current episode (safe default)
   }
 })();
