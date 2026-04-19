@@ -1,6 +1,9 @@
 version = 1
-default_profile = "default"
-command = "bun run index.ts"
+default_profile = "cineby"
+command = "bun run cineby.ts"
 
-[profiles.default]
-command = "bun run index.ts"
+[profiles.cineby]
+command = "bun run cineby.ts"
+
+[profiles.vidking]
+command = "bun run vidking.ts"

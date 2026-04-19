@@ -1,15 +1,16 @@
 {
   "name": "scrap-cineby",
-  "module": "index.ts",
-  "type": "module",
   "private": true,
+  "type": "module",
+  "module": "cineby.ts",
+  "dependencies": {
+    "@kitsunekode/run-cli": "^0.1.0",
+    "playwright": "^1.59.1"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"
-  },
-  "dependencies": {
-    "playwright": "^1.59.1"
   }
 }
