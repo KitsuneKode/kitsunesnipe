@@ -1,0 +1,6 @@
+version = 1
+default_profile = "default"
+command = "bun run index.ts"
+
+[profiles.default]
+command = "bun run index.ts"
