@@ -40,12 +40,14 @@ KitsuneSnipe is a terminal-first Bun CLI that finds playable video streams by in
 
 ```text
 index.ts                    entry point; outer search loop + inner playback loop
+src/app-shell/*             Ink shell, command bar, list pickers, settings/history workflows
 src/search.ts               search service registry and TMDB-backed search
 src/scraper.ts              Playwright interception for stream/subtitle capture
 src/mpv.ts                  mpv launch + Lua position reporting
-src/menu.ts                 post-playback menu, raw key reads, ANSI helpers
-src/ui.ts                   dependency checks and fzf-driven pickers
+src/menu.ts                 ANSI color helpers used by logs and terminal output
+src/ui.ts                   dependency checks
 src/tmdb.ts                 TMDB season/episode data with proxy fallback
+src/session-flow.ts         start-episode selection and provider/session flow helpers
 src/history.ts              watch history persistence
 src/cache.ts                stream URL cache
 src/config.ts               persisted user config + provider overrides
@@ -60,6 +62,7 @@ bun run index.ts -S "Dune"
 bun run index.ts -i 438631 -t movie
 bun run index.ts -a
 bun run index.ts --debug
+bun run link:global
 ```
 
 Before finishing work:

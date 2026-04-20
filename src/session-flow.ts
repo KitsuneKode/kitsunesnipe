@@ -1,11 +1,10 @@
-import { text, select, isCancel } from "@clack/prompts";
-
 import { type HistoryEntry, formatTimestamp, isFinished } from "@/history";
 import { cyan, dim, yellow } from "@/menu";
 import { fetchSeriesData } from "@/tmdb";
-import { pickEpisodeInteractive, pickWithFzf, pickSeasonInteractive } from "@/ui";
 import { ANIME_PROVIDERS, PLAYWRIGHT_PROVIDERS, getProvider } from "@/providers";
 import type { ApiSearchResult } from "@/providers";
+import { openAnimeEpisodePicker, openEpisodePicker, openSeasonPicker } from "@/app-shell/workflows";
+import { openListShell } from "@/app-shell/ink-shell";
 
 export type EpisodeSelection = {
   season: number;
@@ -14,16 +13,11 @@ export type EpisodeSelection = {
 
 type SelectionOpts = {
   currentId: string;
-  hasFzf: boolean;
   isAnime: boolean;
   apiPicked: ApiSearchResult | null;
   flags: { season?: string; episode?: string };
   getHistoryEntry: () => Promise<HistoryEntry | null>;
 };
-
-function guard<T>(value: T | symbol): T | null {
-  return isCancel(value) ? null : (value as T);
-}
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -33,49 +27,24 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
 async function pickAnimeEpisode(
   initialEpisode: number,
   apiPicked: ApiSearchResult | null,
-  hasFzf: boolean,
 ): Promise<number> {
   const epCount = apiPicked?.epCount;
-  if (!epCount || epCount < 1) {
-    const validateEpisode = (value: string | undefined) =>
-      /^\d+$/.test((value ?? "").trim()) && Number.parseInt(value ?? "0", 10) >= 1
-        ? undefined
-        : "Enter a whole number ≥ 1";
-
-    const raw = guard(
-      await text({
-        message: "Episode:",
-        initialValue: String(initialEpisode),
-        validate: validateEpisode,
-      }),
-    );
-    return raw ? Number(raw) : initialEpisode;
-  }
-
-  const episodes = Array.from({ length: epCount }, (_, index) => index + 1);
-  const picked = await pickWithFzf(episodes, (episode) => `Episode ${episode}`, {
-    prompt: "Episode",
-    hasFzf,
-  });
-  return picked ?? initialEpisode;
+  if (!epCount || epCount < 1) return initialEpisode;
+  return (await openAnimeEpisodePicker(epCount, initialEpisode)) ?? initialEpisode;
 }
 
 async function pickEpisodeSelection(
   initSeason: number,
   initEpisode: number,
-  opts: Pick<SelectionOpts, "currentId" | "hasFzf" | "isAnime" | "apiPicked">,
+  opts: Pick<SelectionOpts, "currentId" | "isAnime" | "apiPicked">,
 ): Promise<EpisodeSelection> {
   if (!opts.isAnime) {
-    const season =
-      (await pickSeasonInteractive(opts.currentId, initSeason, { hasFzf: opts.hasFzf })) ??
-      initSeason;
-    const episode = await pickEpisodeInteractive(opts.currentId, season, initEpisode, {
-      hasFzf: opts.hasFzf,
-    });
+    const season = (await openSeasonPicker(opts.currentId, initSeason)) ?? initSeason;
+    const episode = await openEpisodePicker(opts.currentId, season, initEpisode);
     return { season, episode: episode?.number ?? initEpisode };
   }
 
-  const episode = await pickAnimeEpisode(initEpisode, opts.apiPicked, opts.hasFzf);
+  const episode = await pickAnimeEpisode(initEpisode, opts.apiPicked);
   return { season: 1, episode };
 }
 
@@ -104,28 +73,38 @@ export async function chooseStartingEpisode(opts: SelectionOpts): Promise<Episod
   const nextEpisode = history.episode + 1;
   const resumeAt = formatTimestamp(history.timestamp);
 
-  const choice = guard(
-    await select({
-      message: "Where to start?",
-      options: [
-        ...(!finished
-          ? [
-              {
-                value: "resume",
-                label: `Resume S${history.season}E${history.episode} from ${resumeAt}`,
-              },
-              {
-                value: "restart",
-                label: `Restart S${history.season}E${history.episode} from the beginning`,
-              },
-            ]
-          : []),
-        { value: "next", label: `Next episode  S${history.season}E${nextEpisode}` },
-        { value: "pick", label: opts.isAnime ? "Pick episode…" : "Pick season & episode…" },
-      ],
-      initialValue: finished ? "next" : "resume",
-    }),
-  ) as "resume" | "restart" | "next" | "pick" | null;
+  const choice = (await openListShell({
+    title: "Where to start?",
+    subtitle: opts.isAnime
+      ? "Choose the starting episode"
+      : "Choose the starting season and episode",
+    options: [
+      ...(!finished
+        ? [
+            {
+              value: "resume" as const,
+              label: `Resume S${history.season}E${history.episode}`,
+              detail: `Continue from ${resumeAt}`,
+            },
+            {
+              value: "restart" as const,
+              label: `Restart S${history.season}E${history.episode}`,
+              detail: "Start the current episode from the beginning",
+            },
+          ]
+        : []),
+      {
+        value: "next" as const,
+        label: `Next episode  S${history.season}E${nextEpisode}`,
+        detail: "Advance to the next episode",
+      },
+      {
+        value: "pick" as const,
+        label: opts.isAnime ? "Pick episode…" : "Pick season & episode…",
+        detail: "Choose manually from metadata",
+      },
+    ],
+  })) as "resume" | "restart" | "next" | "pick" | null;
 
   if (!choice || choice === "resume" || choice === "restart") {
     return { season: opts.isAnime ? 1 : history.season, episode: history.episode };

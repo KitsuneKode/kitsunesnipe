@@ -1,6 +1,10 @@
 {
   "name": "kitsunesnipe",
   "private": true,
+  "bin": {
+    "kitsune-snipe": "./index.ts",
+    "kitsunesnipe": "./index.ts"
+  },
   "type": "module",
   "module": "cineby.ts",
   "scripts": {
@@ -11,7 +15,10 @@
     "lint": "./node_modules/.bin/oxlint .",
     "format": "./node_modules/.bin/oxfmt --check .",
     "format:write": "./node_modules/.bin/oxfmt --write .",
-    "check": "bun run typecheck && bun run lint && bun run format"
+    "check": "bun run typecheck && bun run lint && bun run format",
+    "link:global": "bun link",
+    "unlink:global": "bun unlink",
+    "relink:global": "bun run unlink:global && bun run link:global"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
