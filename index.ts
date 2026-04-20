@@ -14,7 +14,8 @@ import {
 } from "@/providers";
 import { scrapeStream, type StreamData }                                  from "@/scraper";
 import { launchMpv }                                                      from "@/mpv";
-import { checkDeps, pickWithFzf, pickSubtitleWithFzf }                    from "@/ui";
+import { checkDeps, pickWithFzf, pickSubtitleWithFzf, pickSeasonInteractive, pickEpisodeInteractive } from "@/ui";
+import { fetchSeriesData }                                                from "@/tmdb";
 import { loadConfig, saveConfig, loadDomainOverrides, applyDomainOverrides, type KitsuneConfig } from "@/config";
 import { drawMenu, openSettings, readSingleKey, bold, cyan, dim, green, yellow } from "@/menu";
 import { initLogger, dbg }                                                from "@/logger";
@@ -74,6 +75,37 @@ function buildDisplayTitle(): string {
   return currentType === "movie"
     ? currentTitle
     : `${currentTitle} - S${currentSeason}E${currentEpisode}`;
+}
+
+// Non-blocking key peek — waits up to 800 ms for a keypress before proceeding.
+// Returns the key char, or "" if nothing pressed (timed out / non-TTY).
+async function readPrePlaybackKey(): Promise<string> {
+  if (!process.stdin.isTTY) return "";
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (k: string) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if (process.stdin.isTTY) process.stdin.setRawMode(false);
+      process.stdin.pause();
+      resolve(k);
+    };
+    const timer = setTimeout(() => finish(""), 800);
+    try {
+      process.stdin.setRawMode(true);
+      process.stdin.read(); // drain buffered bytes
+      process.stdin.resume();
+      process.stdin.once("data", (buf: Buffer) => {
+        const k = buf.toString();
+        if (k === "\x03") { finish("q"); return; }
+        finish(k.toLowerCase().trim() || "");
+      });
+    } catch {
+      clearTimeout(timer);
+      resolve("");
+    }
+  });
 }
 
 // Playwright embed scraper — injected into ApiProvider.resolveStream so
@@ -162,13 +194,15 @@ function startPrefetch() {
   if (debugEnabled) log.warn("Debug mode on — verbose JSON lines to stderr  (pipe: 2>&1 | jq)");
   dbg("main", "session start", { debugEnabled });
 
-  // ── Deps ──────────────────────────────────────────────────────────────────
-  const deps = await checkDeps();
+  // ── Parallel startup: deps + config + domain overrides ───────────────────
+  const [deps, cfg, overrides] = await Promise.all([
+    checkDeps(),
+    loadConfig(),
+    loadDomainOverrides(),
+  ]);
   hasFzf = deps.fzf;
-
-  // ── Config + domain overrides ─────────────────────────────────────────────
-  config = await loadConfig();
-  applyDomainOverrides(await loadDomainOverrides());
+  config = cfg;
+  applyDomainOverrides(overrides);
 
   isAnime        = !!(values.anime);
   currentSubLang = (values["sub-lang"] as string) ?? config.subLang;
@@ -194,287 +228,339 @@ function startPrefetch() {
     `  ${dim("· [c] to change")}`,
   );
 
-  // ── Search / direct ID ────────────────────────────────────────────────────
-  let picked: SearchResult | null         = null;
-  let apiPicked: ApiSearchResult | null   = null;
+  // =============================================================================
+  // 6. SEARCH + PLAYBACK LOOPS
+  //
+  // Outer loop  — re-runs search when [a] toggles anime/series mode.
+  // Inner loop  — playback of the selected title; [a] breaks out to outer.
+  // =============================================================================
 
-  if (values.id) {
-    currentId    = values.id as string;
-    currentType  = (values.type as "movie" | "series") ?? "series";
-    currentTitle = (values.title as string) ?? "Unknown";
-    picked = { id: currentId, type: currentType, title: currentTitle, year: "?", overview: "", posterPath: null };
-  } else if (isAnime) {
-    // ── Anime search (provider-native GraphQL) ───────────────────────────────
-    const rawQuery = (values.search as string) ||
-      (guard(await text({ message: "Search anime:", placeholder: "Demon Slayer" })) as string);
+  // Only honour --id / --search / --season / --episode on the first pass.
+  let firstPass = true;
 
-    const provider = getProvider(currentProvider);
-    if (!isApi(provider)) throw new Error(`${currentProvider} is not an API provider`);
+  while (true) { // ── Outer: search loop ──────────────────────────────────────
 
-    const s = spinner();
-    s.start("Searching AllAnime…");
-    let animeResults: ApiSearchResult[] = [];
-    try {
-      animeResults = await provider.search(rawQuery, { animeLang: config.animeLang });
-      s.stop(`${animeResults.length} results`);
-    } catch {
-      s.stop("Search failed.");
-      log.error("Could not reach AllAnime API. Check your connection.");
-      process.exit(1);
-    }
+    // ── Search / direct ID ─────────────────────────────────────────────────────
+    let picked: SearchResult | null       = null;
+    let apiPicked: ApiSearchResult | null = null;
 
-    if (animeResults.length === 0) { log.error("No results found."); process.exit(1); }
+    if (firstPass && values.id) {
+      currentId    = values.id as string;
+      currentType  = (values.type as "movie" | "series") ?? "series";
+      currentTitle = (values.title as string) ?? "Unknown";
+      picked = { id: currentId, type: currentType, title: currentTitle, year: "?", overview: "", posterPath: null };
+    } else if (isAnime) {
+      // ── Anime search (provider-native) ───────────────────────────────────────
+      const rawQuery = (firstPass && (values.search as string)) ||
+        (guard(await text({ message: `Search ${isAnime ? "anime" : ""}:`, placeholder: isAnime ? "Demon Slayer" : "Breaking Bad" })) as string);
 
-    const fmt = (r: ApiSearchResult) =>
-      `${r.title}${r.epCount ? ` (${r.epCount} eps)` : ""}${r.year ? ` · ${r.year}` : ""}`;
+      const provider = getProvider(currentProvider);
+      if (!isApi(provider)) throw new Error(`${currentProvider} is not an API provider`);
 
-    apiPicked = await pickWithFzf(animeResults, fmt, { prompt: "Select anime", hasFzf });
-    if (!apiPicked) cancelAndExit();
+      const s = spinner();
+      s.start(`Searching ${provider.name}…`);
+      let animeResults: ApiSearchResult[] = [];
+      try {
+        animeResults = await provider.search(rawQuery, { animeLang: config.animeLang });
+        s.stop(`${animeResults.length} results`);
+      } catch {
+        s.stop("Search failed.");
+        log.error(`Could not reach ${provider.name}. Check your connection.`);
+        process.exit(1);
+      }
 
-    currentId    = apiPicked.id;
-    currentType  = apiPicked.type;
-    currentTitle = (values.title as string) || apiPicked.title;
-  } else {
-    // ── TMDB search (videasy) ────────────────────────────────────────────────
-    const rawQuery = (values.search as string) ||
-      (guard(await text({ message: "Search:", placeholder: "Breaking Bad" })) as string);
+      if (animeResults.length === 0) { log.error("No results found."); process.exit(1); }
 
-    const s = spinner();
-    s.start("Searching…");
-    let results: SearchResult[] = [];
-    try {
-      results = await searchVideasy(rawQuery);
-      s.stop(`${results.length} results`);
-    } catch {
-      s.stop("Search failed.");
-      log.error("Could not reach search API. Check your connection.");
-      process.exit(1);
-    }
+      const fmt = (r: ApiSearchResult) =>
+        `${r.title}${r.epCount ? ` (${r.epCount} eps)` : ""}${r.year ? ` · ${r.year}` : ""}`;
 
-    if (results.length === 0) { log.error("No results found."); process.exit(1); }
+      apiPicked = await pickWithFzf(animeResults, fmt, { prompt: "Select anime", hasFzf });
+      if (!apiPicked) cancelAndExit();
 
-    const fmt = (r: SearchResult) =>
-      `${r.title} (${r.year}) — ${r.type === "series" ? "Series" : "Movie"}  [${r.overview}]`;
-
-    picked = await pickWithFzf(results, fmt, { prompt: "Select title", hasFzf });
-    if (!picked) cancelAndExit();
-
-    currentId    = picked.id;
-    currentType  = picked.type;
-    currentTitle = (values.title as string) || picked.title;
-  }
-
-  // ── Show what was picked ──────────────────────────────────────────────────
-  const typeIcon  = currentType === "movie" ? "🎬" : (isAnime ? "🌸" : "📺");
-  const typeLabel = currentType === "movie" ? "Movie" : (isAnime ? "Anime" : "Series");
-  log.step(`${typeIcon}  ${bold(currentTitle)}  ${dim(`(${typeLabel} · ID ${currentId})`)}`);
-
-  // ── Poster preview (Kitty / Ghostty) ──────────────────────────────────────
-  if (picked?.posterPath && isKittyCompatible()) {
-    await displayPoster(picked.posterPath);
-  } else if (apiPicked?.posterUrl && isKittyCompatible()) {
-    await displayPoster(apiPicked.posterUrl);
-  }
-
-  // ── Episode picker (series only) ──────────────────────────────────────────
-  const validateNum = (label: string) => (v: string | undefined): string | undefined => {
-    const t = (v ?? "").trim();
-    if (!t) return `${label} is required`;
-    if (!/^\d+$/.test(t)) return "Enter a whole number  (e.g. 1, 3, 12)";
-    if (parseInt(t, 10) < 1) return "Must be 1 or higher";
-    return undefined;
-  };
-
-  const pickEpisode = async (initSeason: string, initEpisode: string) => {
-    const s = Number(guard(await text({ message: "Season:",  initialValue: initSeason,  validate: validateNum("Season")  })));
-    const e = Number(guard(await text({ message: "Episode:", initialValue: initEpisode, validate: validateNum("Episode") })));
-    return { season: s, episode: e };
-  };
-
-  if (currentType === "series") {
-    if (values.season || values.episode) {
-      const s = parseInt((values.season  as string) ?? "1", 10);
-      const e = parseInt((values.episode as string) ?? "1", 10);
-      currentSeason  = Number.isFinite(s) && s >= 1 ? s : 1;
-      currentEpisode = Number.isFinite(e) && e >= 1 ? e : 1;
+      currentId    = apiPicked.id;
+      currentType  = apiPicked.type;
+      currentTitle = (firstPass && (values.title as string)) || apiPicked.title;
     } else {
-      const hist = await getHistory(currentId);
-      if (hist) {
-        const finished = isFinished(hist);
-        const nextEp   = hist.episode + 1;
-        const pct      = hist.duration ? Math.round((hist.timestamp / hist.duration) * 100) : 0;
-        const resumeAt = formatTimestamp(hist.timestamp);
+      // ── TMDB search (videasy) ────────────────────────────────────────────────
+      const rawQuery = (firstPass && (values.search as string)) ||
+        (guard(await text({ message: "Search:", placeholder: "Breaking Bad" })) as string);
 
-        log.info(
-          finished
-            ? `Last finished: ${cyan(`S${hist.season}E${hist.episode}`)}`
-            : `Last watched: ${cyan(`S${hist.season}E${hist.episode}`)}  stopped at ${yellow(resumeAt)}  ${dim(`(${pct}%)`)}`,
-        );
+      const s = spinner();
+      s.start("Searching…");
+      let results: SearchResult[] = [];
+      try {
+        results = await searchVideasy(rawQuery);
+        s.stop(`${results.length} results`);
+      } catch {
+        s.stop("Search failed.");
+        log.error("Could not reach search API. Check your connection.");
+        process.exit(1);
+      }
 
-        const choice = guard(await select({
-          message: "Where to start?",
-          options: [
-            ...(!finished ? [
-              { value: "resume",  label: `Resume S${hist.season}E${hist.episode} from ${resumeAt}` },
-              { value: "restart", label: `Restart S${hist.season}E${hist.episode} from the beginning` },
-            ] : []),
-            { value: "next", label: `Next episode  S${hist.season}E${nextEp}` },
-            { value: "pick", label: "Pick season & episode…" },
-          ],
-          initialValue: finished ? "next" : "resume",
-        })) as "resume" | "restart" | "next" | "pick";
+      if (results.length === 0) { log.error("No results found."); process.exit(1); }
 
-        if (choice === "resume")       { currentSeason = hist.season; currentEpisode = hist.episode; }
-        else if (choice === "restart") { currentSeason = hist.season; currentEpisode = hist.episode; }
-        else if (choice === "next")    { currentSeason = hist.season; currentEpisode = nextEp; }
-        else {
-          const ep = await pickEpisode(String(hist.season), String(hist.episode));
+      const fmt = (r: SearchResult) =>
+        `${r.title} (${r.year}) — ${r.type === "series" ? "Series" : "Movie"}  [${r.overview}]`;
+
+      picked = await pickWithFzf(results, fmt, { prompt: "Select title", hasFzf });
+      if (!picked) cancelAndExit();
+
+      currentId    = picked.id;
+      currentType  = picked.type;
+      currentTitle = (firstPass && (values.title as string)) || picked.title;
+    }
+
+    firstPass = false;
+
+    // ── Show what was picked ────────────────────────────────────────────────────
+    const typeIcon  = currentType === "movie" ? "🎬" : (isAnime ? "🌸" : "📺");
+    const typeLabel = currentType === "movie" ? "Movie" : (isAnime ? "Anime" : "Series");
+    log.step(`${typeIcon}  ${bold(currentTitle)}  ${dim(`(${typeLabel} · ID ${currentId})`)}`);
+
+    // ── Poster preview (Kitty / Ghostty) ───────────────────────────────────────
+    if (picked?.posterPath && isKittyCompatible()) {
+      await displayPoster(picked.posterPath);
+    } else if (apiPicked?.posterUrl && isKittyCompatible()) {
+      await displayPoster(apiPicked.posterUrl);
+    }
+
+    // ── Episode picker (series only) ────────────────────────────────────────────
+    const isTmdbSeries = currentType === "series" && !isAnime;
+
+    const pickSeasonAndEpisode = async (initSeason: number, initEpisode: number): Promise<{ season: number; episode: number }> => {
+      if (isTmdbSeries) {
+        const season = await pickSeasonInteractive(currentId, initSeason, { hasFzf }) ?? initSeason;
+        const ep     = await pickEpisodeInteractive(currentId, season, initEpisode, { hasFzf });
+        return { season, episode: ep?.number ?? initEpisode };
+      }
+      const validateN = (v: string | undefined) => (/^\d+$/.test((v ?? "").trim()) && parseInt(v ?? "0", 10) >= 1) ? undefined : "Enter a whole number ≥ 1";
+      const s = Number(guard(await text({ message: "Season:",  initialValue: String(initSeason),  validate: validateN })));
+      const e = Number(guard(await text({ message: "Episode:", initialValue: String(initEpisode), validate: validateN })));
+      return { season: s, episode: e };
+    };
+
+    // Pre-warm TMDB episode data while history lookup runs
+    const tmdbWarm = isTmdbSeries
+      ? fetchSeriesData(currentId, 1).then(() => {}).catch(() => {})
+      : Promise.resolve();
+
+    if (currentType === "series") {
+      if (values.season || values.episode) {
+        const s = parseInt((values.season  as string) ?? "1", 10);
+        const e = parseInt((values.episode as string) ?? "1", 10);
+        currentSeason  = Number.isFinite(s) && s >= 1 ? s : 1;
+        currentEpisode = Number.isFinite(e) && e >= 1 ? e : 1;
+      } else {
+        const [hist] = await Promise.all([getHistory(currentId), tmdbWarm]);
+        if (hist) {
+          const finished = isFinished(hist);
+          const nextEp   = hist.episode + 1;
+          const pct      = hist.duration ? Math.round((hist.timestamp / hist.duration) * 100) : 0;
+          const resumeAt = formatTimestamp(hist.timestamp);
+
+          log.info(
+            finished
+              ? `Last finished: ${cyan(`S${hist.season}E${hist.episode}`)}`
+              : `Last watched: ${cyan(`S${hist.season}E${hist.episode}`)}  stopped at ${yellow(resumeAt)}  ${dim(`(${pct}%)`)}`,
+          );
+
+          const choice = guard(await select({
+            message: "Where to start?",
+            options: [
+              ...(!finished ? [
+                { value: "resume",  label: `Resume S${hist.season}E${hist.episode} from ${resumeAt}` },
+                { value: "restart", label: `Restart S${hist.season}E${hist.episode} from the beginning` },
+              ] : []),
+              { value: "next", label: `Next episode  S${hist.season}E${nextEp}` },
+              { value: "pick", label: "Pick season & episode…" },
+            ],
+            initialValue: finished ? "next" : "resume",
+          })) as "resume" | "restart" | "next" | "pick";
+
+          if (choice === "resume")       { currentSeason = hist.season; currentEpisode = hist.episode; }
+          else if (choice === "restart") { currentSeason = hist.season; currentEpisode = hist.episode; }
+          else if (choice === "next")    { currentSeason = hist.season; currentEpisode = nextEp; }
+          else {
+            const ep = await pickSeasonAndEpisode(hist.season, hist.episode);
+            currentSeason = ep.season; currentEpisode = ep.episode;
+          }
+        } else {
+          const ep = await pickSeasonAndEpisode(1, 1);
           currentSeason = ep.season; currentEpisode = ep.episode;
         }
-      } else {
-        const ep = await pickEpisode("1", "1");
-        currentSeason = ep.season; currentEpisode = ep.episode;
       }
-    }
-  } else {
-    currentSeason = 1; currentEpisode = 1;
-  }
-
-  // =============================================================================
-  // 6. PLAYBACK LOOP
-  // =============================================================================
-  while (true) {
-    const provider = getProvider(currentProvider);
-
-    log.step(
-      currentType === "movie"
-        ? `🎬  ${bold(currentTitle)}  ${dim("[" + currentProvider + "]")}`
-        : `${isAnime ? "🌸" : "📺"}  ${cyan(`S${currentSeason}E${currentEpisode}`)} — ${bold(currentTitle)}  ${dim("[" + currentProvider + "]")}`,
-    );
-
-    // ── Resolve stream ─────────────────────────────────────────────────────
-    let streamInfo = await resolveStream();
-
-    // ── Auto-fallback (Playwright providers only — same TMDB ID space) ────
-    if (!streamInfo && isPlaywright(provider)) {
-      const fallback = PLAYWRIGHT_PROVIDERS.find((p) => p.id !== currentProvider);
-      if (fallback) {
-        log.warn(`${currentProvider} failed — trying ${fallback.id}…`);
-        const fbUrl = buildUrl(fallback, currentId, currentType, currentSeason, currentEpisode);
-        const s = spinner();
-        s.start(`Scraping via ${fallback.id}…`);
-        streamInfo = await scrapeStream(fallback, fbUrl, currentSubLang, useHeadless);
-        s.stop(streamInfo ? `Got stream via ${fallback.id}.` : `${fallback.id} also failed.`);
-      }
-    }
-
-    if (!streamInfo) {
-      log.error("Could not retrieve stream. The episode may not exist or the provider is blocked.");
     } else {
-      // ── Subtitles ─────────────────────────────────────────────────────────
-      let finalSubtitle = streamInfo.subtitle;
-      if (currentSubLang === "fzf" && streamInfo.subtitleList?.length) {
-        log.info(`${streamInfo.subtitleList.length} subtitle tracks available`);
-        finalSubtitle = await pickSubtitleWithFzf(streamInfo.subtitleList, { hasFzf });
-      } else if (currentSubLang === "none") {
-        finalSubtitle = null;
+      currentSeason = 1; currentEpisode = 1;
+    }
+
+    // ── Inner: playback loop ──────────────────────────────────────────────────
+    let backToSearch = false;
+
+    while (!backToSearch) {
+      const provider = getProvider(currentProvider);
+
+      process.stdout.write(
+        "\n" + (currentType === "movie"
+          ? `  🎬  ${bold(currentTitle)}  ${dim("[" + currentProvider + "]")}`
+          : `  ${isAnime ? "🌸" : "📺"}  ${cyan(`S${String(currentSeason).padStart(2,"0")}E${String(currentEpisode).padStart(2,"0")}`)} — ${bold(currentTitle)}  ${dim("[" + currentProvider + "]")}`) +
+        `  ${dim("· [c] settings · [a] switch mode · [q] quit")}\n`,
+      );
+
+      // Non-blocking key peek — settings / mode toggle / quit before scraping.
+      {
+        const k = await readPrePlaybackKey();
+        if (k === "q" || k === "\x1b") { outro("See you next time 🦊"); process.exit(0); }
+        if (k === "a") {
+          isAnime = !isAnime;
+          currentProvider  = isAnime ? config.animeProvider : config.provider;
+          prefetchedStream = null;
+          log.info(`Switched to ${isAnime ? "🌸 anime" : "📺 series"} mode`);
+          backToSearch = true;
+          break;
+        }
+        if (k === "c") {
+          const updated = await openSettings(config);
+          if (updated) {
+            config = updated;
+            currentProvider = isAnime ? updated.animeProvider : updated.provider;
+            currentSubLang  = updated.subLang;
+            useHeadless     = updated.headless;
+            prefetchedStream = null;
+          }
+          continue;
+        }
       }
 
-      // ── Pre-fetch next episode (Playwright only) ──────────────────────────
-      if (currentType === "series") startPrefetch();
+      // ── Resolve stream ───────────────────────────────────────────────────────
+      let streamInfo = await resolveStream();
 
-      // ── Resume position ───────────────────────────────────────────────────
-      let startAt = 0;
-      const hist = await getHistory(currentId);
-      if (hist && hist.season === currentSeason && hist.episode === currentEpisode && !isFinished(hist)) {
-        startAt = hist.timestamp;
-        log.info(`Resuming from ${formatTimestamp(startAt)}`);
+      // ── Auto-fallback (Playwright providers only — same TMDB ID space) ──────
+      if (!streamInfo && isPlaywright(provider)) {
+        const fallback = PLAYWRIGHT_PROVIDERS.find((p) => p.id !== currentProvider);
+        if (fallback) {
+          log.warn(`${currentProvider} failed — trying ${fallback.id}…`);
+          const fbUrl = buildUrl(fallback, currentId, currentType, currentSeason, currentEpisode);
+          const s = spinner();
+          s.start(`Scraping via ${fallback.id}…`);
+          streamInfo = await scrapeStream(fallback, fbUrl, currentSubLang, useHeadless);
+          s.stop(streamInfo ? `Got stream via ${fallback.id}.` : `${fallback.id} also failed.`);
+        }
       }
 
-      // ── Launch MPV ─────────────────────────────────────────────────────────
-      const result = await launchMpv({
-        url:          streamInfo.url,
-        headers:      streamInfo.headers,
-        subtitle:     finalSubtitle,
-        displayTitle: buildDisplayTitle(),
-        startAt,
-        autoNext:     config.autoNext && currentType === "series",
-        attach:       !!(values.attach),
+      if (!streamInfo) {
+        log.error("Could not retrieve stream. The episode may not exist or the provider is blocked.");
+      } else {
+        // ── Subtitles ──────────────────────────────────────────────────────────
+        let finalSubtitle = streamInfo.subtitle;
+        if (currentSubLang === "fzf" && streamInfo.subtitleList?.length) {
+          log.info(`${streamInfo.subtitleList.length} subtitle tracks available`);
+          finalSubtitle = await pickSubtitleWithFzf(streamInfo.subtitleList, { hasFzf });
+        } else if (currentSubLang === "none") {
+          finalSubtitle = null;
+        }
+
+        // ── Pre-fetch next episode (Playwright only) ────────────────────────────
+        if (currentType === "series") startPrefetch();
+
+        // ── Resume position ─────────────────────────────────────────────────────
+        let startAt = 0;
+        const hist = await getHistory(currentId);
+        if (hist && hist.season === currentSeason && hist.episode === currentEpisode && !isFinished(hist)) {
+          startAt = hist.timestamp;
+          log.info(`Resuming from ${formatTimestamp(startAt)}`);
+        }
+
+        // ── Launch MPV ──────────────────────────────────────────────────────────
+        const result = await launchMpv({
+          url:          streamInfo.url,
+          headers:      streamInfo.headers,
+          subtitle:     finalSubtitle,
+          displayTitle: buildDisplayTitle(),
+          startAt,
+          autoNext:     config.autoNext && currentType === "series",
+          attach:       !!(values.attach),
+        });
+
+        // ── Persist history ─────────────────────────────────────────────────────
+        if (result.watchedSeconds > 10) {
+          const entry: HistoryEntry = {
+            title:     currentTitle,
+            type:      currentType,
+            season:    currentSeason,
+            episode:   currentEpisode,
+            timestamp: result.watchedSeconds,
+            duration:  result.duration,
+            provider:  currentProvider,
+            watchedAt: new Date().toISOString(),
+          };
+          await saveHistory(currentId, entry);
+          const pct = result.duration > 0 ? Math.round((result.watchedSeconds / result.duration) * 100) : 0;
+          log.success(`Saved position: ${yellow(formatTimestamp(result.watchedSeconds))} ${dim(`(${pct}%)`)}`);
+        }
+
+        // ── Auto-advance (EOF → next episode) ───────────────────────────────────
+        if (result.endReason === "eof" && config.autoNext && currentType === "series") {
+          log.info(`Auto-advancing to ${cyan(`S${currentSeason}E${currentEpisode + 1}`)}…`);
+          currentEpisode++;
+          continue;
+        }
+      }
+
+      // ── Post-playback menu ─────────────────────────────────────────────────────
+      drawMenu({
+        type:       currentType,
+        title:      currentTitle,
+        season:     currentSeason,
+        episode:    currentEpisode,
+        provider:   currentProvider,
+        showMemory: config.showMemory,
+        isAnime,
       });
 
-      // ── Persist history ───────────────────────────────────────────────────
-      if (result.watchedSeconds > 10) {
-        const entry: HistoryEntry = {
-          title:     currentTitle,
-          type:      currentType,
-          season:    currentSeason,
-          episode:   currentEpisode,
-          timestamp: result.watchedSeconds,
-          duration:  result.duration,
-          provider:  currentProvider,
-          watchedAt: new Date().toISOString(),
-        };
-        await saveHistory(currentId, entry);
-        const pct = result.duration > 0 ? Math.round((result.watchedSeconds / result.duration) * 100) : 0;
-        log.success(`Saved position: ${yellow(formatTimestamp(result.watchedSeconds))} ${dim(`(${pct}%)`)}`);
-      }
+      const k = await readSingleKey();
+      process.stdout.write("\n");
 
-      // ── Auto-advance (EOF → next episode) ─────────────────────────────────
-      if (result.endReason === "eof" && config.autoNext && currentType === "series") {
-        log.info(`Auto-advancing to ${cyan(`S${currentSeason}E${currentEpisode + 1}`)}…`);
+      if (k === "q" || k === "\x1b") {
+        outro("See you next time 🦊");
+        process.exit(0);
+      } else if (k === "a") {
+        isAnime = !isAnime;
+        currentProvider  = isAnime ? config.animeProvider : config.provider;
+        prefetchedStream = null;
+        log.info(`Switched to ${isAnime ? "🌸 anime" : "📺 series"} mode`);
+        backToSearch = true;
+      } else if (k === "c") {
+        const updated = await openSettings(config);
+        if (updated) {
+          const provChanged = updated.provider !== currentProvider
+            || updated.animeProvider !== config.animeProvider;
+          config          = updated;
+          currentProvider = isAnime ? updated.animeProvider : updated.provider;
+          currentSubLang  = updated.subLang;
+          useHeadless     = updated.headless;
+          if (provChanged) prefetchedStream = null;
+        }
+      } else if (k === "r") {
+        // replay — loop restarts
+      } else if (k === "n" && currentType === "series") {
         currentEpisode++;
-        continue;
+      } else if (k === "p" && currentType === "series") {
+        prefetchedStream = null;
+        if (currentEpisode > 1) currentEpisode--;
+        else log.warn("Already at episode 1.");
+      } else if (k === "s" && currentType === "series") {
+        prefetchedStream = null;
+        currentSeason++;
+        currentEpisode = 1;
+      } else if (k === "o") {
+        prefetchedStream = null;
+        const pool = isAnime ? ANIME_PROVIDERS : PLAYWRIGHT_PROVIDERS;
+        const idx = pool.findIndex((p) => p.id === currentProvider);
+        currentProvider = (pool[(idx + 1) % pool.length] ?? pool[0])!.id;
+        log.info(`Switched to ${green(currentProvider)}`);
       }
-    }
+      // Any unrecognised key replays the current episode.
+    } // end inner playback loop
 
-    // ── Post-playback menu ───────────────────────────────────────────────
-    drawMenu({
-      type:       currentType,
-      title:      currentTitle,
-      season:     currentSeason,
-      episode:    currentEpisode,
-      provider:   currentProvider,
-      showMemory: config.showMemory,
-      isAnime,
-    });
-
-    const k = await readSingleKey();
-    process.stdout.write("\n");
-
-    if (k === "q" || k === "\x1b") {
-      outro("See you next time 🦊");
-      process.exit(0);
-    } else if (k === "c") {
-      const updated = await openSettings(config);
-      if (updated) {
-        const provChanged = updated.provider !== currentProvider
-          || updated.animeProvider !== config.animeProvider;
-        config          = updated;
-        currentProvider = isAnime ? updated.animeProvider : updated.provider;
-        currentSubLang  = updated.subLang;
-        useHeadless     = updated.headless;
-        if (provChanged) prefetchedStream = null;
-      }
-    } else if (k === "r") {
-      // replay — same episode, loop restarts
-    } else if (k === "n" && currentType === "series") {
-      currentEpisode++;
-    } else if (k === "p" && currentType === "series") {
-      prefetchedStream = null;
-      if (currentEpisode > 1) currentEpisode--;
-      else log.warn("Already at episode 1.");
-    } else if (k === "s" && currentType === "series") {
-      prefetchedStream = null;
-      currentSeason++;
-      currentEpisode = 1;
-    } else if (k === "o") {
-      // Cycle through providers of the same kind
-      prefetchedStream = null;
-      const pool = isAnime ? ANIME_PROVIDERS : PLAYWRIGHT_PROVIDERS;
-      const idx = pool.findIndex((p) => p.id === currentProvider);
-      currentProvider = (pool[(idx + 1) % pool.length] ?? pool[0])!.id;
-      log.info(`Switched to ${green(currentProvider)}`);
-    }
-    // Any unrecognised key replays the current episode.
-  }
+  } // end outer search loop
 })();

@@ -7,24 +7,26 @@
 //   Nothing else needs to change.
 // =============================================================================
 
-import { VidKing }   from "./vidking";
-import { Cineby }    from "./cineby";
-import { BitCine }   from "./bitcine";
-import { AllAnime }  from "./allanime";
-import { Braflix }   from "./braflix";
+import { VidKing }      from "./vidking";
+import { Cineby }       from "./cineby";
+import { BitCine }      from "./bitcine";
+import { AllAnime }     from "./allanime";
+import { Braflix }      from "./braflix";
+import { CinebyAnime }  from "./cineby-anime";
 
 export type { Provider, PlaywrightProvider, ApiProvider, ApiSearchResult, ResolveOpts, SearchBackend } from "./types";
 export { isPlaywright, isApi } from "./types";
-export { VidKing, Cineby, BitCine, AllAnime, Braflix };
+export { VidKing, Cineby, BitCine, AllAnime, Braflix, CinebyAnime };
 
 import type { Provider, PlaywrightProvider } from "./types";
 
 export const PROVIDERS: Readonly<Record<string, Provider>> = {
-  [VidKing.id]:  VidKing,
-  [Cineby.id]:   Cineby,
-  [BitCine.id]:  BitCine,
-  [AllAnime.id]: AllAnime,
-  [Braflix.id]:  Braflix,
+  [VidKing.id]:     VidKing,
+  [Cineby.id]:      Cineby,
+  [BitCine.id]:     BitCine,
+  [AllAnime.id]:    AllAnime,
+  [Braflix.id]:     Braflix,
+  [CinebyAnime.id]: CinebyAnime,
 };
 
 // Recommended-first ordering for menus.
@@ -38,7 +40,7 @@ export const PLAYWRIGHT_PROVIDERS: readonly PlaywrightProvider[] = PROVIDER_LIST
   .filter((p): p is PlaywrightProvider => p.kind === "playwright");
 
 export const ANIME_PROVIDERS: readonly Provider[] = PROVIDER_LIST
-  .filter((p) => p.kind === "api" && (p as import("./types").ApiProvider).searchBackend === "allanime");
+  .filter((p) => p.isAnimeProvider === true);
 
 export const DEFAULT_PROVIDER_ID = VidKing.id;
 export const DEFAULT_ANIME_PROVIDER_ID = AllAnime.id;

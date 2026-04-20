@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import { log, select } from "@clack/prompts";
+import { fetchSeasons, fetchEpisodes, formatEpisode, type EpisodeInfo } from "@/tmdb";
 
 // ── Dependency check ───────────────────────────────────────────────────────
 
@@ -79,6 +80,44 @@ export async function pickWithFzf<T>(
     });
     fzf.on("error", () => resolve(null));
   });
+}
+
+// ── Season picker (real TMDB data) ────────────────────────────────────────
+
+export async function pickSeasonInteractive(
+  tmdbId: string,
+  currentSeason: number,
+  { hasFzf = true }: { hasFzf?: boolean } = {},
+): Promise<number | null> {
+  const seasons = await fetchSeasons(tmdbId);
+  if (seasons.length === 0) return null;
+
+  if (seasons.length === 1) return seasons[0]!;
+
+  const fmt = (n: number) => `Season ${n}`;
+  const picked = await pickWithFzf(seasons, fmt, {
+    prompt: "Season",
+    hasFzf,
+  });
+  return picked ?? null;
+}
+
+// ── Episode picker (real TMDB episode names + air dates) ──────────────────
+
+export async function pickEpisodeInteractive(
+  tmdbId: string,
+  season: number,
+  currentEpisode: number,
+  { hasFzf = true }: { hasFzf?: boolean } = {},
+): Promise<EpisodeInfo | null> {
+  const eps = await fetchEpisodes(tmdbId, season);
+  if (eps.length === 0) return null;
+
+  const picked = await pickWithFzf(eps, formatEpisode, {
+    prompt: `S${String(season).padStart(2, "0")} Episode`,
+    hasFzf,
+  });
+  return picked ?? null;
 }
 
 // ── Subtitle fzf picker ────────────────────────────────────────────────────
