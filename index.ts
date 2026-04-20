@@ -18,7 +18,7 @@ import {
 } from "@/providers";
 import { scrapeStream, type StreamData } from "@/scraper";
 import { launchMpv } from "@/mpv";
-import { checkDeps, pickWithFzf, pickSubtitleWithFzf } from "@/ui";
+import { checkDeps, pickSubtitleWithFzf } from "@/ui";
 import {
   loadConfig,
   loadDomainOverrides,
@@ -29,6 +29,7 @@ import { openSettings, bold, cyan, dim, green, yellow } from "@/menu";
 import { initLogger, dbg } from "@/logger";
 import {
   openHomeShell,
+  openListShell,
   openPlaybackShell,
   openSearchShell,
   formatMemoryUsage,
@@ -114,6 +115,32 @@ async function promptForSearchQuery(initialValue?: string): Promise<string> {
   });
   if (!query) cancelAndExit();
   return query;
+}
+
+async function pickSearchResult<T>({
+  title,
+  subtitle,
+  items,
+  toLabel,
+  toDetail,
+}: {
+  title: string;
+  subtitle: string;
+  items: readonly T[];
+  toLabel: (item: T) => string;
+  toDetail?: (item: T) => string | undefined;
+}): Promise<T> {
+  const picked = await openListShell({
+    title,
+    subtitle,
+    options: items.map((item) => ({
+      value: item,
+      label: toLabel(item),
+      detail: toDetail?.(item),
+    })),
+  });
+  if (!picked) cancelAndExit();
+  return picked;
 }
 
 // Non-blocking key peek — waits up to 800 ms for a keypress before proceeding.
@@ -386,11 +413,14 @@ function startPrefetch() {
           process.exit(1);
         }
 
-        const fmt = (r: ApiSearchResult) =>
-          `${r.title}${r.epCount ? ` (${r.epCount} eps)` : ""}${r.year ? ` · ${r.year}` : ""}`;
-
-        apiPicked = await pickWithFzf(animeResults, fmt, { prompt: "Select anime", hasFzf });
-        if (!apiPicked) cancelAndExit();
+        apiPicked = await pickSearchResult({
+          title: "Choose anime",
+          subtitle: `${animeResults.length} results  ·  Provider ${provider.name}`,
+          items: animeResults,
+          toLabel: (result) => result.title,
+          toDetail: (result) =>
+            `${result.epCount ? `${result.epCount} eps` : "episode count unknown"}${result.year ? `  ·  ${result.year}` : ""}`,
+        });
 
         currentId = apiPicked.id;
         currentType = apiPicked.type;
@@ -416,11 +446,14 @@ function startPrefetch() {
           process.exit(1);
         }
 
-        const fmt = (r: SearchResult) =>
-          `${r.title} (${r.year}) — ${r.type === "series" ? "Series" : "Movie"}  [${r.overview}]`;
-
-        picked = await pickWithFzf(results, fmt, { prompt: "Select title", hasFzf });
-        if (!picked) cancelAndExit();
+        picked = await pickSearchResult({
+          title: "Choose title",
+          subtitle: `${results.length} results  ·  Search mode`,
+          items: results,
+          toLabel: (result) => `${result.title} (${result.year})`,
+          toDetail: (result) =>
+            `${result.type === "series" ? "Series" : "Movie"}${result.overview ? `  ·  ${result.overview}` : ""}`,
+        });
 
         currentId = picked.id;
         currentType = picked.type;
