@@ -1,11 +1,12 @@
-import type { Provider } from "./types";
+import type { PlaywrightProvider } from "./types";
 
 // URL params:
 //   autoPlay=true         → player fires on load, no mouse click needed
 //   episodeSelector=false → hides built-in episode picker
 //   nextEpisode=false     → hides the overlay "next episode" button
 
-export const VidKing: Provider = {
+export const VidKing: PlaywrightProvider = {
+  kind:        "playwright",
   id:          "vidking",
   name:        "VidKing",
   description: "VidKing  (recommended)",

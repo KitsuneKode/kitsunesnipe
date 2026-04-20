@@ -1,76 +1,145 @@
 # KitsuneSnipe 🦊🎯
 
-A lightning-fast, interactive CLI streaming engine built in TypeScript and Bun. KitsuneSnipe bypasses aggressive frontend anti-debugging traps, extracts raw `.m3u8` video streams, and pipes them directly into `mpv` for a seamless, ad-free viewing experience straight from your terminal.
+A fast, interactive CLI streaming engine for your terminal. Zero config — just run it and follow the prompts.
 
-Currently supports:
-- **cineby.sc** - Movie and TV show streaming (Default)
-- **vidking.net** - Alternative streaming source
+Supports **VidKing** and **Cineby** as providers. No API keys required.
 
-## ✨ Core Features
-- **Interactive Playback Loop:** A native REPL prompts you for the `[n]ext episode` or `next [s]eason` immediately after a video finishes, continuing playback without needing to restart the CLI.
-- **Smart Caching (`stream_cache.json`):** Saves extracted CDN tokens with a 1-hour TTL. Re-watching or resuming an episode launches instantly in milliseconds without spinning up the Playwright scraper.
-- **Dynamic Title Scraping:** Intercepts the webpage's `<title>`, scrubs away SEO garbage and symbols (e.g., ` / Bloodhounds`), and injects the clean show name directly into the MPV window.
-- **Subtitle Snatching:** Actively listens for late-firing `.vtt` and `.srt` API calls and pipes them directly to MPV.
-- **DOM Trap Neutralization:** Blocks `window.close()` and intercepts `beforeunload` events to neutralize hostile `about:blank` redirects from streaming providers.
-- **Graceful Shutdowns:** Fully supports asynchronous `Ctrl+C` (SIGINT) process termination at any point during scraping or idle prompts.
+## ✨ Features
+
+- **Fully interactive** — zero flags needed; guided prompts + fzf fuzzy search
+- **Watch history** — remembers where you stopped, offers to resume or jump to next episode
+- **Background pre-fetch** — next episode scrapes while you watch the current one; `[n]` is instant
+- **Poster preview** — shows the TMDB poster inline (Kitty / Ghostty only, no extra tools needed)
+- **fzf integration** — fuzzy pick titles and subtitle tracks; falls back to arrow-key select if fzf is absent
+- **Subtitle support** — wyzie subtitle API with language selection or interactive fzf picker
+- **Ad blocking** — 20+ ad/tracker domains blocked at the network level via Playwright `route()`
+- **Headless by default** — runs the browser invisibly; use `--no-headless` if a provider blocks it
+- **Auto-provider fallback** — if the primary provider fails, silently tries the other
+- **1-hour stream cache** — re-watching or resuming skips the scraper entirely
+- **Smart caching** — in-session search results cached to avoid rate-limiting on repeated queries
 
 ## 🚀 Prerequisites
 
-1. **[Bun](https://bun.sh/)**: Fast all-in-one JS runtime.
-2. **[mpv](https://mpv.io/)**: Open-source media player.
-   - *Ubuntu/Debian:* `sudo apt install mpv`
-   - *Arch Linux:* `sudo pacman -S mpv`
-   - *macOS:* `brew install mpv`
+| Tool | Required | Notes |
+|------|----------|-------|
+| [Bun](https://bun.sh/) | ✅ | Runtime and package manager |
+| [mpv](https://mpv.io/) | ✅ | Media player |
+| [fzf](https://github.com/junegunn/fzf) | Optional | Fuzzy picker — falls back to arrow-key select |
+| Kitty / Ghostty terminal | Optional | Poster image preview |
+
+Install mpv and fzf:
+```bash
+# Arch
+sudo pacman -S mpv fzf
+
+# Debian/Ubuntu
+sudo apt install mpv fzf
+
+# macOS
+brew install mpv fzf
+```
 
 ## 📦 Installation
 
 ```bash
-git clone [https://github.com/kitsunekode/kitsunesnipe.git](https://github.com/kitsunekode/kitsunesnipe.git)
+git clone https://github.com/kitsunekode/kitsunesnipe.git
 cd kitsunesnipe
 bun install
 bunx playwright install chromium
-
-💻 Usage
-
-KitsuneSnipe uses standard CLI flags to target specific media. You must provide a TMDB ID.
-
-Basic Usage (Defaults to Season 1, Episode 1 on Cineby):
-Bash
-
-bun run index.ts --id 127529
-
-Advanced Targeting:
-Bash
-
-bun run index.ts --id 127529 --season 2 --episode 4 --provider vidking
-
-The Interactive Menu
-
-Once the mpv window closes, the terminal will drop you into an interactive prompt:
-Plaintext
-
-Options: [n]ext episode | [p]revious episode | [s]ext season | [q]uit
-What next? 
-
-Simply type n and hit enter, and it will automatically increment the episode counter, check the cache, and fire up the next video.
-🛠️ Project Architecture
-
-This repository currently serves as the core engine and extraction logic.
-
-    logs.txt: Automatically records all intercepted network requests, headers, and endpoints for reverse-engineering purposes.
-
-    stream_cache.json: The local SQLite-alternative JSON cache that manages session TTLs.
-
-⚠️ Disclaimer
-
-This tool is built strictly for educational and research purposes. It is designed to demonstrate network interception, API reverse-engineering, state management, and the bypassing of frontend obfuscation techniques. The author does not host, provide, or condone the piracy of copyrighted media.
-
-## 🔮 Next Steps
-
-The current engine is ready for TMDB API integration. Future work will allow users to search for shows via TMDB:
 ```
-bun run index.ts --search "The Boys"
-```
-The tool will fetch matching TMDB results, let the user select one, automatically extract the TMDB ID, and feed it into the existing extraction pipeline—eliminating the need to manually look up IDs.
 
-> **Note:** For current extensive usage, prefer this interactive CLI setup over the previous reconnaissance-only tool.
+## 💻 Usage
+
+### Fully interactive (recommended)
+
+```bash
+bun run index.ts
+```
+
+You'll be guided through:
+1. Search by title (fuzzy pick from results with fzf)
+2. Poster preview (Kitty/Ghostty only)
+3. Provider: VidKing (recommended) or Cineby
+4. Subtitle language (or fzf to pick interactively)
+5. Season / episode — with history-aware resume prompts
+
+### Skip prompts with flags
+
+All flags are optional — mix and match to pre-fill any step:
+
+```bash
+bun run index.ts -S "Breaking Bad"               # pre-fill search query
+bun run index.ts -S "Inception" -t movie         # force movie type
+bun run index.ts -i 1396 -s 3 -e 5              # jump to S3E5 by TMDB ID
+bun run index.ts -S "The Boys" -l fzf            # pick subtitle with fzf
+bun run index.ts -S "Breaking Bad" -l ar         # Arabic subtitles
+bun run index.ts -S "Oppenheimer" -p cineby      # force Cineby
+bun run index.ts -S "Breaking Bad" -H            # visible browser (debug)
+```
+
+### All flags
+
+| Short | Long | Description |
+|-------|------|-------------|
+| `-S` | `--search` | Pre-fill the search query |
+| `-i` | `--id` | Use a known TMDB ID (skip search entirely) |
+| `-T` | `--title` | Override the display title shown in MPV |
+| `-t` | `--type` | `movie` or `series` (used with `--id`) |
+| `-s` | `--season` | Starting season |
+| `-e` | `--episode` | Starting episode |
+| `-p` | `--provider` | `vidking` (default) or `cineby` |
+| `-l` | `--sub-lang` | `en`, `ar`, `fr`, `de`, `es`, `ja`, `fzf`, `none` |
+| `-H` | `--no-headless` | Force visible browser window |
+
+## 🎮 Playback menu
+
+After each episode or movie, a one-key menu appears:
+
+**Series:**
+```
+  [n] next   [p] prev   [s] next season   [o] other provider   [q] quit
+```
+
+**Movie:**
+```
+  [r] replay   [q] quit
+```
+
+Any other key exits.
+
+## 📼 Watch History
+
+History is stored at `~/.local/share/kitsunesnipe/history.json`, keyed by TMDB ID.
+
+- **Unfinished episode** → prompted to resume from exact timestamp or restart
+- **Finished episode** (>85% watched) → prompted to jump to next episode
+- **No history** → starts from S1E1
+
+## 🗂️ Project Structure
+
+```
+index.ts          — main entry: prompts, playback loop, orchestration
+lib/
+  search.ts       — db.videasy.net search (no API key needed)
+  scraper.ts      — Playwright scraper: stream + subtitle extraction, cache
+  mpv.ts          — MPV launcher with Lua position IPC
+  history.ts      — watch history read/write
+  image.ts        — Kitty/Ghostty poster preview via graphics protocol
+  subtitle.ts     — wyzie subtitle API
+  ui.ts           — dep check, fzf wrapper, @clack fallback
+stream_cache.json — 1-hour stream URL cache
+logs.txt          — scrape log (auto-appended)
+```
+
+## 🌐 Provider URL Patterns
+
+| Provider | Type | Pattern |
+|----------|------|---------|
+| VidKing | Movie | `https://www.vidking.net/embed/movie/{id}?autoPlay=true` |
+| VidKing | Series | `https://www.vidking.net/embed/tv/{id}/{s}/{e}?autoPlay=true&episodeSelector=false&nextEpisode=false` |
+| Cineby | Movie | `https://www.cineby.sc/movie/{id}?play=true` |
+| Cineby | Series | `https://www.cineby.sc/tv/{id}/{s}/{e}?play=true` |
+
+## ⚠️ Disclaimer
+
+Built for educational and research purposes — network interception, API reverse-engineering, and frontend bypass techniques. The author does not host, provide, or condone piracy of copyrighted media.

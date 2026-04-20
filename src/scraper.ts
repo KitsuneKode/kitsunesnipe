@@ -2,7 +2,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { fetchSubtitlesFromWyzie } from "./subtitle";
 import { cacheStream } from "./cache";
 import { dbg, dbgErr } from "./logger";
-import { PLAYER_DOMAINS, type Provider } from "./providers";
+import { PLAYER_DOMAINS, type PlaywrightProvider } from "./providers";
 
 // =============================================================================
 // AD BLOCKLIST — aborted at the network layer via Playwright route().
@@ -44,7 +44,7 @@ export type StreamData = {
 // scraper stays provider-agnostic — no if/else provider checks in the core.
 // =============================================================================
 
-async function extractTitle(page: Page, provider: Provider): Promise<string> {
+async function extractTitle(page: Page, provider: PlaywrightProvider): Promise<string> {
   if (provider.titleSource === "selectors") {
     for (const sel of provider.titleSelectors ?? []) {
       const el   = await page.$(sel).catch(() => null);
@@ -93,7 +93,7 @@ async function extractTitle(page: Page, provider: Provider): Promise<string> {
 // =============================================================================
 
 export async function scrapeStream(
-  provider:  Provider,
+  provider:  PlaywrightProvider,
   targetUrl: string,
   subLang:   string,
   headless = true,
