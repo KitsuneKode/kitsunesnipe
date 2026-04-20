@@ -120,9 +120,15 @@ async function fetchStreamLinks(apiPath: string, referer: string, ua: string): P
   // ── JSON structured response ──────────────────────────────────────────────
   try {
     const j = JSON.parse(body) as {
-      links?: Array<{ link: string; resolutionStr?: string; hls?: boolean }>;
+      links?:     Array<{ link: string; resolutionStr?: string; hls?: boolean }>;
       subtitles?: Array<{ lang: string; src: string }>;
+      // ani-cli: m3u8_refr extracted from top-level Referer field
+      Referer?:   string;
     };
+
+    // ani-cli: m3u8_refr — the actual CDN referer needed to fetch variant streams.
+    // Falls back to the configured allanime referer if not present in the response.
+    const m3u8Referer = j.Referer ?? referer;
 
     const sub = j.subtitles?.find((s) => s.lang?.toLowerCase().startsWith("en"))?.src;
 
@@ -132,9 +138,8 @@ async function fetchStreamLinks(apiPath: string, referer: string, ua: string): P
 
         // wixmp repackager — extract quality variants (ani-cli get_links wixmp branch)
         if (l.link.includes("repackager.wixmp.com")) {
-          const base    = l.link.replace(/repackager\.wixmp\.com\//g, "").replace(/\.urlset.*/, "");
-          const qRe     = /\/,([^/]*),\/mp4/;
-          const qMatch  = qRe.exec(l.link);
+          const base     = l.link.replace(/repackager\.wixmp\.com\//g, "").replace(/\.urlset.*/, "");
+          const qMatch   = /\/,([^/]*),\/mp4/.exec(l.link);
           const variants = qMatch?.[1]?.split(",").filter(Boolean) ?? [];
           for (const q of variants) {
             links.push({ url: base.replace(/,[^/]*/, q), quality: q, subtitle: sub });
@@ -144,21 +149,23 @@ async function fetchStreamLinks(apiPath: string, referer: string, ua: string): P
         }
 
         // master.m3u8 — resolve quality variants (ani-cli get_links m3u8 branch)
+        // Uses the Referer extracted from the JSON body, not cfg.referer (ani-cli: m3u8_refr).
         if (l.link.includes("master.m3u8")) {
-          const m3uRes = await fetch(l.link, { headers: { "Referer": referer, "User-Agent": ua } });
+          const m3uRes = await fetch(l.link, { headers: { "Referer": m3u8Referer, "User-Agent": ua } });
           if (m3uRes.ok) {
             const m3u   = await m3uRes.text();
             const urlOf = new URL(l.link);
             const base2 = `${urlOf.protocol}//${urlOf.host}${urlOf.pathname.replace(/[^/]*$/, "")}`;
 
-            // Extract quality + URL pairs from #EXT-X-STREAM-INF lines
-            const streamRe = /RESOLUTION=\d+x(\d+).*\n([^\n]+)/g;
+            // Extract quality + URL pairs from #EXT-X-STREAM-INF lines, skip I-FRAME tracks
+            const streamRe = /RESOLUTION=\d+x(\d+)[^\n]*\n([^\n]+)/g;
             let sm: RegExpExecArray | null;
             while ((sm = streamRe.exec(m3u)) !== null) {
               const quality = sm[1] ?? "unknown";
               const href    = sm[2]?.trim() ?? "";
+              if (!href || href.startsWith("#")) continue;
               const url2    = href.startsWith("http") ? href : base2 + href;
-              links.push({ url: url2, quality, referer, subtitle: sub });
+              links.push({ url: url2, quality, referer: m3u8Referer, subtitle: sub });
             }
           }
           continue;
@@ -199,6 +206,24 @@ export async function gqlPost(
   return res.json();
 }
 
+// Raw-text variant — used where we need to string-match the response before
+// parsing (e.g. detecting "tobeparsed" before trying to JSON.parse it).
+export async function gqlRaw(
+  apiUrl:  string,
+  referer: string,
+  ua:      string,
+  query:   string,
+  vars:    Record<string, unknown>,
+): Promise<string> {
+  const res = await fetch(apiUrl, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", "Referer": referer, "User-Agent": ua },
+    body:    JSON.stringify({ query, variables: vars }),
+  });
+  if (!res.ok) throw new Error(`API ${res.status}: ${apiUrl}`);
+  return res.text();
+}
+
 // ── Full episode source resolution ────────────────────────────────────────────
 
 export async function resolveEpisodeSources(opts: {
@@ -211,32 +236,35 @@ export async function resolveEpisodeSources(opts: {
 }): Promise<StreamLink[]> {
   const { apiUrl, referer, ua, showId, epStr, mode } = opts;
 
-  const Q = `query($id:String! $t:VaildTranslationTypeEnumType! $ep:String!){
-    episode(showId:$id translationType:$t episodeString:$ep){episodeString sourceUrls tobeparsed}
+  // ── ani-cli exact: select only episodeString + sourceUrls, NOT tobeparsed ──
+  // Detect tobeparsed by string-matching the raw response, then extract with
+  // regex — same approach as ani-cli's grep + sed.  Including tobeparsed in
+  // the GQL selection risks a schema error if the field is renamed/removed.
+  const Q = `query($showId:String! $translationType:VaildTranslationTypeEnumType! $episodeString:String!){
+    episode(showId:$showId translationType:$translationType episodeString:$episodeString){
+      episodeString sourceUrls
+    }
   }`;
 
-  const data = await gqlPost(apiUrl, referer, ua, Q, {
-    id: showId, t: mode, ep: epStr,
-  }) as {
-    data: {
-      episode: {
-        sourceUrls?: Array<{ sourceUrl: string; sourceName: string }>;
-        tobeparsed?: string;
-      }
-    }
-  };
+  const rawText = await gqlRaw(apiUrl, referer, ua, Q, {
+    showId, translationType: mode, episodeString: epStr,
+  });
 
-  const ep = data.data.episode;
   let rawSources: Array<{ sourceUrl: string; sourceName: string }> = [];
 
-  // tobeparsed takes priority when present (AES-CTR encrypted blob)
-  if (ep.tobeparsed) {
-    rawSources = (await decodeTobeparsed(ep.tobeparsed)).map((s) => ({
-      sourceUrl:  s.sourceUrl,
-      sourceName: s.sourceName,
-    }));
+  if (rawText.includes('"tobeparsed"')) {
+    // ani-cli: blob="$(... sed -nE 's|.*"tobeparsed":"([^"]*)".*|\1|p')"
+    const blobMatch = /"tobeparsed"\s*:\s*"([^"]+)"/.exec(rawText);
+    if (blobMatch?.[1]) {
+      rawSources = await decodeTobeparsed(blobMatch[1]);
+    }
   } else {
-    rawSources = ep.sourceUrls ?? [];
+    // ani-cli: sed 's|\\u002F|\/|g;s|\\||g' | sed -nE 's|.*sourceUrl":"--([^"]*)".*sourceName":"([^"]*)".*|\2 :\1|p'
+    // Only process --prefixed sourceUrls (ani-cli ignores any without --)
+    const data = JSON.parse(rawText) as {
+      data: { episode: { sourceUrls?: Array<{ sourceUrl: string; sourceName: string }> } }
+    };
+    rawSources = (data.data.episode?.sourceUrls ?? []).filter((s) => s.sourceUrl.startsWith("--"));
   }
 
   // ── Decode all sources first ──────────────────────────────────────────────
@@ -316,14 +344,16 @@ export function createAnimeProvider(cfg: AnimeProviderConfig): ApiProvider {
 
     async search(query, opts) {
       dbg(cfg.id, "search", { query, mode: opts.animeLang });
-      const Q = `query($s:SearchInput $l:Int $p:Int $t:VaildTranslationTypeEnumType){
-        shows(search:$s limit:$l page:$p translationType:$t){
+      // ani-cli search_gql — countryOrigin:"ALL" is required to get full results
+      const Q = `query($search:SearchInput $limit:Int $page:Int $translationType:VaildTranslationTypeEnumType $countryOrigin:VaildCountryOriginEnumType){
+        shows(search:$search limit:$limit page:$page translationType:$translationType countryOrigin:$countryOrigin){
           edges{_id name availableEpisodes __typename}
         }
       }`;
       const data = await gqlPost(cfg.apiUrl, cfg.referer, ua, Q, {
         search: { allowAdult: false, allowUnknown: false, query },
         limit: 40, page: 1, translationType: opts.animeLang,
+        countryOrigin: "ALL",
       }) as { data: { shows: { edges: Array<{ _id: string; name: string; availableEpisodes: Record<string,unknown> }> } } };
 
       return data.data.shows.edges.map((e): ApiSearchResult => {
