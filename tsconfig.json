@@ -32,5 +32,6 @@
     "paths": {
       "@/*": ["./src/*"]
     }
-  }
+  },
+  "exclude": ["legacy", "node_modules"]
 }

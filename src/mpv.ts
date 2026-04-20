@@ -142,8 +142,10 @@ export async function launchMpv(opts: {
       mpvExited = true;
     });
 
-    // Poll until Lua writes the position file OR the process exits.
-    while (!existsSync(posPath) && !mpvExited) {
+    // Poll until Lua writes the position file, the process exits, or 6-hour
+    // safety timeout fires (kill -9 leaves no position file, infinite loop otherwise).
+    const deadline = Date.now() + 6 * 60 * 60 * 1000;
+    while (!existsSync(posPath) && !mpvExited && Date.now() < deadline) {
       await Bun.sleep(500);
     }
   }

@@ -98,12 +98,12 @@ export function drawMenu(ctx: MenuContext): void {
   ${key("n")}  next episode      ${key("p")}  previous
   ${key("s")}  next season       ${key("o")}  switch provider
   ${key("r")}  replay            ${key("c")}  settings
-  ${key("q")}  quit
+  ${key("a")}  switch mode       ${key("q")}  quit
 `);
   } else {
     console.log(`
   ${key("r")}  replay            ${key("c")}  settings
-  ${key("q")}  quit
+  ${key("a")}  switch mode       ${key("q")}  quit
 `);
   }
 

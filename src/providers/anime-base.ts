@@ -239,7 +239,9 @@ export async function resolveEpisodeSources(opts: {
     rawSources = ep.sourceUrls ?? [];
   }
 
-  const all: StreamLink[] = [];
+  // ── Decode all sources first ──────────────────────────────────────────────
+  const direct: StreamLink[]          = [];
+  const apiJobs: Promise<StreamLink[]>[] = [];
 
   for (const src of rawSources) {
     const raw     = src.sourceUrl.startsWith("--") ? src.sourceUrl.slice(2) : src.sourceUrl;
@@ -247,7 +249,7 @@ export async function resolveEpisodeSources(opts: {
     if (!decoded) continue;
 
     if (isDirectStream(decoded)) {
-      all.push({
+      direct.push({
         url:     decoded,
         quality: src.sourceName,
         referer: decoded.includes("tools.fast4speed.rsvp") ? referer : undefined,
@@ -257,12 +259,25 @@ export async function resolveEpisodeSources(opts: {
 
     if (!decoded.startsWith("/") || !KNOWN_SOURCES.has(src.sourceName)) continue;
 
-    const links = await fetchStreamLinks(decoded, referer, ua);
-    for (const l of links) {
-      all.push({ ...l, quality: l.quality || src.sourceName });
-    }
+    // Queue as a background job — mirrors ani-cli's:
+    //   generate_link "$provider" >"$cache_dir/$provider" &
+    // All API paths fire simultaneously; we collect results with Promise.allSettled.
+    const sourceName = src.sourceName;
+    apiJobs.push(
+      fetchStreamLinks(decoded, referer, ua)
+        .then((ls) => ls.map((l) => ({ ...l, quality: l.quality || sourceName })))
+        .catch(() => [] as StreamLink[]),
+    );
   }
 
+  // Wait for all parallel jobs (mirrors ani-cli's `wait` after the background loop)
+  const settled = await Promise.allSettled(apiJobs);
+  const apiLinks = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+
+  // Sort by quality descending (numeric, like ani-cli's `sort -g -r -s`)
+  const all = [...direct, ...apiLinks].sort(
+    (a, b) => (parseInt(b.quality) || 0) - (parseInt(a.quality) || 0),
+  );
   return all;
 }
 
@@ -273,14 +288,15 @@ export async function resolveEpisodeSources(opts: {
 // a different endpoint/domain, no changes to anything else.
 
 export type AnimeProviderConfig = {
-  id:          string;
-  name:        string;
-  description: string;
-  domain:      string;
-  apiUrl:      string;    // GraphQL endpoint
-  referer:     string;    // Referer header (e.g. "https://allmanga.to")
-  ua?:         string;    // User-Agent (optional, defaults to Firefox)
-  recommended?: boolean;
+  id:               string;
+  name:             string;
+  description:      string;
+  domain:           string;
+  apiUrl:           string;    // GraphQL endpoint
+  referer:          string;    // Referer header (e.g. "https://allmanga.to")
+  ua?:              string;    // User-Agent (optional, defaults to Firefox)
+  recommended?:     boolean;
+  isAnimeProvider?: boolean;
 };
 
 const DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0";
@@ -289,13 +305,14 @@ export function createAnimeProvider(cfg: AnimeProviderConfig): ApiProvider {
   const ua = cfg.ua ?? DEFAULT_UA;
 
   return {
-    kind:          "api",
-    searchBackend: "allanime",
-    id:            cfg.id,
-    name:          cfg.name,
-    description:   cfg.description,
-    domain:        cfg.domain,
-    recommended:   cfg.recommended,
+    kind:            "api",
+    searchBackend:   "allanime",
+    id:              cfg.id,
+    name:            cfg.name,
+    description:     cfg.description,
+    domain:          cfg.domain,
+    recommended:     cfg.recommended,
+    isAnimeProvider: cfg.isAnimeProvider,
 
     async search(query, opts) {
       dbg(cfg.id, "search", { query, mode: opts.animeLang });
