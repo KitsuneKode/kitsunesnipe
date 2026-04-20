@@ -18,14 +18,14 @@ import {
 } from "@/providers";
 import { scrapeStream, type StreamData } from "@/scraper";
 import { launchMpv } from "@/mpv";
-import { checkDeps, pickSubtitleWithFzf } from "@/ui";
+import { checkDeps } from "@/ui";
 import {
   loadConfig,
   loadDomainOverrides,
   applyDomainOverrides,
   type KitsuneConfig,
 } from "@/config";
-import { openSettings, bold, cyan, dim, green, yellow } from "@/menu";
+import { bold, cyan, dim, green, yellow } from "@/menu";
 import { initLogger, dbg } from "@/logger";
 import {
   openHomeShell,
@@ -35,6 +35,7 @@ import {
   formatMemoryUsage,
 } from "@/app-shell/ink-shell";
 import { chooseStartingEpisode, cycleProvider, describeHistoryEntry } from "@/session-flow";
+import { openProviderPicker, openSettingsShell, openSubtitlePicker } from "@/app-shell/workflows";
 
 // =============================================================================
 // 1. FLAGS
@@ -75,8 +76,6 @@ let config: KitsuneConfig;
 
 // Pre-fetch slot — only active for Playwright providers
 let prefetchedStream: { url: string; data: Promise<StreamData | null> } | null = null;
-
-let hasFzf = true;
 
 // =============================================================================
 // 3. HELPERS
@@ -293,7 +292,7 @@ function startPrefetch() {
     loadConfig(),
     loadDomainOverrides(),
   ]);
-  hasFzf = deps.fzf;
+  void deps;
   config = cfg;
   applyDomainOverrides(overrides);
 
@@ -375,7 +374,7 @@ function startPrefetch() {
             prefetchedStream = null;
             log.info(`Switched to ${isAnime ? "🌸 anime" : "📺 series"} mode`);
           } else if (gateAction === "settings") {
-            const updated = await openSettings(config);
+            const updated = await openSettingsShell(config);
             if (updated) {
               config = updated;
               currentProvider = isAnime ? updated.animeProvider : updated.provider;
@@ -481,7 +480,6 @@ function startPrefetch() {
 
       const selection = await chooseStartingEpisode({
         currentId,
-        hasFzf,
         isAnime,
         apiPicked,
         flags: {
@@ -528,7 +526,7 @@ function startPrefetch() {
           break;
         }
         if (k === "c") {
-          const updated = await openSettings(config);
+          const updated = await openSettingsShell(config);
           if (updated) {
             config = updated;
             currentProvider = isAnime ? updated.animeProvider : updated.provider;
@@ -565,7 +563,14 @@ function startPrefetch() {
         let finalSubtitle = streamInfo.subtitle;
         if (currentSubLang === "fzf" && streamInfo.subtitleList?.length) {
           log.info(`${streamInfo.subtitleList.length} subtitle tracks available`);
-          finalSubtitle = await pickSubtitleWithFzf(streamInfo.subtitleList, { hasFzf });
+          finalSubtitle = await openSubtitlePicker(
+            streamInfo.subtitleList as Array<{
+              url: string;
+              display?: string;
+              language?: string;
+              release?: string;
+            }>,
+          );
         } else if (currentSubLang === "none") {
           finalSubtitle = null;
         }
@@ -651,7 +656,7 @@ function startPrefetch() {
         log.info(`Switched to ${isAnime ? "🌸 anime" : "📺 series"} mode`);
         backToSearch = true;
       } else if (postAction === "settings") {
-        const updated = await openSettings(config);
+        const updated = await openSettingsShell(config);
         if (updated) {
           const provChanged =
             updated.provider !== currentProvider || updated.animeProvider !== config.animeProvider;
@@ -675,7 +680,8 @@ function startPrefetch() {
         currentEpisode = 1;
       } else if (postAction === "provider") {
         prefetchedStream = null;
-        currentProvider = cycleProvider(currentProvider, isAnime);
+        const pickedProvider = await openProviderPicker({ currentProvider, isAnime });
+        currentProvider = pickedProvider ?? cycleProvider(currentProvider, isAnime);
         log.info(`Switched to ${green(currentProvider)}`);
       }
       // Any unrecognised key replays the current episode.

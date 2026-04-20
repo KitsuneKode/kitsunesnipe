@@ -6,7 +6,6 @@ Use this doc for setup, local execution, and common environment issues. Architec
 
 - Bun `v1.1+`
 - `mpv` in `PATH`
-- `fzf` in `PATH`
 - Kitty graphics protocol support if you want inline posters
 
 ## Setup
@@ -16,6 +15,7 @@ git clone <repo>
 cd kitsunesnipe
 bun install
 bunx playwright install chromium
+bun run link:global   # optional: installs local CLI command
 ```
 
 ## Run
@@ -27,6 +27,7 @@ bun run index.ts -i 1429 -t series
 bun run index.ts -i 438631 -t movie
 bun run index.ts -a
 bun run index.ts --debug
+kitsune-snipe -S "Dune"   # after bun run link:global
 ```
 
 ## Dev Checks
@@ -67,13 +68,9 @@ Do not use `bun test` directly.
 bunx playwright install chromium
 ```
 
-**`fzf` is missing**
-
-Install it with your package manager.
-
 **No stream resolved**
 
-Try a different provider from the post-episode menu or change the default provider in settings.
+Try a different provider from the shell picker or change the default provider in settings.
 
 **Anime playback broke after an upstream change**
 

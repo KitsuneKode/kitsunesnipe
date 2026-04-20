@@ -10,10 +10,10 @@ KitsuneSnipe is a terminal CLI that:
 2. Lets the user pick a title, season, episode, and provider
 3. Resolves a playable stream URL
 4. Launches `mpv`
-5. Returns to a post-playback menu that can continue playback or jump back to search
+5. Returns to the same shell for post-playback actions, settings, and provider changes
 
 ```text
-user input -> search -> picker -> provider resolve -> Playwright/API stream capture -> mpv -> menu
+user input -> Ink shell -> picker -> provider resolve -> Playwright/API stream capture -> mpv -> shell
 ```
 
 ## Control Flow
@@ -44,12 +44,13 @@ This split is intentional because it preserves a clean boundary between search s
 | Area                  | Files                                             | Responsibility                                                             |
 | --------------------- | ------------------------------------------------- | -------------------------------------------------------------------------- |
 | Entry + orchestration | `index.ts`                                        | Search loop, playback loop, provider selection, handoff between subsystems |
-| Search                | `src/search.ts`, `src/tmdb.ts`, `src/ui.ts`       | Search backends plus season/episode pickers                                |
+| Shell UI              | `src/app-shell/*`, `src/session-flow.ts`          | Ink shell, commands, settings, history, and structured pickers             |
+| Search                | `src/search.ts`, `src/tmdb.ts`, `src/ui.ts`       | Search backends, metadata fetches, and dependency checks                   |
 | Scraping              | `src/scraper.ts`                                  | Browser automation and network interception                                |
-| Playback              | `src/mpv.ts`, `src/menu.ts`                       | `mpv` launch, Lua-assisted progress tracking, post-playback actions        |
+| Playback              | `src/mpv.ts`                                      | `mpv` launch and Lua-assisted progress tracking                            |
 | Persistence           | `src/config.ts`, `src/history.ts`, `src/cache.ts` | Config, watch progress, stream cache                                       |
 | Providers             | `src/providers/*`                                 | Stream-source-specific resolution logic                                    |
-| Terminal UI           | `src/design.ts`, `src/menu.ts`, `src/image.ts`    | ANSI presentation, status lines, posters                                   |
+| Terminal UI           | `src/design.ts`, `src/menu.ts`, `src/image.ts`    | Shared styling tokens, ANSI helpers, posters                               |
 | Observability         | `src/logger.ts`                                   | Structured debug logs                                                      |
 
 ## Provider Model
