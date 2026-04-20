@@ -440,6 +440,125 @@ export function openSearchShell({
   });
 }
 
+type ListOption<T> = {
+  value: T;
+  label: string;
+  detail?: string;
+};
+
+function ListShell<T>({
+  title,
+  subtitle,
+  options,
+  onSubmit,
+  onCancel,
+}: {
+  title: string;
+  subtitle: string;
+  options: readonly ListOption<T>[];
+  onSubmit: (value: T) => void;
+  onCancel: () => void;
+}) {
+  const [index, setIndex] = useState(0);
+
+  useInput((input, key) => {
+    if (key.escape) {
+      onCancel();
+      return;
+    }
+    if (key.return) {
+      const selected = options[index];
+      if (selected) onSubmit(selected.value);
+      return;
+    }
+    if (key.upArrow || input === "k") {
+      setIndex((current) => (current - 1 + options.length) % options.length);
+      return;
+    }
+    if (key.downArrow || input === "j") {
+      setIndex((current) => (current + 1) % options.length);
+    }
+  });
+
+  return (
+    <Box flexDirection="column" paddingX={1}>
+      <Box borderStyle="round" borderColor={palette.gray} flexDirection="column" paddingX={1}>
+        <Text color={palette.amber}>KitsuneSnipe</Text>
+        <Box marginTop={1}>
+          <Text bold color="white">
+            {title}
+          </Text>
+        </Box>
+        <Text color={palette.muted}>{subtitle}</Text>
+        <Box flexDirection="column" marginTop={1}>
+          {options.map((option, optionIndex) => {
+            const selected = optionIndex === index;
+            return (
+              <Box
+                key={optionIndex}
+                flexDirection="column"
+                marginBottom={optionIndex === options.length - 1 ? 0 : 1}
+              >
+                <Text color={selected ? palette.cyan : "white"}>
+                  {selected ? "› " : "  "}
+                  {option.label}
+                </Text>
+                {option.detail ? (
+                  <Text color={palette.gray}>
+                    {selected ? "  " : "  "}
+                    {option.detail}
+                  </Text>
+                ) : null}
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+      <Footer
+        actions={[
+          { key: "↑↓", label: "navigate", action: "search" },
+          { key: "enter", label: "select", action: "search" },
+          { key: "q", label: "cancel", action: "quit" },
+        ]}
+      />
+    </Box>
+  );
+}
+
+export function openListShell<T>({
+  title,
+  subtitle,
+  options,
+}: {
+  title: string;
+  subtitle: string;
+  options: readonly ListOption<T>[];
+}): Promise<T | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value: T | null) => {
+      if (settled) return;
+      settled = true;
+      ink.unmount();
+      resolve(value);
+    };
+
+    const ink = render(
+      <ListShell
+        title={title}
+        subtitle={subtitle}
+        options={options}
+        onSubmit={(value) => finish(value)}
+        onCancel={() => finish(null)}
+      />,
+    );
+
+    ink.waitUntilExit().then(() => {
+      if (!settled) resolve(null);
+    });
+  });
+}
+
 export function formatMemoryUsage(): string {
   const memory = process.memoryUsage();
   const toMb = (bytes: number) => `${(bytes / 1_048_576).toFixed(1)} MB`;
