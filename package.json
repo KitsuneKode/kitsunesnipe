@@ -4,11 +4,18 @@
   "type": "module",
   "module": "cineby.ts",
   "dependencies": {
+    "@clack/prompts": "^1.2.0",
     "@kitsunekode/run-cli": "^0.1.0",
     "playwright": "^1.59.1"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@changesets/cli": "^2.31.0",
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@types/bun": "latest",
+    "husky": "^9.1.7",
+    "oxfmt": "^0.45.0",
+    "oxlint": "^1.60.0"
   },
   "peerDependencies": {
     "typescript": "^5"
