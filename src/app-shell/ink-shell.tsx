@@ -500,6 +500,7 @@ function ListShell<T>({
   onCancel: () => void;
 }) {
   const [index, setIndex] = useState(0);
+  const [confirmed, setConfirmed] = useState(false);
 
   useInput((input, key) => {
     if (key.escape || input === "q") {
@@ -508,7 +509,11 @@ function ListShell<T>({
     }
     if (key.return) {
       const selected = options[index];
-      if (selected) onSubmit(selected.value);
+      if (selected && !confirmed) {
+        setConfirmed(true);
+        // Brief delay to show confirmation before submitting
+        setTimeout(() => onSubmit(selected.value), 150);
+      }
       return;
     }
     if (key.upArrow || input === "k") {
@@ -524,28 +529,39 @@ function ListShell<T>({
     <Box flexDirection="column" paddingX={1}>
       <Box
         borderStyle="round"
-        borderColor={palette.gray}
+        borderColor={confirmed ? palette.green : palette.gray}
         flexDirection="column"
         paddingX={1}
       >
         <Text color={palette.amber}>KitsuneSnipe</Text>
         <Box marginTop={1}>
           <Text bold color="white">
-            {title}
+            {confirmed ? "✓ Selected" : title}
           </Text>
         </Box>
-        <Text color={palette.muted}>{subtitle}</Text>
+        <Text color={palette.muted}>
+          {confirmed ? options[index]?.label : subtitle}
+        </Text>
         <Box flexDirection="column" marginTop={1}>
           {options.map((option, optionIndex) => {
             const selected = optionIndex === index;
+            const isConfirmed = confirmed && selected;
             return (
               <Box
                 key={optionIndex}
                 flexDirection="column"
                 marginBottom={optionIndex === options.length - 1 ? 0 : 1}
               >
-                <Text color={selected ? palette.cyan : "white"}>
-                  {selected ? "› " : "  "}
+                <Text
+                  color={
+                    isConfirmed
+                      ? palette.green
+                      : selected
+                      ? palette.cyan
+                      : "white"
+                  }
+                >
+                  {isConfirmed ? "✓ " : selected ? "› " : "  "}
                   {option.label}
                 </Text>
                 {option.detail ? (
