@@ -74,15 +74,21 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         const currentEpisode = stateManager.getState().currentEpisode;
         if (!currentEpisode) break;
 
-        // Resolve stream
-        console.log(
-          `⏳ Resolving stream from ${stateManager.getState().provider}...`,
-        );
+        // Resolve stream with loading UI
+        const { openLoadingShell } = await import("../app-shell/ink-shell");
 
-        logger.info("Resolving stream", {
-          provider: stateManager.getState().provider,
-          title: title.name,
-          episode: currentEpisode,
+        // Show loading UI
+        const loadingPromise = openLoadingShell({
+          state: {
+            title: title.name,
+            subtitle: `S${String(currentEpisode.season).padStart(
+              2,
+              "0",
+            )}E${String(currentEpisode.episode).padStart(2, "0")}`,
+            operation: "resolving",
+            details: `Provider: ${stateManager.getState().provider}`,
+          },
+          cancellable: false,
         });
 
         const provider = providerRegistry.get(stateManager.getState().provider);
@@ -107,6 +113,9 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           episode: currentEpisode,
           subLang: stateManager.getState().subLang,
         });
+
+        // Close loading UI
+        loadingPromise.then(() => {}); // Fire and forget to unmount
 
         if (!stream) {
           console.log(`⚠ Stream not found on ${provider.metadata.id}`);
