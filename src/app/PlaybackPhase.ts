@@ -115,11 +115,11 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 p.metadata.id !== provider.metadata.id,
             );
 
-          if (compatible.length > 0) {
+          const fallback = compatible[0];
+          if (fallback) {
             logger.info("Trying fallback provider", {
-              fallback: compatible[0].metadata.id,
+              fallback: fallback.metadata.id,
             });
-            const fallback = compatible[0];
             const fallbackStream = await fallback.resolveStream({
               title,
               episode: currentEpisode,
