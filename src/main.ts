@@ -18,9 +18,15 @@ function parseArgs(argv: string[]): {
   id?: string;
   type?: string;
   anime: boolean;
+  debug: boolean;
 } {
-  const args: { search?: string; id?: string; type?: string; anime: boolean } =
-    { anime: false };
+  const args: {
+    search?: string;
+    id?: string;
+    type?: string;
+    anime: boolean;
+    debug: boolean;
+  } = { anime: false, debug: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "-S" || arg === "--search") {
@@ -31,6 +37,8 @@ function parseArgs(argv: string[]): {
       args.type = argv[++i];
     } else if (arg === "-a" || arg === "--anime") {
       args.anime = true;
+    } else if (arg === "--debug") {
+      args.debug = true;
     }
   }
   return args;
@@ -41,15 +49,19 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   // Bootstrap the DI container
-  console.log("🦊 Starting KitsuneSnipe...");
-  const container = await createContainer();
+  if (!args.debug) {
+    console.log("🦊 Starting KitsuneSnipe...");
+  }
+  const container = await createContainer({ debug: args.debug });
   const { logger, config, stateManager } = container;
 
-  logger.info("KitsuneSnipe started", {
-    version: "2.0.0",
-    mode: args.anime ? "anime" : "series",
-    provider: args.anime ? config.animeProvider : config.provider,
-  });
+  if (args.debug) {
+    logger.info("KitsuneSnipe started", {
+      version: "2.0.0",
+      mode: args.anime ? "anime" : "series",
+      provider: args.anime ? config.animeProvider : config.provider,
+    });
+  }
 
   // Initialize session state with CLI overrides
   stateManager.initialize(config.provider, config.animeProvider);

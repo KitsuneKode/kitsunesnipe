@@ -34,9 +34,40 @@ export class SearchPhase implements Phase<void, TitleInfo> {
       // TODO: Implement search-first Ink shell with live results
 
       // Use legacy flow for now:
+      const { openHomeShell } = await import("../app-shell/ink-shell");
       const { openSearchShell } = await import("../app-shell/ink-shell");
       const { openListShell } = await import("../app-shell/ink-shell");
       const { searchVideasy } = await import("../search");
+
+      // ── Home Gate: Show hotkeys [c]/[a]/[q] before search ─────────────────────
+      let gating = true;
+      while (gating) {
+        const gateAction = await openHomeShell({
+          mode: stateManager.getState().mode,
+          provider: stateManager.getState().provider,
+          subtitle: stateManager.getState().subLang,
+          animeLang: "sub", // TODO: Get from config
+          status: { label: "Ready", tone: "neutral" },
+        });
+
+        if (gateAction === "quit") {
+          return { status: "cancelled" };
+        }
+        if (gateAction === "toggle-mode") {
+          const newMode =
+            stateManager.getState().mode === "anime" ? "series" : "anime";
+          stateManager.dispatch({
+            type: "SET_MODE",
+            mode: newMode,
+            provider: newMode === "anime" ? "allanime" : "vidking", // TODO: Get from config
+          });
+        } else if (gateAction === "settings") {
+          // TODO: Open settings overlay
+          logger.info("Settings - not implemented");
+        } else {
+          gating = false; // Proceed to search
+        }
+      }
 
       // Prompt for search query
       const query = await openSearchShell({

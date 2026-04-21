@@ -71,16 +71,24 @@ export interface Container {
  */
 export type ContainerDeps<T extends keyof Container> = Pick<Container, T>;
 
+export interface ContainerOptions {
+  debug?: boolean;
+}
+
 /**
  * Create the container with all services wired together.
  * This is called once at application startup.
  */
-export async function createContainer(): Promise<Container> {
+export async function createContainer(
+  options?: ContainerOptions,
+): Promise<Container> {
+  const debug = options?.debug ?? false;
+
   // Core infrastructure first (no dependencies on other services)
-  const logger = new StructuredLogger();
+  const logger = new StructuredLogger({ debug });
   const tracer = new TracerImpl({
     logger,
-    outputs: ["console", "file"],
+    outputs: debug ? ["console", "file"] : [],
   });
 
   const storage = new FileStorage();
