@@ -199,12 +199,67 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         }
 
         // Show post-playback menu
-        // For now, just go back to search
-        // TODO: Implement post-playback shell with replay/next/previous/settings
-        return { status: "success", value: "back_to_search" };
-      }
+        const { openPlaybackShell } = await import("../app-shell/ink-shell");
 
-      return { status: "success", value: "back_to_search" };
+        const postAction = await openPlaybackShell({
+          type: title.type,
+          title: title.name,
+          season: currentEpisode.season,
+          episode: currentEpisode.episode,
+          provider: stateManager.getState().provider,
+          showMemory: false,
+          mode: stateManager.getState().mode,
+          status: { label: "Ready for next action", tone: "success" },
+        });
+
+        if (postAction === "quit") {
+          return { status: "cancelled" };
+        } else if (postAction === "toggle-mode") {
+          const newMode =
+            stateManager.getState().mode === "anime" ? "series" : "anime";
+          stateManager.dispatch({
+            type: "SET_MODE",
+            mode: newMode,
+            provider: newMode === "anime" ? "allanime" : "vidking",
+          });
+          return { status: "success", value: "back_to_search" };
+        } else if (postAction === "replay") {
+          // Loop continues - same episode
+          continue;
+        } else if (postAction === "next" && title.type === "series") {
+          stateManager.dispatch({
+            type: "SELECT_EPISODE",
+            episode: {
+              season: currentEpisode.season,
+              episode: currentEpisode.episode + 1,
+            },
+          });
+          continue;
+        } else if (postAction === "previous" && title.type === "series") {
+          if (currentEpisode.episode > 1) {
+            stateManager.dispatch({
+              type: "SELECT_EPISODE",
+              episode: {
+                season: currentEpisode.season,
+                episode: currentEpisode.episode - 1,
+              },
+            });
+          }
+          continue;
+        } else if (postAction === "next-season" && title.type === "series") {
+          stateManager.dispatch({
+            type: "SELECT_EPISODE",
+            episode: {
+              season: currentEpisode.season + 1,
+              episode: 1,
+            },
+          });
+          continue;
+        } else {
+          // Any other action goes back to search
+          return { status: "success", value: "back_to_search" };
+        }
+      }
     } catch (e) {
       logger.error("Playback phase error", { error: String(e) });
       return {
@@ -216,6 +271,9 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         },
       };
     }
+
+    // Fallback return (should not reach here)
+    return { status: "success", value: "back_to_search" };
   }
 
   private async playStream(
