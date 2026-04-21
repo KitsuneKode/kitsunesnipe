@@ -8,6 +8,7 @@ import {
   type FooterAction,
   type HomeShellState,
   type PlaybackShellState,
+  type LoadingShellState,
   type ShellAction,
   type ShellStatus,
 } from "./types";
@@ -440,6 +441,115 @@ function SearchShell({
       </Box>
     </Box>
   );
+}
+
+// Simple spinner animation frames
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+function useSpinner() {
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setFrame((f) => (f + 1) % SPINNER_FRAMES.length);
+    }, 80);
+    return () => clearInterval(timer);
+  }, []);
+  return SPINNER_FRAMES[frame];
+}
+
+function LoadingShell({
+  state,
+  onCancel,
+}: {
+  state: LoadingShellState;
+  onCancel?: () => void;
+}) {
+  const spinner = useSpinner();
+  const { stdout } = useStdout();
+
+  useInput((_input, key) => {
+    if (key.escape && state.cancellable && onCancel) {
+      onCancel();
+    }
+  });
+
+  const operationLabels: Record<LoadingShellState["operation"], string> = {
+    searching: "Searching",
+    scraping: "Scraping",
+    resolving: "Resolving stream",
+    loading: "Loading",
+  };
+
+  return (
+    <Box flexDirection="column" paddingX={2} paddingY={1}>
+      <Box>
+        <Text color={palette.cyan}>{spinner} </Text>
+        <Text bold color="white">
+          {state.title}
+        </Text>
+      </Box>
+      {state.subtitle && (
+        <Box marginTop={1}>
+          <Text color={palette.muted}>{state.subtitle}</Text>
+        </Box>
+      )}
+      <Box marginTop={1}>
+        <Text color={palette.amber}>{operationLabels[state.operation]}...</Text>
+        {state.details && <Text color={palette.gray}> {state.details}</Text>}
+      </Box>
+      {state.progress !== undefined && (
+        <Box marginTop={1}>
+          <Box
+            width={Math.min(40, stdout.columns - 4)}
+            borderStyle="round"
+            borderColor={palette.cyan}
+            paddingX={1}
+          >
+            <Text>
+              {"█".repeat(Math.floor(state.progress / 2.5))}
+              {"░".repeat(40 - Math.floor(state.progress / 2.5))}
+            </Text>
+            <Text color={palette.cyan}> {Math.round(state.progress)}%</Text>
+          </Box>
+        </Box>
+      )}
+      {state.cancellable && (
+        <Box marginTop={1}>
+          <Text color={palette.gray}>Press Esc to cancel</Text>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+export function openLoadingShell({
+  state,
+  cancellable = false,
+}: {
+  state: LoadingShellState;
+  cancellable?: boolean;
+}): Promise<"done" | "cancelled"> {
+  if (process.stdin.isTTY) process.stdin.ref();
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value: "done" | "cancelled") => {
+      if (settled) return;
+      settled = true;
+      ink.unmount();
+      resolve(value);
+    };
+
+    const ink = render(
+      <LoadingShell
+        state={state}
+        onCancel={cancellable ? () => finish("cancelled") : undefined}
+      />,
+    );
+
+    ink.waitUntilExit().then(() => {
+      if (!settled) finish("done");
+    });
+  });
 }
 
 export function openSearchShell({
