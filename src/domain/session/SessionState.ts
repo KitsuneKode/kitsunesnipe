@@ -50,6 +50,7 @@ export type ModalState =
 // State transitions
 export type StateTransition =
   | { type: "SET_MODE"; mode: ShellMode; provider: string }
+  | { type: "SET_PROVIDER"; provider: string }
   | { type: "SET_SEARCH_QUERY"; query: string }
   | { type: "SET_SEARCH_RESULTS"; results: import("../types").SearchResult[] }
   | { type: "SET_SEARCH_STATE"; state: "idle" | "loading" | "ready" | "error" }
@@ -98,6 +99,9 @@ export function reduceState(
         mode: transition.mode,
         provider: transition.provider,
       };
+
+    case "SET_PROVIDER":
+      return { ...state, provider: transition.provider };
 
     case "SET_SEARCH_QUERY":
       return {

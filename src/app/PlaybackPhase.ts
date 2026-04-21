@@ -270,6 +270,30 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             },
           });
           continue;
+        } else if (postAction === "provider") {
+          // Switch provider but continue with same episode
+          const { openListShell } = await import("../app-shell/ink-shell");
+          const providers = providerRegistry.getCompatible(title);
+          const selected = await openListShell({
+            title: "Switch Provider",
+            subtitle: `${providers.length} available`,
+            options: providers.map((p) => ({
+              value: p.metadata.id,
+              label: p.metadata.name,
+              detail:
+                stateManager.getState().mode === "anime"
+                  ? "Anime provider"
+                  : "General provider",
+            })),
+          });
+          if (selected) {
+            stateManager.dispatch({
+              type: "SET_PROVIDER",
+              provider: selected,
+            });
+            continue; // Retry with new provider
+          }
+          continue;
         } else {
           // Any other action goes back to search
           return { status: "success", value: "back_to_search" };
