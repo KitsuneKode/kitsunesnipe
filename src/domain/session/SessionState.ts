@@ -7,29 +7,36 @@
 import type { TitleInfo, EpisodeInfo, StreamInfo } from "../types";
 
 export type ShellMode = "series" | "anime";
-export type PlaybackStatus = "idle" | "loading" | "playing" | "paused" | "finished" | "error";
+export type PlaybackStatus =
+  | "idle"
+  | "loading"
+  | "ready"
+  | "playing"
+  | "paused"
+  | "finished"
+  | "error";
 
 export interface SessionState {
   // Mode and context
   readonly mode: ShellMode;
   readonly provider: string;
   readonly subLang: string;
-  
+
   // Selected content
   readonly currentTitle: TitleInfo | null;
   readonly currentEpisode: EpisodeInfo | null;
-  
+
   // Playback state
   readonly stream: StreamInfo | null;
   readonly playbackStatus: PlaybackStatus;
   readonly playbackError: string | null;
-  
+
   // Search UI state (ephemeral)
   readonly searchQuery: string;
   readonly searchResults: import("../types").SearchResult[];
   readonly searchState: "idle" | "loading" | "ready" | "error";
   readonly selectedResultIndex: number;
-  
+
   // Modal stack (ephemeral)
   readonly activeModals: ModalState[];
 }
@@ -58,7 +65,10 @@ export type StateTransition =
   | { type: "RESET_SEARCH" };
 
 // Initial state factory
-export function createInitialState(defaultProvider: string, defaultAnimeProvider: string): SessionState {
+export function createInitialState(
+  defaultProvider: string,
+  defaultAnimeProvider: string,
+): SessionState {
   return {
     mode: "series",
     provider: defaultProvider,
@@ -77,7 +87,10 @@ export function createInitialState(defaultProvider: string, defaultAnimeProvider
 }
 
 // State reducer (pure function)
-export function reduceState(state: SessionState, transition: StateTransition): SessionState {
+export function reduceState(
+  state: SessionState,
+  transition: StateTransition,
+): SessionState {
   switch (transition.type) {
     case "SET_MODE":
       return {
@@ -85,14 +98,14 @@ export function reduceState(state: SessionState, transition: StateTransition): S
         mode: transition.mode,
         provider: transition.provider,
       };
-    
+
     case "SET_SEARCH_QUERY":
       return {
         ...state,
         searchQuery: transition.query,
         searchState: transition.query.length < 2 ? "idle" : "loading",
       };
-    
+
     case "SET_SEARCH_RESULTS":
       return {
         ...state,
@@ -100,13 +113,13 @@ export function reduceState(state: SessionState, transition: StateTransition): S
         searchState: "ready",
         selectedResultIndex: 0,
       };
-    
+
     case "SET_SEARCH_STATE":
       return { ...state, searchState: transition.state };
-    
+
     case "SELECT_RESULT":
       return { ...state, selectedResultIndex: transition.index };
-    
+
     case "SELECT_TITLE":
       return {
         ...state,
@@ -115,29 +128,32 @@ export function reduceState(state: SessionState, transition: StateTransition): S
         stream: null,
         playbackStatus: "idle",
       };
-    
+
     case "SELECT_EPISODE":
       return { ...state, currentEpisode: transition.episode };
-    
+
     case "SET_STREAM":
       return { ...state, stream: transition.stream };
-    
+
     case "SET_PLAYBACK_STATUS":
       return {
         ...state,
         playbackStatus: transition.status,
         playbackError: transition.error ?? null,
       };
-    
+
     case "PUSH_MODAL":
-      return { ...state, activeModals: [...state.activeModals, transition.modal] };
-    
+      return {
+        ...state,
+        activeModals: [...state.activeModals, transition.modal],
+      };
+
     case "POP_MODAL":
       return { ...state, activeModals: state.activeModals.slice(0, -1) };
-    
+
     case "CLOSE_ALL_MODALS":
       return { ...state, activeModals: [] };
-    
+
     case "RESET_CONTENT":
       return {
         ...state,
@@ -147,7 +163,7 @@ export function reduceState(state: SessionState, transition: StateTransition): S
         playbackStatus: "idle",
         playbackError: null,
       };
-    
+
     case "RESET_SEARCH":
       return {
         ...state,
@@ -156,7 +172,7 @@ export function reduceState(state: SessionState, transition: StateTransition): S
         searchState: "idle",
         selectedResultIndex: 0,
       };
-    
+
     default:
       return state;
   }
