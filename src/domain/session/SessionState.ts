@@ -105,6 +105,7 @@ export interface SessionState {
 
 export type StateTransition =
   | { type: "SET_MODE"; mode: ShellMode; provider: string }
+  | { type: "SET_DEFAULT_PROVIDER"; mode: ShellMode; provider: string }
   | { type: "SET_VIEW"; view: ShellView }
   | { type: "SET_PROVIDER"; provider: string }
   | { type: "SET_SUB_LANG"; subLang: string }
@@ -194,6 +195,15 @@ export function reduceState(state: SessionState, transition: StateTransition): S
         ...state,
         mode: transition.mode,
         provider: transition.provider,
+      };
+
+    case "SET_DEFAULT_PROVIDER":
+      return {
+        ...state,
+        defaultProviders: {
+          ...state.defaultProviders,
+          [transition.mode]: transition.provider,
+        },
       };
 
     case "SET_VIEW":

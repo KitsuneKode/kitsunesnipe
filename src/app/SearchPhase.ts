@@ -10,6 +10,7 @@ import type { TitleInfo } from "../domain/types";
 import { searchTitles } from "./search-routing";
 import { resolveCommands } from "../app-shell/commands";
 import { openBrowseShell } from "../app-shell/ink-shell";
+import { handleShellAction } from "../app-shell/workflows";
 
 export class SearchPhase implements Phase<void, TitleInfo> {
   name = "search";
@@ -104,7 +105,21 @@ export class SearchPhase implements Phase<void, TitleInfo> {
           }
 
           if (outcome.action === "settings") {
-            logger.info("Settings - not implemented");
+            await handleShellAction({
+              action: "settings",
+              container,
+            });
+            continue;
+          }
+
+          const actionResult = await handleShellAction({
+            action: outcome.action,
+            container,
+          });
+          if (actionResult === "quit") {
+            return { status: "cancelled" };
+          }
+          if (actionResult === "handled") {
             continue;
           }
 

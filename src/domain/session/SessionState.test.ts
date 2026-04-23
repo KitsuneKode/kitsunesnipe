@@ -24,6 +24,20 @@ describe("SessionState overlays", () => {
     state = reduceState(state, { type: "CLOSE_TOP_OVERLAY" });
     expect(state.activeModals).toHaveLength(0);
   });
+
+  test("updates default providers without mutating the current provider directly", () => {
+    let state = createInitialState("vidking", "allanime");
+
+    state = reduceState(state, {
+      type: "SET_DEFAULT_PROVIDER",
+      mode: "anime",
+      provider: "anivibe",
+    });
+
+    expect(state.defaultProviders.series).toBe("vidking");
+    expect(state.defaultProviders.anime).toBe("anivibe");
+    expect(state.provider).toBe("vidking");
+  });
 });
 
 describe("SessionState responsive layout", () => {

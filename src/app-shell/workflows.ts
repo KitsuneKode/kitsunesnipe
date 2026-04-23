@@ -1,15 +1,11 @@
-import {
-  clearAllHistory,
-  clearEntry,
-  getAllHistory,
-  isFinished,
-  formatTimestamp,
-  type HistoryEntry,
-} from "@/history";
-import { saveConfig, type KitsuneConfig } from "@/config";
+import { clearAllHistory, clearEntry, getAllHistory, isFinished, formatTimestamp } from "@/history";
+import type { KitsuneConfig } from "@/config";
 import { ANIME_PROVIDERS, PLAYWRIGHT_PROVIDERS } from "@/providers";
 import { fetchEpisodes, fetchSeasons, type EpisodeInfo } from "@/tmdb";
 import type { EpisodePickerOption } from "@/domain/types";
+import type { Container } from "@/container";
+import type { HistoryEntry } from "@/services/persistence/HistoryStore";
+import type { ShellAction } from "./types";
 
 import { openListShell } from "./ink-shell";
 
@@ -164,6 +160,207 @@ async function openHistoryShell(): Promise<void> {
   }
 }
 
+async function openStaticInfoShell({
+  title,
+  subtitle,
+  lines,
+}: {
+  title: string;
+  subtitle: string;
+  lines: readonly { label: string; detail?: string }[];
+}): Promise<void> {
+  await chooseOption({
+    title,
+    subtitle,
+    options: [
+      ...lines.map((line, index) => ({
+        value: index,
+        label: line.label,
+        detail: line.detail,
+      })),
+      { value: -1, label: "Back" },
+    ],
+  });
+}
+
+export async function handleShellAction({
+  action,
+  container,
+}: {
+  action: ShellAction;
+  container: Container;
+}): Promise<"handled" | "quit" | "unhandled"> {
+  const { stateManager, config } = container;
+
+  const withOverlay = async <T>(
+    overlay: import("@/domain/session/SessionState").OverlayState,
+    run: () => Promise<T>,
+  ): Promise<T> => {
+    stateManager.dispatch({ type: "OPEN_OVERLAY", overlay });
+    try {
+      return await run();
+    } finally {
+      stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
+    }
+  };
+
+  if (action === "quit") {
+    return "quit";
+  }
+
+  if (action === "history") {
+    await withOverlay({ type: "history" }, () => openHistoryShell());
+    return "handled";
+  }
+
+  if (action === "help") {
+    await withOverlay({ type: "help" }, () =>
+      openStaticInfoShell({
+        title: "Help",
+        subtitle: "Global commands and keyboard flow",
+        lines: [
+          {
+            label: "/ Command bar",
+            detail: "Open global actions from anywhere inside the shell.",
+          },
+          {
+            label: "Esc Clear or close",
+            detail: "Clear the current transient state first, then close the top overlay.",
+          },
+          {
+            label: "Enter Search or confirm",
+            detail: "Searches when the query changed, otherwise confirms the selected item.",
+          },
+          {
+            label: "↑↓ Navigate",
+            detail: "Move through visible results, episodes, and picker rows.",
+          },
+        ],
+      }),
+    );
+    return "handled";
+  }
+
+  if (action === "about") {
+    await withOverlay({ type: "about" }, () =>
+      openStaticInfoShell({
+        title: "About",
+        subtitle: "KitsuneSnipe beta",
+        lines: [
+          {
+            label: "Version",
+            detail: "v0.1.0-beta.0",
+          },
+          {
+            label: "Runtime",
+            detail: `Bun ${Bun.version}  ·  Node ${process.versions.node}`,
+          },
+          {
+            label: "Current mode",
+            detail: `${stateManager.getState().mode}  ·  Provider ${stateManager.getState().provider}`,
+          },
+          {
+            label: "Privacy",
+            detail: "Diagnostics stay local unless you explicitly export or share them.",
+          },
+        ],
+      }),
+    );
+    return "handled";
+  }
+
+  if (action === "diagnostics") {
+    const state = stateManager.getState();
+    await withOverlay({ type: "diagnostics" }, () =>
+      openStaticInfoShell({
+        title: "Diagnostics",
+        subtitle: "Current shell state snapshot",
+        lines: [
+          {
+            label: "Mode and provider",
+            detail: `${state.mode}  ·  ${state.provider}`,
+          },
+          {
+            label: "View and playback",
+            detail: `${state.view}  ·  ${state.playbackStatus}`,
+          },
+          {
+            label: "Search state",
+            detail: `${state.searchState}  ·  ${state.searchResults.length} results`,
+          },
+          {
+            label: "Memory",
+            detail: `RSS ${(process.memoryUsage().rss / 1_048_576).toFixed(1)} MB`,
+          },
+        ],
+      }),
+    );
+    return "handled";
+  }
+
+  if (action === "provider") {
+    const state = stateManager.getState();
+    const picked = await withOverlay(
+      {
+        type: "provider_picker",
+        currentProvider: state.provider,
+        isAnime: state.mode === "anime",
+      },
+      () =>
+        openProviderPicker({
+          currentProvider: state.provider,
+          isAnime: state.mode === "anime",
+        }),
+    );
+
+    if (picked && picked !== state.provider) {
+      stateManager.dispatch({
+        type: "SET_PROVIDER",
+        provider: picked,
+      });
+    }
+    return "handled";
+  }
+
+  if (action === "settings") {
+    const current = config.getRaw();
+    const next = await withOverlay({ type: "settings" }, () => openSettingsShell(current));
+
+    if (next) {
+      await config.update(next);
+      await config.save();
+
+      const state = stateManager.getState();
+      stateManager.dispatch({
+        type: "SET_DEFAULT_PROVIDER",
+        mode: "series",
+        provider: next.provider,
+      });
+      stateManager.dispatch({
+        type: "SET_DEFAULT_PROVIDER",
+        mode: "anime",
+        provider: next.animeProvider,
+      });
+      stateManager.dispatch({ type: "SET_SUB_LANG", subLang: next.subLang });
+      stateManager.dispatch({ type: "SET_ANIME_LANG", animeLang: next.animeLang });
+
+      const currentProvider =
+        state.mode === "anime" ? state.defaultProviders.anime : state.defaultProviders.series;
+      const nextDefault = state.mode === "anime" ? next.animeProvider : next.provider;
+      if (state.provider === currentProvider && state.provider !== nextDefault) {
+        stateManager.dispatch({
+          type: "SET_PROVIDER",
+          provider: nextDefault,
+        });
+      }
+    }
+
+    return "handled";
+  }
+
+  return "unhandled";
+}
+
 export async function openProviderPicker({
   currentProvider,
   isAnime,
@@ -245,10 +442,7 @@ export async function openAnimeEpisodeListPicker(
     subtitle: `${episodes.length} episodes available`,
     options: episodes.map((episode) => ({
       value: episode.index,
-      label:
-        episode.index === currentEpisode
-          ? `${episode.label}  ·  current`
-          : episode.label,
+      label: episode.index === currentEpisode ? `${episode.label}  ·  current` : episode.label,
       detail: episode.detail,
     })),
   });
@@ -312,11 +506,7 @@ export async function openSettingsShell(current: KitsuneConfig): Promise<Kitsune
     });
 
     if (!action || action === "done") {
-      if (changed) {
-        await saveConfig(next);
-        return next;
-      }
-      return null;
+      return changed ? next : null;
     }
 
     if (action === "history") {

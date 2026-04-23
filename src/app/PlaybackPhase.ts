@@ -13,6 +13,7 @@ import type {
   StreamInfo,
   PlaybackResult,
 } from "../domain/types";
+import { handleShellAction } from "../app-shell/workflows";
 
 export type PlaybackOutcome = "back_to_search" | "mode_switch" | "quit";
 
@@ -222,6 +223,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             "settings",
             "toggle-mode",
             "provider",
+            "history",
             "replay",
             "pick-episode",
             "next",
@@ -299,25 +301,21 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           });
           continue;
         } else if (postAction === "provider") {
-          // Switch provider but continue with same episode
-          const { openListShell } = await import("../app-shell/ink-shell");
-          const providers = providerRegistry.getCompatible(title);
-          const selected = await openListShell({
-            title: "Switch Provider",
-            subtitle: `${providers.length} available`,
-            options: providers.map((p) => ({
-              value: p.metadata.id,
-              label: p.metadata.name,
-              detail:
-                stateManager.getState().mode === "anime" ? "Anime provider" : "General provider",
-            })),
+          await handleShellAction({ action: "provider", container });
+          continue;
+        } else if (
+          postAction === "settings" ||
+          postAction === "history" ||
+          postAction === "diagnostics" ||
+          postAction === "help" ||
+          postAction === "about"
+        ) {
+          const actionResult = await handleShellAction({
+            action: postAction,
+            container,
           });
-          if (selected) {
-            stateManager.dispatch({
-              type: "SET_PROVIDER",
-              provider: selected,
-            });
-            continue; // Retry with new provider
+          if (actionResult === "quit") {
+            return { status: "cancelled" };
           }
           continue;
         } else {
