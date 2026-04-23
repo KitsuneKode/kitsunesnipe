@@ -26,6 +26,8 @@
 
 - [ ] **Search service deep refactor** — promote HiAnime to standalone `SearchService`, decouple from CinebyAnime provider. See `.plans/search-service.md`.
 
+- [ ] **Provider hardening** — dossier-first research flow, multi-source inventory, subtitle/quality/dub modeling, and stronger diagnostics. See `.plans/provider-hardening.md`.
+
 ## Housekeeping
 
 - [ ] License file + CI workflow (Task #6)

@@ -50,14 +50,14 @@ async function main(): Promise<void> {
 
   // Bootstrap the DI container
   if (!args.debug) {
-    console.log("🦊 Starting KitsuneSnipe...");
+    console.log("🦊 Starting KitsuneSnipe beta...");
   }
   const container = await createContainer({ debug: args.debug });
   const { logger, config, stateManager } = container;
 
   if (args.debug) {
     logger.info("KitsuneSnipe started", {
-      version: "2.0.0",
+      version: "2.0.0-beta",
       mode: args.anime ? "anime" : "series",
       provider: args.anime ? config.animeProvider : config.provider,
     });

@@ -1,6 +1,6 @@
 {
   "name": "kitsune-snipe",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.0",
   "description": "Terminal-first CLI streaming engine that intercepts playable streams with Playwright and launches mpv.",
   "keywords": [
     "anime",

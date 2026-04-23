@@ -269,7 +269,7 @@ function startPrefetch() {
 // 5. MAIN
 // =============================================================================
 (async () => {
-  intro(`${bold("KitsuneSnipe")} 🦊`);
+  intro(`${bold("KitsuneSnipe beta")} 🦊`);
 
   // ── Debug ─────────────────────────────────────────────────────────────────
   const debugEnabled = !!values.debug || process.env.KITSUNE_DEBUG === "1";

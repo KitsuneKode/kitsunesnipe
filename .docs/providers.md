@@ -2,6 +2,10 @@
 
 Use this doc when adding a provider, changing provider capabilities, or debugging stream resolution. It should explain the current contracts clearly without over-prescribing implementation style.
 
+For new providers and major provider rewrites, start with the intake workflow in [.docs/provider-intake.md](./provider-intake.md) before writing scraper code. Provider work should produce a dossier first when the shape of the site is not already well understood.
+
+For concrete example patterns and demo provider shapes, use [.docs/provider-examples.md](./provider-examples.md).
+
 ## Provider Types
 
 ### `PlaywrightProvider`
@@ -41,6 +45,19 @@ interface ApiProvider extends BaseProvider {
 - Add the implementation under `src/providers/`
 - Register it in `src/providers/index.ts`
 - Treat `src/providers/index.ts` as the source of truth for available providers
+
+## Workflow Reminder
+
+Provider implementation is not the same thing as provider research.
+
+Use:
+
+- [.docs/provider-intake.md](./provider-intake.md) for the dossier-first research flow
+- [.docs/provider-agent-workflow.md](./provider-agent-workflow.md) for repo-local agent instructions
+- [.docs/provider-examples.md](./provider-examples.md) for concrete implementation patterns
+- [.plans/provider-hardening.md](../.plans/provider-hardening.md) for the broader hardening roadmap
+
+When the site behavior is unclear, gather evidence first and keep knowns vs unknowns separate.
 
 ## Design Guidance
 
@@ -106,6 +123,26 @@ export const MyAnime = createAnimeProvider({
   isAnimeProvider: true,
 });
 ```
+
+## AllAnime / AllManga Parity Policy
+
+- `src/providers/anime-base.ts` should stay aligned with ani-cli behavior unless KitsuneSnipe deliberately chooses a different contract
+- when AllAnime or AllManga breaks, compare against ani-cli before guessing at a fix
+- on this machine, the canonical local ani-cli checkout is `~/Projects/osc/ani-cli`
+- if ani-cli is also broken upstream, KitsuneSnipe may carry a temporary local fix, but that divergence should be documented and easy to remove when parity can be restored
+- when fixing this family of providers, check:
+  - search GraphQL query shape
+  - episode list query shape
+  - `tobeparsed` decoding behavior
+  - source-name inventory and ranking
+  - downstream link extraction from decoded source URLs
+
+Recommended workflow:
+
+1. compare behavior with the local ani-cli checkout
+2. identify whether the break is shared upstream or KitsuneSnipe-specific
+3. if shared upstream, implement the smallest temporary local fix needed here
+4. document the divergence and what should be removed once upstream parity is restored
 
 ## Capability Flags
 
