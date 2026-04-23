@@ -5,6 +5,11 @@ export type ShellAction =
   | "settings"
   | "toggle-mode"
   | "quit"
+  | "history"
+  | "diagnostics"
+  | "help"
+  | "about"
+  | "image-pane"
   | "replay"
   | "next"
   | "previous"
@@ -63,6 +68,11 @@ export function toShellAction(commandId: AppCommandId): ShellAction {
     case "settings":
     case "toggle-mode":
     case "quit":
+    case "history":
+    case "diagnostics":
+    case "help":
+    case "about":
+    case "image-pane":
     case "provider":
     case "replay":
     case "next":

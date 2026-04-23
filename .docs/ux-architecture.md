@@ -19,7 +19,8 @@ KitsuneSnipe should behave like a terminal app shell, not a sequence of unrelate
 
 - header for current context and status
 - content area for the active workflow
-- footer for contextual hotkeys
+- footer for stable core actions plus contextual hotkeys
+- compact status strip for user-critical runtime state
 - command bar for global actions
 - overlays for secondary flows
 
@@ -28,12 +29,16 @@ KitsuneSnipe should behave like a terminal app shell, not a sequence of unrelate
 - `/` is the global entry point for actions
 - common operations should have short command aliases
 - commands should be discoverable rather than hidden
+- command ownership should live in one global router, not in each component independently
 
 ### Hotkey philosophy
 
+- `Ctrl+C`, `/`, `Esc`, and `?` are always-global
 - hotkeys are contextual, not globally modeful
 - use direct keys for high-frequency actions only
 - do not hijack normal text-entry behavior
+- if text input is focused, normal typing wins except for `Ctrl+C`, `/`, and `Esc`
+- prefer explicit leader mode over hidden timed key chords
 - if an action is unavailable, show why instead of silently ignoring the input
 
 ## Selection Over Freeform Input
@@ -64,6 +69,13 @@ Preferred overlay or panel flows:
 
 These should feel like parts of the same application, not separate tools launched from the side.
 
+Overlay behavior should stay disciplined:
+
+- one primary overlay at a time
+- one child picker or confirmation above it when needed
+- `Esc` closes only the top overlay
+- unrelated deep overlay chains are a smell
+
 ## Validation And Reliability
 
 - UI actions should dispatch validated commands
@@ -71,6 +83,50 @@ These should feel like parts of the same application, not separate tools launche
 - disabled states should be explicit
 - recoverable failures should offer direct next steps
 - diagnostics should be accessible to users, not hidden behind debug-only knowledge
+- first-run dependency issues should surface inside the shell before escalating to a dedicated setup overlay
+
+## Settings Behavior
+
+- prefer staged edits with `Save` and `Cancel`
+- label settings by effect timing:
+  - immediate
+  - next playback
+  - requires re-resolve
+- avoid restart-required settings unless there is no safer option
+- recovery behavior should be configurable through explicit user-facing patterns rather than buried in hardcoded fallback logic
+
+Recommended recovery-pattern values:
+
+- `guided`
+- `fallback-first`
+- `manual`
+
+## Status Density
+
+Show compact always-visible state for:
+
+- provider
+- mode
+- current title and episode
+- subtitle state
+- resolve state
+- memory RSS
+
+Keep deeper detail in a diagnostics overlay:
+
+- cache / prefetch / fresh scrape / API path
+- subtitle source and selected track
+- scrape timing
+- retry and fallback history
+- capability state for `mpv`, Playwright, and image backends
+
+## Setup Guardrails
+
+- auto-detect missing dependencies
+- never silently install system dependencies
+- prefer an inline blocker card first
+- open a setup overlay only when the user asks for detail or installation
+- support `Install`, `Skip`, and `Don’t ask again`
 
 ## Visual And Motion Rules
 
@@ -78,6 +134,7 @@ These should feel like parts of the same application, not separate tools launche
 - use subtle transitions for overlays, loaders, and status changes
 - keep motion interruptible and cheap
 - treat Kitty graphics and `chafa` as enhancements, not assumptions
+- load posters lazily and never block interaction for them
 - preserve a strong plain-text fallback path
 
 ## Anti-Patterns

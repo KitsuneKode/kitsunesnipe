@@ -44,13 +44,15 @@ export function hexDecode(encoded: string): string {
 
 // ── AES-256-CTR decryption (ani-cli decode_tobeparsed) ───────────────────────
 //
-// ani-cli: IV = first 12 bytes of base64 payload, counter = IV + "00000002"
-//          key = SHA-256 of the allanime_key constant.
+// ani-cli: current blob layout = 1-byte version prefix + 12-byte IV +
+// encrypted body + 16-byte footer/tag.
+// AES-CTR counter remains IV + "00000002", but only the encrypted body is
+// decrypted; the footer bytes must not be fed into the cipher.
 //
 // This handles the "tobeparsed" field that the API returns for some episodes
 // instead of the normal sourceUrls array.
 
-const ALLANIME_KEY_RAW = "SimtVuagFbGR2K7P";
+const ALLANIME_KEY_RAW = "Xot36i3lK3:v1";
 
 async function deriveKey(): Promise<CryptoKey> {
   const keyBytes  = new TextEncoder().encode(ALLANIME_KEY_RAW);
@@ -63,8 +65,8 @@ export async function decodeTobeparsed(
 ): Promise<Array<{ sourceName: string; sourceUrl: string }>> {
   try {
     const raw  = Uint8Array.from(atob(blob), (c) => c.charCodeAt(0));
-    const iv   = raw.slice(0, 12);
-    const data = raw.slice(12);
+    const iv   = raw.slice(1, 13);
+    const data = raw.slice(13, Math.max(13, raw.length - 16));
 
     // AES-CTR counter: IV bytes + 32-bit counter = 2
     const ctr = new Uint8Array(16);

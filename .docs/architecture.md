@@ -1,6 +1,19 @@
-# KitsuneSnipe — Architecture
+# KitsuneSnipe — Runtime Architecture
 
-Use this doc when changing flow control, playback lifecycle, provider orchestration, persistence, or any code that affects recovery behavior. It exists to explain why the shape is the way it is, not to script every implementation choice.
+Use this doc first when changing flow control, playback lifecycle, provider orchestration, persistence, or any code that affects recovery behavior.
+
+This is the canonical architecture entry doc. It explains:
+
+- the current production runtime shape
+- the boundaries that already exist and should not be broken casually
+- where to read next depending on whether you are fixing current behavior or implementing the persistent-shell target
+
+Read next:
+
+- current runtime and invariants: this file
+- target runtime direction: [.docs/architecture-v2.md](./architecture-v2.md)
+- shell and interaction model: [.docs/ux-architecture.md](./ux-architecture.md)
+- implementation sequencing: [.plans/persistent-shell-implementation.md](../.plans/persistent-shell-implementation.md)
 
 ## System Shape
 
@@ -15,6 +28,24 @@ KitsuneSnipe is a terminal CLI that:
 ```text
 user input -> Ink shell -> picker -> provider resolve -> Playwright/API stream capture -> mpv -> shell
 ```
+
+## Current vs Target
+
+There are currently two architectural truths that must be kept distinct:
+
+- `index.ts` is still the live legacy runtime path for the current CLI loop
+- `src/main.ts` is the target entrypoint for the persistent-shell architecture
+
+Do not mix these mentally.
+
+When fixing current behavior:
+
+- preserve the existing nested-loop guarantees unless the task explicitly includes migration work
+
+When implementing the new shell:
+
+- treat `src/main.ts` and the v2 docs as the target source of truth
+- reduce `index.ts` toward shim or legacy status instead of evolving both paths in parallel
 
 ## Control Flow
 
@@ -39,6 +70,8 @@ This split is intentional because it preserves a clean boundary between search s
 - `[a]` breaks the inner loop so anime/series mode can switch without restarting the process
 - CLI bootstrap flags apply on the first outer-loop pass only
 
+This remains the current runtime contract until the persistent-shell migration completes.
+
 ## Runtime Modules
 
 | Area                  | Files                                             | Responsibility                                                             |
@@ -52,6 +85,8 @@ This split is intentional because it preserves a clean boundary between search s
 | Providers             | `src/providers/*`                                 | Stream-source-specific resolution logic                                    |
 | Terminal UI           | `src/design.ts`, `src/menu.ts`, `src/image.ts`    | Shared styling tokens, ANSI helpers, posters                               |
 | Observability         | `src/logger.ts`                                   | Structured debug logs                                                      |
+
+If your change is broad enough to blur these module boundaries, stop and check whether the work belongs in the v2 migration path instead.
 
 ## Provider Model
 
@@ -67,6 +102,12 @@ There are two provider families:
 - `ANIME_PROVIDERS`
 
 Use [.docs/providers.md](.docs/providers.md) for provider-specific details.
+
+For new providers or major provider hardening, do not jump straight from this doc into code. Use:
+
+- [.docs/provider-intake.md](./provider-intake.md)
+- [.docs/provider-agent-workflow.md](./provider-agent-workflow.md)
+- [.docs/provider-examples.md](./provider-examples.md)
 
 ## Why Key Decisions Exist
 
@@ -135,6 +176,16 @@ Observability matters here too: failures around stream resolution, cache reuse, 
 | Debug logs         | `./logs.txt`                               | `src/logger.ts`  |
 
 Known caveat: the stream cache TTL is longer than some upstream token lifetimes, especially AllAnime-backed URLs.
+
+## Migration Guidance
+
+If you are touching architecture during the persistent-shell rewrite, follow this rule:
+
+- this file describes the current runtime
+- `architecture-v2.md` describes the target runtime
+- the implementation plan decides the order of migration
+
+Do not silently update one without checking whether the others should also move.
 
 ## External Services
 

@@ -72,6 +72,8 @@ const palette = {
   muted: "#a6acb9",
 };
 
+const APP_LABEL = "KitsuneSnipe beta";
+
 function statusColor(tone: ShellStatus["tone"] = "neutral"): string {
   switch (tone) {
     case "success":
@@ -363,7 +365,7 @@ function HomeShell({
 
   return (
     <ShellFrame
-      eyebrow="KitsuneSnipe"
+      eyebrow={APP_LABEL}
       title="Fast stream search without prompt spaghetti"
       subtitle={`Mode ${state.mode}  ·  Provider ${state.provider}  ·  Subs ${
         state.subtitle
@@ -442,7 +444,7 @@ function PlaybackShell({
 
   return (
     <ShellFrame
-      eyebrow="KitsuneSnipe"
+      eyebrow={APP_LABEL}
       title={state.title}
       subtitle={`${location}  ·  Provider ${state.provider}  ·  Mode ${state.mode}`}
       status={state.status}
@@ -499,7 +501,7 @@ function SearchShell({
   return (
     <Box flexDirection="column" paddingX={1}>
       <Box borderStyle="round" borderColor={palette.gray} flexDirection="column" paddingX={1}>
-        <Text color={palette.amber}>KitsuneSnipe</Text>
+        <Text color={palette.amber}>{APP_LABEL}</Text>
         <Box marginTop={1}>
           <Text bold color="white">
             {mode === "anime" ? "Search anime" : "Search titles"}
@@ -809,7 +811,7 @@ function ListShell<T>({
         paddingX={1}
         paddingY={0}
       >
-        <Text color={palette.amber}>KitsuneSnipe</Text>
+        <Text color={palette.amber}>{APP_LABEL}</Text>
         <Box marginTop={1}>
           <Text bold color="white">
             {confirmed ? "✓ Selected" : title}

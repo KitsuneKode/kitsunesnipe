@@ -1,8 +1,24 @@
-# KitsuneSnipe Architecture v2 (Refactored)
+# KitsuneSnipe Architecture v2 (Target Runtime)
 
 ## Overview
 
-This document describes the refactored architecture. For the legacy architecture, see `architecture.md`.
+This document describes the target runtime architecture for the persistent-shell migration.
+
+Use:
+
+- [.docs/architecture.md](./architecture.md) for the current runtime and existing invariants
+- this file for the target runtime direction
+- [.plans/persistent-shell-implementation.md](../.plans/persistent-shell-implementation.md) for migration order
+
+## Runtime Direction
+
+The target runtime shape is:
+
+- `src/main.ts` becomes the canonical entrypoint
+- `bin/kitsunesnipe.ts` stays a thin executable shim
+- the current root `index.ts` should be reduced to a migration shim and later moved under `legacy/`
+
+Until that cutover is complete, treat `index.ts` as the legacy runtime path and `src/main.ts` as the architectural target.
 
 ## Layer Structure
 
@@ -49,7 +65,7 @@ This document describes the refactored architecture. For the legacy architecture
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Phase 1: Foundation (Complete)
+## Target Foundation
 
 ### Created Files
 
@@ -89,7 +105,7 @@ This document describes the refactored architecture. For the legacy architecture
 
 - Fixed `openListShell` missing `waitUntilExit()` handler in `src/app-shell/ink-shell.tsx`
 
-## Next Phases
+## Migration Phases
 
 ### Phase 2: Domain Layer (In Progress)
 - Define concrete Provider implementations
@@ -148,3 +164,23 @@ export const PROVIDER_DEFINITIONS = [
 3. **Layer Boundaries**: Domain has no infrastructure dependencies
 4. **Registry Pattern**: Auto-discovery through definition arrays
 5. **Search-First UI**: Single persistent shell with modal overlays
+6. **Global Command Router**: hotkey enablement and command semantics should be owned centrally
+7. **Progressive Enhancement**: images, motion, and setup helpers should enhance the shell without becoming hard dependencies
+
+## Shell Architecture Direction
+
+The app shell should be persistent through the whole session:
+
+- a stable header for app and playback context
+- a compact status strip for user-critical state
+- a main content region for search, pickers, playback state, or history
+- a footer for stable core actions plus contextual actions
+- a global command bar
+- a shallow overlay stack for settings, diagnostics, provider switching, subtitle picking, and confirmations
+
+The shell should support:
+
+- lazy-loaded overlays
+- inline setup blockers for missing capabilities
+- diagnostics split between always-visible state and a deeper overlay
+- configurable recovery patterns instead of forever-hardcoded fallback behavior

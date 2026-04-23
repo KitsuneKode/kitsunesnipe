@@ -1,12 +1,38 @@
 // =============================================================================
 // Session State Types
 //
-// Immutable session state with explicit transitions.
+// This is the current app-state seam for the persistent-shell migration.
+// Keep it pure, explicit, and testable.
 // =============================================================================
 
-import type { TitleInfo, EpisodeInfo, StreamInfo } from "../types";
+import type {
+  EpisodeInfo,
+  SearchResult,
+  StreamInfo,
+  SubtitleTrack,
+  TitleInfo,
+} from "../types";
+import type { AppCommandId } from "./command-registry";
+import {
+  DEFAULT_LAYOUT_PREFERENCES,
+  DEFAULT_VIEWPORT,
+  deriveResponsiveLayout,
+  type ImagePreviewPreference,
+  type LayoutPreferences,
+  type ResponsiveLayoutState,
+  type ViewportSize,
+} from "./layout";
 
 export type ShellMode = "series" | "anime";
+export type ShellView =
+  | "home"
+  | "search"
+  | "results"
+  | "details"
+  | "episodes"
+  | "playback"
+  | "history"
+  | "diagnostics";
 export type PlaybackStatus =
   | "idle"
   | "loading"
@@ -15,67 +41,138 @@ export type PlaybackStatus =
   | "paused"
   | "finished"
   | "error";
+export type SearchStatus = "idle" | "loading" | "ready" | "error";
+
+export interface EpisodeNavigationState {
+  readonly hasPrevious: boolean;
+  readonly hasNext: boolean;
+  readonly hasNextSeason: boolean;
+  readonly previousLabel?: string;
+  readonly nextLabel?: string;
+  readonly nextSeasonLabel?: string;
+  readonly previousUnavailableReason?: string;
+  readonly nextUnavailableReason?: string;
+  readonly nextSeasonUnavailableReason?: string;
+}
+
+export interface CommandBarState {
+  readonly open: boolean;
+  readonly query: string;
+  readonly highlightedCommandId: AppCommandId | null;
+}
+
+export type OverlayState =
+  | { type: "settings" }
+  | { type: "provider_picker"; currentProvider: string; isAnime: boolean }
+  | { type: "subtitle_picker"; tracks: SubtitleTrack[] }
+  | { type: "season_picker"; seasonCount?: number }
+  | { type: "episode_picker"; season: number }
+  | { type: "history" }
+  | { type: "diagnostics" }
+  | { type: "help" }
+  | { type: "about" }
+  | { type: "setup"; missing: readonly string[] }
+  | { type: "confirm"; message: string; confirmLabel?: string };
+
+export type ModalState = OverlayState;
 
 export interface SessionState {
-  // Mode and context
   readonly mode: ShellMode;
+  readonly view: ShellView;
   readonly provider: string;
+  readonly defaultProviders: {
+    readonly series: string;
+    readonly anime: string;
+  };
   readonly subLang: string;
+  readonly animeLang: "sub" | "dub";
 
-  // Selected content
   readonly currentTitle: TitleInfo | null;
   readonly currentEpisode: EpisodeInfo | null;
+  readonly episodeNavigation: EpisodeNavigationState;
 
-  // Playback state
   readonly stream: StreamInfo | null;
   readonly playbackStatus: PlaybackStatus;
   readonly playbackError: string | null;
 
-  // Search UI state (ephemeral)
   readonly searchQuery: string;
-  readonly searchResults: import("../types").SearchResult[];
-  readonly searchState: "idle" | "loading" | "ready" | "error";
+  readonly searchResults: SearchResult[];
+  readonly searchState: SearchStatus;
   readonly selectedResultIndex: number;
+  readonly selectedResultId: string | null;
 
-  // Modal stack (ephemeral)
-  readonly activeModals: ModalState[];
+  readonly activeModals: OverlayState[];
+  readonly commandBar: CommandBarState;
+
+  readonly viewport: ViewportSize;
+  readonly layoutPreferences: LayoutPreferences;
+  readonly layout: ResponsiveLayoutState;
 }
 
-export type ModalState =
-  | { type: "settings" }
-  | { type: "provider_picker"; currentProvider: string; isAnime: boolean }
-  | { type: "subtitle_picker"; tracks: import("../types").SubtitleTrack[] }
-  | { type: "confirm"; message: string };
-
-// State transitions
 export type StateTransition =
   | { type: "SET_MODE"; mode: ShellMode; provider: string }
+  | { type: "SET_VIEW"; view: ShellView }
   | { type: "SET_PROVIDER"; provider: string }
+  | { type: "SET_SUB_LANG"; subLang: string }
+  | { type: "SET_ANIME_LANG"; animeLang: "sub" | "dub" }
   | { type: "SET_SEARCH_QUERY"; query: string }
-  | { type: "SET_SEARCH_RESULTS"; results: import("../types").SearchResult[] }
-  | { type: "SET_SEARCH_STATE"; state: "idle" | "loading" | "ready" | "error" }
+  | { type: "SET_SEARCH_RESULTS"; results: SearchResult[] }
+  | { type: "SET_SEARCH_STATE"; state: SearchStatus }
   | { type: "SELECT_RESULT"; index: number }
   | { type: "SELECT_TITLE"; title: TitleInfo }
   | { type: "SELECT_EPISODE"; episode: EpisodeInfo }
+  | {
+      type: "SET_EPISODE_NAVIGATION";
+      navigation: Partial<EpisodeNavigationState>;
+    }
   | { type: "SET_STREAM"; stream: StreamInfo | null }
   | { type: "SET_PLAYBACK_STATUS"; status: PlaybackStatus; error?: string }
-  | { type: "PUSH_MODAL"; modal: ModalState }
+  | { type: "OPEN_OVERLAY"; overlay: OverlayState }
+  | { type: "CLOSE_TOP_OVERLAY" }
+  | { type: "CLOSE_ALL_OVERLAYS" }
+  | { type: "PUSH_MODAL"; modal: OverlayState }
   | { type: "POP_MODAL" }
   | { type: "CLOSE_ALL_MODALS" }
+  | { type: "OPEN_COMMAND_BAR" }
+  | { type: "CLOSE_COMMAND_BAR" }
+  | { type: "SET_COMMAND_QUERY"; query: string }
+  | { type: "HIGHLIGHT_COMMAND"; commandId: AppCommandId | null }
+  | { type: "SET_TERMINAL_SIZE"; columns: number; rows: number }
+  | { type: "TOGGLE_COMPANION_PANE" }
+  | { type: "OPEN_DIAGNOSTICS_PANE" }
+  | { type: "CLOSE_DIAGNOSTICS_PANE" }
+  | { type: "SET_IMAGE_SUPPORT"; supported: boolean }
+  | {
+      type: "SET_IMAGE_PREVIEW_PREFERENCE";
+      preference: ImagePreviewPreference;
+    }
   | { type: "RESET_CONTENT" }
   | { type: "RESET_SEARCH" };
 
-// Initial state factory
+const DEFAULT_EPISODE_NAVIGATION: EpisodeNavigationState = {
+  hasPrevious: false,
+  hasNext: false,
+  hasNextSeason: false,
+};
+
 export function createInitialState(
   defaultProvider: string,
   defaultAnimeProvider: string,
 ): SessionState {
+  const layoutPreferences = DEFAULT_LAYOUT_PREFERENCES;
   return {
     mode: "series",
+    view: "home",
     provider: defaultProvider,
+    defaultProviders: {
+      series: defaultProvider,
+      anime: defaultAnimeProvider,
+    },
     subLang: "en",
+    animeLang: "sub",
     currentTitle: null,
     currentEpisode: null,
+    episodeNavigation: DEFAULT_EPISODE_NAVIGATION,
     stream: null,
     playbackStatus: "idle",
     playbackError: null,
@@ -83,11 +180,19 @@ export function createInitialState(
     searchResults: [],
     searchState: "idle",
     selectedResultIndex: 0,
+    selectedResultId: null,
     activeModals: [],
+    commandBar: {
+      open: false,
+      query: "",
+      highlightedCommandId: null,
+    },
+    viewport: DEFAULT_VIEWPORT,
+    layoutPreferences,
+    layout: deriveResponsiveLayout(DEFAULT_VIEWPORT, layoutPreferences),
   };
 }
 
-// State reducer (pure function)
 export function reduceState(
   state: SessionState,
   transition: StateTransition,
@@ -100,41 +205,86 @@ export function reduceState(
         provider: transition.provider,
       };
 
+    case "SET_VIEW":
+      return { ...state, view: transition.view };
+
     case "SET_PROVIDER":
       return { ...state, provider: transition.provider };
+
+    case "SET_SUB_LANG":
+      return { ...state, subLang: transition.subLang };
+
+    case "SET_ANIME_LANG":
+      return { ...state, animeLang: transition.animeLang };
 
     case "SET_SEARCH_QUERY":
       return {
         ...state,
+        view: "search",
         searchQuery: transition.query,
         searchState: transition.query.length < 2 ? "idle" : "loading",
       };
 
-    case "SET_SEARCH_RESULTS":
+    case "SET_SEARCH_RESULTS": {
+      const nextSelection = deriveSearchSelection(
+        transition.results,
+        state.selectedResultId,
+      );
       return {
         ...state,
+        view: transition.results.length > 0 ? "results" : "search",
         searchResults: transition.results,
         searchState: "ready",
-        selectedResultIndex: 0,
+        selectedResultIndex: nextSelection.index,
+        selectedResultId: nextSelection.id,
       };
+    }
 
     case "SET_SEARCH_STATE":
       return { ...state, searchState: transition.state };
 
-    case "SELECT_RESULT":
-      return { ...state, selectedResultIndex: transition.index };
+    case "SELECT_RESULT": {
+      if (state.searchResults.length === 0) {
+        return state;
+      }
+      const index = clamp(
+        transition.index,
+        0,
+        state.searchResults.length - 1,
+      );
+      return {
+        ...state,
+        selectedResultIndex: index,
+        selectedResultId: state.searchResults[index]?.id ?? null,
+      };
+    }
 
     case "SELECT_TITLE":
       return {
         ...state,
+        view: "details",
         currentTitle: transition.title,
         currentEpisode: null,
+        episodeNavigation: DEFAULT_EPISODE_NAVIGATION,
         stream: null,
         playbackStatus: "idle",
       };
 
     case "SELECT_EPISODE":
-      return { ...state, currentEpisode: transition.episode };
+      return {
+        ...state,
+        view: "playback",
+        currentEpisode: transition.episode,
+      };
+
+    case "SET_EPISODE_NAVIGATION":
+      return {
+        ...state,
+        episodeNavigation: {
+          ...state.episodeNavigation,
+          ...transition.navigation,
+        },
+      };
 
     case "SET_STREAM":
       return { ...state, stream: transition.stream };
@@ -146,6 +296,21 @@ export function reduceState(
         playbackError: transition.error ?? null,
       };
 
+    case "OPEN_OVERLAY":
+      return {
+        ...state,
+        activeModals: [...state.activeModals, transition.overlay],
+      };
+
+    case "CLOSE_TOP_OVERLAY":
+      return {
+        ...state,
+        activeModals: state.activeModals.slice(0, -1),
+      };
+
+    case "CLOSE_ALL_OVERLAYS":
+      return { ...state, activeModals: [] };
+
     case "PUSH_MODAL":
       return {
         ...state,
@@ -153,16 +318,107 @@ export function reduceState(
       };
 
     case "POP_MODAL":
-      return { ...state, activeModals: state.activeModals.slice(0, -1) };
+      return {
+        ...state,
+        activeModals: state.activeModals.slice(0, -1),
+      };
 
     case "CLOSE_ALL_MODALS":
       return { ...state, activeModals: [] };
 
+    case "OPEN_COMMAND_BAR":
+      return {
+        ...state,
+        commandBar: {
+          ...state.commandBar,
+          open: true,
+        },
+      };
+
+    case "CLOSE_COMMAND_BAR":
+      return {
+        ...state,
+        commandBar: {
+          open: false,
+          query: "",
+          highlightedCommandId: null,
+        },
+      };
+
+    case "SET_COMMAND_QUERY":
+      return {
+        ...state,
+        commandBar: {
+          ...state.commandBar,
+          open: true,
+          query: transition.query,
+        },
+      };
+
+    case "HIGHLIGHT_COMMAND":
+      return {
+        ...state,
+        commandBar: {
+          ...state.commandBar,
+          highlightedCommandId: transition.commandId,
+        },
+      };
+
+    case "SET_TERMINAL_SIZE":
+      return withLayout(state, {
+        viewport: {
+          columns: transition.columns,
+          rows: transition.rows,
+        },
+      });
+
+    case "TOGGLE_COMPANION_PANE":
+      return withLayout(state, {
+        layoutPreferences: {
+          ...state.layoutPreferences,
+          companionPaneOpen: !state.layoutPreferences.companionPaneOpen,
+        },
+      });
+
+    case "OPEN_DIAGNOSTICS_PANE":
+      return withLayout(state, {
+        layoutPreferences: {
+          ...state.layoutPreferences,
+          diagnosticsRequested: true,
+        },
+      });
+
+    case "CLOSE_DIAGNOSTICS_PANE":
+      return withLayout(state, {
+        layoutPreferences: {
+          ...state.layoutPreferences,
+          diagnosticsRequested: false,
+        },
+      });
+
+    case "SET_IMAGE_SUPPORT":
+      return withLayout(state, {
+        layoutPreferences: {
+          ...state.layoutPreferences,
+          imageSupported: transition.supported,
+        },
+      });
+
+    case "SET_IMAGE_PREVIEW_PREFERENCE":
+      return withLayout(state, {
+        layoutPreferences: {
+          ...state.layoutPreferences,
+          imagePreviewPreference: transition.preference,
+        },
+      });
+
     case "RESET_CONTENT":
       return {
         ...state,
+        view: "home",
         currentTitle: null,
         currentEpisode: null,
+        episodeNavigation: DEFAULT_EPISODE_NAVIGATION,
         stream: null,
         playbackStatus: "idle",
         playbackError: null,
@@ -175,9 +431,50 @@ export function reduceState(
         searchResults: [],
         searchState: "idle",
         selectedResultIndex: 0,
+        selectedResultId: null,
       };
 
     default:
       return state;
   }
+}
+
+function withLayout(
+  state: SessionState,
+  patch: {
+    viewport?: ViewportSize;
+    layoutPreferences?: LayoutPreferences;
+  },
+): SessionState {
+  const viewport = patch.viewport ?? state.viewport;
+  const layoutPreferences =
+    patch.layoutPreferences ?? state.layoutPreferences;
+  return {
+    ...state,
+    viewport,
+    layoutPreferences,
+    layout: deriveResponsiveLayout(viewport, layoutPreferences),
+  };
+}
+
+function deriveSearchSelection(
+  results: readonly SearchResult[],
+  selectedResultId: string | null,
+): { index: number; id: string | null } {
+  if (results.length === 0) {
+    return { index: 0, id: null };
+  }
+
+  const preservedIndex = selectedResultId
+    ? results.findIndex((result) => result.id === selectedResultId)
+    : -1;
+  const index = preservedIndex >= 0 ? preservedIndex : 0;
+  return {
+    index,
+    id: results[index]?.id ?? null,
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }

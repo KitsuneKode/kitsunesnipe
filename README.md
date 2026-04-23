@@ -1,8 +1,10 @@
-# KitsuneSnipe 🦊🎯
+# KitsuneSnipe Beta 🦊🎯
 
 A terminal-first Bun CLI for finding playable streams, capturing `.m3u8` URLs with Playwright, and launching them in `mpv`.
 
 Supports movie, series, and anime flows through a unified Ink shell. No API keys required.
+
+KitsuneSnipe is currently in beta: usable, but still actively being hardened across UI flow, provider support, subtitles, and diagnostics.
 
 ## ✨ Features
 
@@ -157,4 +159,11 @@ bun run relink:global
 
 ## ⚠️ Disclaimer
 
-Built for educational and research purposes — network interception, API reverse-engineering, and frontend bypass techniques. The author does not host, provide, or condone piracy of copyrighted media.
+KitsuneSnipe is a client-side tool for research, automation, and playback handoff.
+
+- This project does not host, store, upload, mirror, or distribute video content itself.
+- Streams, manifests, subtitles, posters, and related assets are served by third-party sites and infrastructure.
+- If you believe specific content is infringing, copyright or DMCA-style notices should be directed to the actual hosting or serving provider, not this repository.
+- The project maintainers are not the content host and do not control the third-party media servers that upstream providers expose.
+
+Use the project responsibly and in accordance with the laws and terms that apply in your jurisdiction.

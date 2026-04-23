@@ -31,8 +31,14 @@ KitsuneSnipe is a terminal-first Bun CLI that finds playable video streams by in
 
 - Start here for commands, routing, and repo-wide invariants
 - Read [.docs/architecture.md](.docs/architecture.md) before changing loops, playback flow, scraping, caching, history, or data ownership
+- Read [.docs/product-prd.md](.docs/product-prd.md) before broad UX or product-shape changes
+- Read [.docs/engineering-guide.md](.docs/engineering-guide.md) before broad refactors, service extraction, caching changes, or implementation-structure work
+- Read [.docs/ux-architecture.md](.docs/ux-architecture.md) before changing shell flow, hotkeys, overlays, diagnostics, or setup UX
 - Read [.docs/providers.md](.docs/providers.md) before adding or changing providers
+- Read [.docs/provider-intake.md](.docs/provider-intake.md) before researching or hardening a provider, especially for new sites or major scraper changes
+- Read [.docs/provider-examples.md](.docs/provider-examples.md) before implementing a new provider shape from scratch
 - Read [.docs/design-system.md](.docs/design-system.md) before changing terminal UI styling or interaction patterns
+- Read [.docs/testing-strategy.md](.docs/testing-strategy.md) before adding tests, changing test seams, or introducing new provider/runtime behaviors
 - Read [.docs/quickstart.md](.docs/quickstart.md) only for setup, local run flow, and troubleshooting
 - Read `.plans/*` only when you are actively working on that tracked change
 
@@ -40,6 +46,7 @@ KitsuneSnipe is a terminal-first Bun CLI that finds playable video streams by in
 
 ```text
 index.ts                    entry point; outer search loop + inner playback loop
+src/main.ts                 refactored entry target; keep aligned with runtime consolidation plans
 src/app-shell/*             Ink shell, command bar, list pickers, settings/history workflows
 src/search.ts               search service registry and TMDB-backed search
 src/scraper.ts              Playwright interception for stream/subtitle capture
@@ -82,6 +89,8 @@ Use `bun run test` if tests are relevant and available. Do not use `bun test` di
 - `src/providers/index.ts` is the single registry source of truth
 - `isAnimeProvider: true` is what places a provider in anime mode
 - `src/providers/anime-base.ts` contains ani-cli parity logic; check external parity before changing crypto or decoder constants
+- On this machine, the local canonical ani-cli checkout for AllAnime or AllManga parity checks is `~/Projects/osc/ani-cli`
+- If AllAnime or AllManga issues arise, compare against that local ani-cli checkout first, treat it as the reference behavior until upstream is clearly unmaintained, and document any temporary local divergence in provider docs or plans
 - `embedScraper` is injected to avoid circular imports between providers and `scraper.ts`
 
 ## User Data
@@ -95,6 +104,8 @@ Use `bun run test` if tests are relevant and available. Do not use `bun test` di
 ## Active Planning Docs
 
 - [.plans/roadmap.md](.plans/roadmap.md): current status and what is next
+- [.plans/persistent-shell-implementation.md](.plans/persistent-shell-implementation.md): migration order for the persistent shell and canonical runtime
 - [.plans/ink-migration.md](.plans/ink-migration.md): terminal UI rewrite plan
 - [.plans/search-service.md](.plans/search-service.md): deferred search/provider decoupling
 - [.plans/yt-provider.md](.plans/yt-provider.md): deferred YouTube provider research
+- [.plans/provider-hardening.md](.plans/provider-hardening.md): provider research, hardening, and scraper capability roadmap
