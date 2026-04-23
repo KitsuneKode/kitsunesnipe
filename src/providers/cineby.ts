@@ -5,16 +5,16 @@ import type { PlaywrightProvider } from "./types";
 // The OG meta title is the most reliable title source for Cineby.
 
 export const Cineby: PlaywrightProvider = {
-  kind:        "playwright",
-  id:          "cineby",
-  name:        "Cineby",
+  kind: "playwright",
+  id: "cineby",
+  name: "Cineby",
   description: "Cineby",
-  domain:      "cineby.sc",
+  domain: "cineby.sc",
   recommended: false,
 
-  movieUrl:  (id) => `https://www.cineby.sc/movie/${id}?play=true`,
+  movieUrl: (id) => `https://www.cineby.sc/movie/${id}?play=true`,
   seriesUrl: (id, s, e) => `https://www.cineby.sc/tv/${id}/${s}/${e}?play=true`,
 
-  needsClick:  true,
+  needsClick: true,
   titleSource: "og",
 };

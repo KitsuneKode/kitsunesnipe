@@ -16,15 +16,10 @@ describe("SessionState overlays", () => {
       overlay: { type: "confirm", message: "Apply now?" },
     });
 
-    expect(state.activeModals.map((modal) => modal.type)).toEqual([
-      "settings",
-      "confirm",
-    ]);
+    expect(state.activeModals.map((modal) => modal.type)).toEqual(["settings", "confirm"]);
 
     state = reduceState(state, { type: "CLOSE_TOP_OVERLAY" });
-    expect(state.activeModals.map((modal) => modal.type)).toEqual([
-      "settings",
-    ]);
+    expect(state.activeModals.map((modal) => modal.type)).toEqual(["settings"]);
 
     state = reduceState(state, { type: "CLOSE_TOP_OVERLAY" });
     expect(state.activeModals).toHaveLength(0);

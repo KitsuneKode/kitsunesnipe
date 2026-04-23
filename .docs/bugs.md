@@ -33,7 +33,6 @@ to synchronous code **before** the Promise is created.
 
 - `src/app-shell/ink-shell.tsx`
 
-
 ## Async Finish Function with Void Call (Fixed 2026-04-21)
 
 ### Symptom
@@ -59,6 +58,7 @@ onSubmit={(value) => void finish(value)}  // ← Promise discarded!
 ```
 
 Since `finish` was async and called with `void`:
+
 1. User presses Enter → creates Promise for finish() → Promise is discarded
 2. finish() tries to run but Promise chain is lost
 3. `settled` never becomes true

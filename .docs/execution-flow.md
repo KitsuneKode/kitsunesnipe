@@ -33,27 +33,27 @@ SessionController.run()
         └── while (true)  // Outer loop
               └── SearchPhase.execute()
                     └── shell.showSearchInterface()
-                          
+
                           [UI State Update]
                           stateManager.dispatch({
                             type: "SET_SEARCH_STATE",
                             state: "loading"
                           })
-                          
+
                           └── searchService.search("Breaking Bad", signal)
                                 └── fetch(db.videasy.net/3/search/multi?query=Breaking%20Bad)
-                                
+
                                 [Success]
                                 └── Returns SearchResult[]
-                                
+
                           [UI State Update]
                           stateManager.dispatch({
                             type: "SET_SEARCH_RESULTS",
                             results: [...]
                           })
-                          
+
                           [User navigates with arrows, presses Enter]
-                          
+
                           stateManager.dispatch({
                             type: "SELECT_TITLE",
                             title: {
@@ -62,7 +62,7 @@ SessionController.run()
                               name: "Breaking Bad"
                             }
                           })
-                          
+
                     └── Returns TitleSelection
 ```
 
@@ -72,14 +72,14 @@ SessionController.run()
 PlaybackPhase.execute(titleSelection)
   └── HistoryStore.get("1396")
         └── Returns: { season: 1, episode: 3, timestamp: 1245 }
-        
+
   [User has history - show resume options]
-  
+
   └── shell.showPlaybackStartOptions()
         [UI: Resume S1E3, Restart, Pick Episode, etc.]
-        
+
   [User selects "Resume S1E3"]
-  
+
   └── Returns EpisodeSelection: { season: 1, episode: 3 }
 ```
 
@@ -89,11 +89,11 @@ PlaybackPhase.execute(titleSelection)
 PlaybackPhase (inner loop)
   └── providerRegistry.get("vidking")
         └── provider.resolveStream(
-              { title: {id:"1396", type:"series"}, 
+              { title: {id:"1396", type:"series"},
                 episode: {season:1, episode:3} },
               signal
             )
-              
+
               [Playwright Path]
               ├── buildUrl: "https://vidking.to/tv/1396-1-3"
               ├── BrowserService.scrape({ url, needsClick: false })
@@ -102,10 +102,10 @@ PlaybackPhase (inner loop)
               │     ├── Intercept network for *.m3u8
               │     └── Return StreamInfo
               └── Returns StreamInfo
-              
+
   [Cache for next episode]
   └── CacheStore.set(url, streamInfo)
-  
+
   [UI State Update]
   stateManager.dispatch({
     type: "SET_STREAM",
@@ -130,13 +130,13 @@ PlaybackPhase (inner loop)
           });
         }
       })
-      
+
       [MPV Launches]
       └── mpv --start=1245 "stream.m3u8"
-      
+
       [User watches to end]
       └── Returns: { watchedSeconds: 2847, duration: 2850, endReason: "eof" }
-      
+
   [Save final position]
   └── HistoryStore.save("1396", {
         title: "Breaking Bad",
@@ -154,21 +154,21 @@ PlaybackPhase (inner loop)
 
 ```
   [autoNext enabled, episode finished]
-  
+
   [Inner loop continues]
   EpisodeSelection.episode = 4
-  
+
   [Next iteration of inner loop]
   └── Pre-fetch next episode
         ├── providerRegistry.get("vidking")
         ├── buildUrl: "https://vidking.to/tv/1396-1-4"
         └── BrowserService.scrape({ url })  // Fire-and-forget
-        
+
   [Resolve S1E4 using pre-fetched stream]
   └── provider.resolveStream({...episode:4})
         ├── Check CacheStore.get(url)  // Cache hit!
         └── Return cached StreamInfo
-        
+
   [Play S1E4]
   └── PlayerService.play(stream, {...})
 ```
@@ -177,17 +177,17 @@ PlaybackPhase (inner loop)
 
 ```
   [User presses 'a' - anime mode]
-  
+
   [Break inner loop]
   PlaybackPhase returns: { type: "back_to_search" }
-  
+
   [Outer loop continues]
   stateManager.dispatch({
     type: "SET_MODE",
     mode: "anime",
     provider: "allanime"
   })
-  
+
   [Restart from SearchPhase]
   └── SearchPhase.execute()
         [UI resets to search with anime provider]
@@ -199,33 +199,33 @@ PlaybackPhase (inner loop)
 
 ```
   [SearchPhase - Network error]
-  
+
   searchService.search("Breaking Bad", signal)
     └── fetch() throws Error("ETIMEDOUT")
-    
+
   [Error caught in tracer.span]
   span.addEvent("error", { message: "ETIMEDOUT" })
-  
+
   [Phase error handler]
   SearchPhase.getRecoveryStrategy(error)
     └── Returns: { type: "retry", maxAttempts: 3, delayMs: 1000 }
-    
+
   [SessionController applies recovery]
   await sleep(1000)
   Retry attempt 2/3...
-  
+
   [Success on retry]
   Continue normally
-  
+
   ── OR ──
-  
+
   [All retries exhausted]
   shell.showError({
     title: "Search failed",
     message: "Could not reach TMDB search",
     actions: ["Retry", "Switch Provider", "Quit"]
   })
-  
+
   [User selects "Switch Provider"]
   └── providerRegistry.getCompatible(title)
   └── Try next provider: "cineby"
@@ -256,10 +256,10 @@ After SELECT_TITLE
   currentTitle: {id:"1396", type:"series", name:"Breaking Bad"}
   currentEpisode: null
   stream: null
-  
+
 After SELECT_EPISODE (S1E3)
   currentEpisode: {season:1, episode:3, name:"...And the Bag's in the River"}
-  
+
 After SET_STREAM
   stream: {url:"https://cdn.example/stream.m3u8", headers:{...}}
   playbackStatus: "ready"
@@ -288,14 +288,17 @@ After RESET_CONTENT (user goes back)
         "name": "session",
         "startTime": 1713738600000,
         "events": [
-          {"name": "phase_start", "attributes": {"phase": "search"}},
-          {"name": "phase_complete", "attributes": {"phase": "search", "selected_title": "1396"}},
-          {"name": "phase_start", "attributes": {"phase": "playback"}},
-          {"name": "provider_selected", "attributes": {"provider": "vidking"}},
-          {"name": "stream_resolved", "attributes": {"url": "https://cdn.example/stream.m3u8"}},
-          {"name": "playback_started", "attributes": {"startAt": 1245}},
-          {"name": "playback_complete", "attributes": {"watchedSeconds": 2847}},
-          {"name": "auto_next", "attributes": {"next_episode": 4}}
+          { "name": "phase_start", "attributes": { "phase": "search" } },
+          {
+            "name": "phase_complete",
+            "attributes": { "phase": "search", "selected_title": "1396" }
+          },
+          { "name": "phase_start", "attributes": { "phase": "playback" } },
+          { "name": "provider_selected", "attributes": { "provider": "vidking" } },
+          { "name": "stream_resolved", "attributes": { "url": "https://cdn.example/stream.m3u8" } },
+          { "name": "playback_started", "attributes": { "startAt": 1245 } },
+          { "name": "playback_complete", "attributes": { "watchedSeconds": 2847 } },
+          { "name": "auto_next", "attributes": { "next_episode": 4 } }
         ]
       }
     ]

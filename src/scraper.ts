@@ -9,11 +9,26 @@ import { PLAYER_DOMAINS, type PlaywrightProvider } from "./providers";
 // =============================================================================
 
 const AD_DOMAINS = [
-  "googlesyndication.com", "doubleclick.net", "adnxs.com", "adsrvr.org",
-  "pubmatic.com", "rubiconproject.com", "openx.net", "criteo.com",
-  "taboola.com", "outbrain.com", "amazon-adsystem.com", "moatads.com",
-  "advertising.com", "media.net", "exoclick.com", "juicyads.com",
-  "trafficjunky.com", "adsterra.com", "popads.net", "popcash.net",
+  "googlesyndication.com",
+  "doubleclick.net",
+  "adnxs.com",
+  "adsrvr.org",
+  "pubmatic.com",
+  "rubiconproject.com",
+  "openx.net",
+  "criteo.com",
+  "taboola.com",
+  "outbrain.com",
+  "amazon-adsystem.com",
+  "moatads.com",
+  "advertising.com",
+  "media.net",
+  "exoclick.com",
+  "juicyads.com",
+  "trafficjunky.com",
+  "adsterra.com",
+  "popads.net",
+  "popcash.net",
   "propellerads.com",
 ];
 
@@ -21,7 +36,9 @@ function isAd(url: string): boolean {
   try {
     const h = new URL(url).hostname;
     return AD_DOMAINS.some((d) => h === d || h.endsWith(`.${d}`));
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 // =============================================================================
@@ -29,12 +46,12 @@ function isAd(url: string): boolean {
 // =============================================================================
 
 export type StreamData = {
-  url:          string;
-  headers:      Record<string, string>;
-  subtitle:     string | null;
+  url: string;
+  headers: Record<string, string>;
+  subtitle: string | null;
   subtitleList: unknown[];
-  title:        string;
-  timestamp:    number;
+  title: string;
+  timestamp: number;
 };
 
 // =============================================================================
@@ -47,7 +64,7 @@ export type StreamData = {
 async function extractTitle(page: Page, provider: PlaywrightProvider): Promise<string> {
   if (provider.titleSource === "selectors") {
     for (const sel of provider.titleSelectors ?? []) {
-      const el   = await page.$(sel).catch(() => null);
+      const el = await page.$(sel).catch(() => null);
       const text = el ? (await el.innerText().catch(() => "")).trim() : "";
       if (text) return text;
     }
@@ -58,10 +75,12 @@ async function extractTitle(page: Page, provider: PlaywrightProvider): Promise<s
   }
 
   if (provider.titleSource === "og") {
-    const og = await page.$eval(
-      'meta[property="og:title"]',
-      (el: any) => (el.content as string) ?? ""  // eslint-disable-line @typescript-eslint/no-explicit-any
-    ).catch(() => "");
+    const og = await page
+      .$eval(
+        'meta[property="og:title"]',
+        (el: any) => (el.content as string) ?? "", // eslint-disable-line @typescript-eslint/no-explicit-any
+      )
+      .catch(() => "");
 
     if (og && !new RegExp(`^${provider.id}$`, "i").test(og.trim())) {
       return (og.split(/\s*[-|–—·]\s*/)[0] ?? og).trim() || og.trim();
@@ -70,12 +89,14 @@ async function extractTitle(page: Page, provider: PlaywrightProvider): Promise<s
     // OG missing or equal to provider name — fall back to page title
     const raw = await page.title().catch(() => "");
     if (raw) {
-      return raw
-        .replace(/\bwatch\b/gi, "")
-        .replace(new RegExp(`\\b${provider.id}\\b`, "gi"), "")
-        .replace(/\s*[-|–—·]\s*/g, " ")
-        .replace(/\s+/g, " ")
-        .trim() || "Unknown";
+      return (
+        raw
+          .replace(/\bwatch\b/gi, "")
+          .replace(new RegExp(`\\b${provider.id}\\b`, "gi"), "")
+          .replace(/\s*[-|–—·]\s*/g, " ")
+          .replace(/\s+/g, " ")
+          .trim() || "Unknown"
+      );
     }
     return "Unknown";
   }
@@ -93,9 +114,9 @@ async function extractTitle(page: Page, provider: PlaywrightProvider): Promise<s
 // =============================================================================
 
 export async function scrapeStream(
-  provider:  PlaywrightProvider,
+  provider: PlaywrightProvider,
   targetUrl: string,
-  subLang:   string,
+  subLang: string,
   headless = true,
 ): Promise<StreamData | null> {
   dbg("scraper", "start", { provider: provider.id, targetUrl, subLang, headless });
@@ -110,7 +131,10 @@ export async function scrapeStream(
       // @ts-ignore
       window.close = () => {};
       // @ts-ignore
-      window.addEventListener("beforeunload", (e) => { e.preventDefault(); e.returnValue = ""; });
+      window.addEventListener("beforeunload", (e) => {
+        e.preventDefault();
+        e.returnValue = "";
+      });
     });
 
     // Block ad/tracker domains at the network layer
@@ -122,7 +146,7 @@ export async function scrapeStream(
     const page = await context.newPage();
     page.on("dialog", (d) => d.dismiss());
 
-    let directSubUrl:   string | null = null;
+    let directSubUrl: string | null = null;
     let wyzieSearchUrl: string | null = null;
     let scrapedTitle = "Unknown";
 
@@ -133,9 +157,11 @@ export async function scrapeStream(
         const url = req.url();
 
         // Direct subtitle file (.vtt / .srt / wyzie CDN)
-        if (!directSubUrl &&
-            (url.includes(".vtt") || url.includes(".srt") || url.includes("sub.wyzie.io/c/")) &&
-            !url.includes("search")) {
+        if (
+          !directSubUrl &&
+          (url.includes(".vtt") || url.includes(".srt") || url.includes("sub.wyzie.io/c/")) &&
+          !url.includes("search")
+        ) {
           directSubUrl = url;
           dbg("scraper", "direct subtitle found", { url });
         }
@@ -149,7 +175,7 @@ export async function scrapeStream(
         // m3u8 stream
         if (!streamFound && url.includes(".m3u8")) {
           streamFound = true;
-          const streamUrl     = url;
+          const streamUrl = url;
           const streamHeaders = req.headers();
           dbg("scraper", "m3u8 intercepted", { streamUrl });
 
@@ -159,22 +185,22 @@ export async function scrapeStream(
               await new Promise((r) => setTimeout(r, 1500));
             }
 
-            let subtitle:     string | null = directSubUrl;
-            let subtitleList: unknown[]     = [];
+            let subtitle: string | null = directSubUrl;
+            let subtitleList: unknown[] = [];
 
             if (!subtitle && wyzieSearchUrl) {
               const result = await fetchSubtitlesFromWyzie(wyzieSearchUrl, subLang);
-              subtitle     = result.selected;
+              subtitle = result.selected;
               subtitleList = result.list;
             }
 
             const result = {
-              url:          streamUrl,
-              headers:      streamHeaders,
+              url: streamUrl,
+              headers: streamHeaders,
               subtitle,
               subtitleList,
-              title:        scrapedTitle,
-              timestamp:    Date.now(),
+              title: scrapedTitle,
+              timestamp: Date.now(),
             };
             dbg("scraper", "resolved", { subtitle, subtitleCount: subtitleList.length });
             resolve(result);
@@ -189,7 +215,7 @@ export async function scrapeStream(
         newPage.on("request", onRequest);
         newPage.on("dialog", (d) => d.dismiss());
         await newPage.waitForLoadState("domcontentloaded").catch(() => {});
-        const pu       = newPage.url();
+        const pu = newPage.url();
         const isPlayer = PLAYER_DOMAINS.some((d) => pu.includes(d));
         if (!isPlayer && pu && pu !== "about:blank") {
           dbg("scraper", "closing ad popup", { url: pu });
@@ -197,7 +223,8 @@ export async function scrapeStream(
         }
       });
 
-      page.goto(targetUrl, { waitUntil: "domcontentloaded" })
+      page
+        .goto(targetUrl, { waitUntil: "domcontentloaded" })
         .then(async () => {
           try {
             await page.waitForTimeout(500);

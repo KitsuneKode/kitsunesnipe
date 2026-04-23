@@ -2,13 +2,12 @@ import { type HistoryEntry, formatTimestamp, isFinished } from "@/history";
 import { cyan, dim, yellow } from "@/menu";
 import { fetchEpisodes, fetchSeriesData } from "@/tmdb";
 import { ANIME_PROVIDERS, PLAYWRIGHT_PROVIDERS, getProvider } from "@/providers";
-import type { ApiSearchResult } from "@/providers";
+import type { EpisodePickerOption } from "@/domain/types";
 import {
   chooseEpisodeFromOptions,
   chooseSeasonFromOptions,
   openAnimeEpisodePicker,
-  openEpisodePicker,
-  openSeasonPicker,
+  openAnimeEpisodeListPicker,
 } from "@/app-shell/workflows";
 import { openListShell } from "@/app-shell/ink-shell";
 
@@ -20,7 +19,8 @@ export type EpisodeSelection = {
 type SelectionOpts = {
   currentId: string;
   isAnime: boolean;
-  apiPicked: ApiSearchResult | null;
+  animeEpisodeCount?: number;
+  animeEpisodes?: readonly EpisodePickerOption[];
   flags: { season?: string; episode?: string };
   getHistoryEntry: () => Promise<HistoryEntry | null>;
 };
@@ -32,20 +32,26 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
 
 async function pickAnimeEpisode(
   initialEpisode: number,
-  apiPicked: ApiSearchResult | null,
+  episodes: readonly EpisodePickerOption[] | undefined,
+  episodeCount: number | undefined,
 ): Promise<number> {
-  const epCount = apiPicked?.epCount;
-  if (!epCount || epCount < 1) return initialEpisode;
-  return (await openAnimeEpisodePicker(epCount, initialEpisode)) ?? initialEpisode;
+  if (episodes && episodes.length > 0) {
+    return (await openAnimeEpisodeListPicker(episodes, initialEpisode)) ?? initialEpisode;
+  }
+  if (!episodeCount || episodeCount < 1) return initialEpisode;
+  return (await openAnimeEpisodePicker(episodeCount, initialEpisode)) ?? initialEpisode;
 }
 
 async function pickEpisodeSelection(
   initSeason: number,
   initEpisode: number,
-  opts: Pick<SelectionOpts, "currentId" | "isAnime" | "apiPicked">,
+  opts: Pick<SelectionOpts, "currentId" | "isAnime" | "animeEpisodeCount" | "animeEpisodes">,
 ): Promise<EpisodeSelection> {
   if (!opts.isAnime) {
-    const { seasons, episodes: initialEpisodes } = await fetchSeriesData(opts.currentId, initSeason);
+    const { seasons, episodes: initialEpisodes } = await fetchSeriesData(
+      opts.currentId,
+      initSeason,
+    );
     const season = (await chooseSeasonFromOptions(seasons, initSeason)) ?? initSeason;
     const episodes =
       season === initSeason ? initialEpisodes : await fetchEpisodes(opts.currentId, season);
@@ -53,8 +59,19 @@ async function pickEpisodeSelection(
     return { season, episode: episode?.number ?? initEpisode };
   }
 
-  const episode = await pickAnimeEpisode(initEpisode, opts.apiPicked);
+  const episode = await pickAnimeEpisode(initEpisode, opts.animeEpisodes, opts.animeEpisodeCount);
   return { season: 1, episode };
+}
+
+export async function chooseEpisodeFromMetadata(opts: {
+  currentId: string;
+  isAnime: boolean;
+  currentSeason: number;
+  currentEpisode: number;
+  animeEpisodeCount?: number;
+  animeEpisodes?: readonly EpisodePickerOption[];
+}): Promise<EpisodeSelection> {
+  return pickEpisodeSelection(opts.currentSeason, opts.currentEpisode, opts);
 }
 
 export async function chooseStartingEpisode(opts: SelectionOpts): Promise<EpisodeSelection> {

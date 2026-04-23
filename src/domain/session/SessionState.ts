@@ -5,13 +5,7 @@
 // Keep it pure, explicit, and testable.
 // =============================================================================
 
-import type {
-  EpisodeInfo,
-  SearchResult,
-  StreamInfo,
-  SubtitleTrack,
-  TitleInfo,
-} from "../types";
+import type { EpisodeInfo, SearchResult, StreamInfo, SubtitleTrack, TitleInfo } from "../types";
 import type { AppCommandId } from "./command-registry";
 import {
   DEFAULT_LAYOUT_PREFERENCES,
@@ -193,10 +187,7 @@ export function createInitialState(
   };
 }
 
-export function reduceState(
-  state: SessionState,
-  transition: StateTransition,
-): SessionState {
+export function reduceState(state: SessionState, transition: StateTransition): SessionState {
   switch (transition.type) {
     case "SET_MODE":
       return {
@@ -226,10 +217,7 @@ export function reduceState(
       };
 
     case "SET_SEARCH_RESULTS": {
-      const nextSelection = deriveSearchSelection(
-        transition.results,
-        state.selectedResultId,
-      );
+      const nextSelection = deriveSearchSelection(transition.results, state.selectedResultId);
       return {
         ...state,
         view: transition.results.length > 0 ? "results" : "search",
@@ -247,11 +235,7 @@ export function reduceState(
       if (state.searchResults.length === 0) {
         return state;
       }
-      const index = clamp(
-        transition.index,
-        0,
-        state.searchResults.length - 1,
-      );
+      const index = clamp(transition.index, 0, state.searchResults.length - 1);
       return {
         ...state,
         selectedResultIndex: index,
@@ -447,8 +431,7 @@ function withLayout(
   },
 ): SessionState {
   const viewport = patch.viewport ?? state.viewport;
-  const layoutPreferences =
-    patch.layoutPreferences ?? state.layoutPreferences;
+  const layoutPreferences = patch.layoutPreferences ?? state.layoutPreferences;
   return {
     ...state,
     viewport,

@@ -11,6 +11,7 @@ export type ShellAction =
   | "about"
   | "image-pane"
   | "replay"
+  | "pick-episode"
   | "next"
   | "previous"
   | "next-season"
@@ -77,6 +78,7 @@ export function toShellAction(commandId: AppCommandId): ShellAction {
     case "image-pane":
     case "provider":
     case "replay":
+    case "pick-episode":
     case "next":
     case "previous":
     case "next-season":

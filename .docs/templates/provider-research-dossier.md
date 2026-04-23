@@ -79,12 +79,12 @@ Describe the normal user path from title page to playable stream.
 List all candidate streams or mirrors observed, not just the first successful one.
 
 | Candidate | Source host | Quality | Audio | Subs | Evidence | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
+| --------- | ----------- | ------- | ----- | ---- | -------- | ----- |
 
 ## Subtitle Inventory
 
 | Track | Language | Format | Source | Notes |
-| --- | --- | --- | --- | --- |
+| ----- | -------- | ------ | ------ | ----- |
 
 ## Headers / Referer / Cookies
 

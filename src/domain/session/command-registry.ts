@@ -12,6 +12,7 @@ export type AppCommandId =
   | "about"
   | "image-pane"
   | "replay"
+  | "pick-episode"
   | "next"
   | "previous"
   | "next-season";
@@ -96,6 +97,12 @@ export const COMMANDS: readonly AppCommand[] = [
     description: "Replay the current item",
   },
   {
+    id: "pick-episode",
+    label: "Pick Episode",
+    aliases: ["episode", "pick-episode", "episodes"],
+    description: "Open the episode picker",
+  },
+  {
     id: "next",
     label: "Next Episode",
     aliases: ["next", "n"],
@@ -118,9 +125,7 @@ export const COMMANDS: readonly AppCommand[] = [
 export function parseCommand(input: string): AppCommand | null {
   const normalized = input.trim().replace(/^\//, "").toLowerCase();
   if (!normalized) return null;
-  return (
-    COMMANDS.find((command) => command.aliases.includes(normalized)) ?? null
-  );
+  return COMMANDS.find((command) => command.aliases.includes(normalized)) ?? null;
 }
 
 export function suggestCommands(
@@ -141,12 +146,10 @@ export function resolveCommands(
   state: SessionState,
   allowed: readonly AppCommandId[] = COMMANDS.map((command) => command.id),
 ): readonly ResolvedAppCommand[] {
-  return COMMANDS.filter((command) => allowed.includes(command.id)).map(
-    (command) => ({
-      ...command,
-      ...resolveCommandState(command.id, state),
-    }),
-  );
+  return COMMANDS.filter((command) => allowed.includes(command.id)).map((command) => ({
+    ...command,
+    ...resolveCommandState(command.id, state),
+  }));
 }
 
 function resolveCommandState(
@@ -220,6 +223,21 @@ function resolveCommandState(
         return {
           enabled: false,
           reason: "Start playback before replay is available.",
+        };
+      }
+      if (resolving) {
+        return {
+          enabled: false,
+          reason: "Wait for stream resolution to finish first.",
+        };
+      }
+      return { enabled: true };
+
+    case "pick-episode":
+      if (!inSeriesContext) {
+        return {
+          enabled: false,
+          reason: "Episode picker is only available for episodic playback.",
         };
       }
       if (resolving) {

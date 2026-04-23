@@ -2,10 +2,7 @@
 // Braflix Provider Adapter
 // =============================================================================
 
-import {
-  Braflix as LegacyBraflix,
-  braflixSearch,
-} from "../../../providers/braflix";
+import { Braflix as LegacyBraflix, braflixSearch } from "../../../providers/braflix";
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import type {
   TitleInfo,
@@ -33,10 +30,7 @@ export class BraflixProvider implements Provider {
     return title.type === "movie" || title.type === "series";
   }
 
-  async resolveStream(
-    request: StreamRequest,
-    signal?: AbortSignal,
-  ): Promise<StreamInfo | null> {
+  async resolveStream(request: StreamRequest, signal?: AbortSignal): Promise<StreamInfo | null> {
     // Braflix needs embedScraper for the final step - delegate to browser
     const legacyOpts = {
       subLang: request.subLang,

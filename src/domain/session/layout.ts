@@ -68,16 +68,14 @@ export function deriveResponsiveLayout(
   viewport: ViewportSize,
   preferences: LayoutPreferences,
 ): ResponsiveLayoutState {
-  const tooSmall =
-    viewport.columns < MIN_COLUMNS || viewport.rows < MIN_ROWS;
+  const tooSmall = viewport.columns < MIN_COLUMNS || viewport.rows < MIN_ROWS;
   const breakpoint = getBreakpoint(viewport, tooSmall);
   const companionMode: CompanionPaneMode = preferences.diagnosticsRequested
     ? "diagnostics"
     : "details";
   const userCollapsed = !preferences.companionPaneOpen;
 
-  const autoCollapsed =
-    !userCollapsed && (tooSmall || breakpoint === "narrow");
+  const autoCollapsed = !userCollapsed && (tooSmall || breakpoint === "narrow");
   const companionVisible = !userCollapsed && !autoCollapsed;
   const companionPlacement = companionVisible
     ? breakpoint === "wide"
@@ -86,22 +84,16 @@ export function deriveResponsiveLayout(
     : "hidden";
 
   const detailsVisible = companionVisible && companionMode === "details";
-  const imageEnabled =
-    preferences.imageSupported &&
-    preferences.imagePreviewPreference !== "off";
+  const imageEnabled = preferences.imageSupported && preferences.imagePreviewPreference !== "off";
   const imageVisible =
     detailsVisible &&
     imageEnabled &&
     (breakpoint === "wide" ||
-      (breakpoint === "medium" &&
-        preferences.imagePreviewPreference === "always"));
+      (breakpoint === "medium" && preferences.imagePreviewPreference === "always"));
   const imageAutoCollapsed = imageEnabled && !imageVisible;
 
-  const diagnosticsVisible =
-    companionVisible && preferences.diagnosticsRequested;
-  const diagnosticsPlacement = diagnosticsVisible
-    ? companionPlacement
-    : "hidden";
+  const diagnosticsVisible = companionVisible && preferences.diagnosticsRequested;
+  const diagnosticsPlacement = diagnosticsVisible ? companionPlacement : "hidden";
 
   return {
     viewport,
@@ -132,16 +124,12 @@ export function deriveResponsiveLayout(
       requested: preferences.diagnosticsRequested,
       visible: diagnosticsVisible,
       placement: diagnosticsPlacement,
-      autoCollapsed:
-        preferences.diagnosticsRequested && !diagnosticsVisible,
+      autoCollapsed: preferences.diagnosticsRequested && !diagnosticsVisible,
     },
   };
 }
 
-function getBreakpoint(
-  viewport: ViewportSize,
-  tooSmall: boolean,
-): LayoutBreakpoint {
+function getBreakpoint(viewport: ViewportSize, tooSmall: boolean): LayoutBreakpoint {
   if (tooSmall) return "minimal";
   if (viewport.columns >= WIDE_COLUMNS && viewport.rows >= WIDE_ROWS) {
     return "wide";

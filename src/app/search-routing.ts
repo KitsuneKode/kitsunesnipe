@@ -69,5 +69,6 @@ function mapApiSearchResult(result: ApiSearchResult): SearchResult {
     year: result.year ?? "",
     overview: "",
     posterPath: result.posterUrl ?? null,
+    episodeCount: result.epCount,
   };
 }

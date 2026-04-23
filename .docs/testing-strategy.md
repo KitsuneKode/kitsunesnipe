@@ -139,14 +139,14 @@ Prefer dossier-backed fixtures over hand-built guesses.
 
 ## Recommended Outcomes By Change Type
 
-| Change type | Minimum useful tests |
-| --- | --- |
-| New shell command or overlay | state / reducer tests + one integration flow |
-| Responsive layout rule | deterministic layout-state tests |
-| Cache change | pure policy tests + service contract tests |
-| New provider | dossier + fixture-backed extraction tests + one integration path if needed |
-| Subtitle or quality extraction | fixture-backed parser tests |
-| Diagnostics/report change | contract tests for redaction and output shape |
+| Change type                    | Minimum useful tests                                                       |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| New shell command or overlay   | state / reducer tests + one integration flow                               |
+| Responsive layout rule         | deterministic layout-state tests                                           |
+| Cache change                   | pure policy tests + service contract tests                                 |
+| New provider                   | dossier + fixture-backed extraction tests + one integration path if needed |
+| Subtitle or quality extraction | fixture-backed parser tests                                                |
+| Diagnostics/report change      | contract tests for redaction and output shape                              |
 
 ## Implementation Advice
 

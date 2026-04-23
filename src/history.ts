@@ -3,19 +3,19 @@ import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 
 export type HistoryEntry = {
-  title:     string;
-  type:      "movie" | "series";
-  season:    number;
-  episode:   number;
-  timestamp: number;  // seconds into the episode when user quit
-  duration:  number;  // total episode duration in seconds
-  provider:  string;
-  watchedAt: string;  // ISO date
+  title: string;
+  type: "movie" | "series";
+  season: number;
+  episode: number;
+  timestamp: number; // seconds into the episode when user quit
+  duration: number; // total episode duration in seconds
+  provider: string;
+  watchedAt: string; // ISO date
 };
 
 type HistoryFile = Record<string, HistoryEntry>;
 
-const HISTORY_DIR  = join(process.env.HOME ?? "~", ".local", "share", "kitsunesnipe");
+const HISTORY_DIR = join(process.env.HOME ?? "~", ".local", "share", "kitsunesnipe");
 const HISTORY_FILE = join(HISTORY_DIR, "history.json");
 
 function ensureDir() {
@@ -25,7 +25,11 @@ function ensureDir() {
 async function load(): Promise<HistoryFile> {
   ensureDir();
   if (!existsSync(HISTORY_FILE)) return {};
-  try { return JSON.parse(await readFile(HISTORY_FILE, "utf-8")); } catch { return {}; }
+  try {
+    return JSON.parse(await readFile(HISTORY_FILE, "utf-8"));
+  } catch {
+    return {};
+  }
 }
 
 async function save(data: HistoryFile): Promise<void> {

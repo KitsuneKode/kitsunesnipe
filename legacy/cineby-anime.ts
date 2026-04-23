@@ -46,7 +46,7 @@ async function searchAnime(q: string): Promise<{ id: string; title: string; slug
 
   results.slice(0, 10).forEach((r, i) => console.log(`  [${i + 1}] ${r.title}  (id: ${r.id})`));
 
-  const pick = parseInt(await ask("\nPick anime [1]: ") || "1") - 1;
+  const pick = parseInt((await ask("\nPick anime [1]: ")) || "1") - 1;
   const anime = results[pick];
   if (!anime) {
     console.error("[!] Invalid pick.");

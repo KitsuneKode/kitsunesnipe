@@ -9,6 +9,7 @@ import {
 import { saveConfig, type KitsuneConfig } from "@/config";
 import { ANIME_PROVIDERS, PLAYWRIGHT_PROVIDERS } from "@/providers";
 import { fetchEpisodes, fetchSeasons, type EpisodeInfo } from "@/tmdb";
+import type { EpisodePickerOption } from "@/domain/types";
 
 import { openListShell } from "./ink-shell";
 
@@ -229,6 +230,26 @@ export async function openAnimeEpisodePicker(
     options: episodes.map((episode) => ({
       value: episode,
       label: episode === currentEpisode ? `Episode ${episode}  ·  current` : `Episode ${episode}`,
+    })),
+  });
+}
+
+export async function openAnimeEpisodeListPicker(
+  episodes: readonly EpisodePickerOption[],
+  currentEpisode: number,
+): Promise<number | null> {
+  if (episodes.length === 0) return null;
+
+  return chooseOption({
+    title: "Choose episode",
+    subtitle: `${episodes.length} episodes available`,
+    options: episodes.map((episode) => ({
+      value: episode.index,
+      label:
+        episode.index === currentEpisode
+          ? `${episode.label}  ·  current`
+          : episode.label,
+      detail: episode.detail,
     })),
   });
 }

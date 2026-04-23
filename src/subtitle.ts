@@ -3,11 +3,11 @@
 // control language selection instead of relying on what the player auto-picks.
 
 export type SubtitleEntry = {
-  id:       string;
-  url:      string;
-  display:  string;
+  id: string;
+  url: string;
+  display: string;
   language: string;
-  release:  string;
+  release: string;
 };
 
 export async function fetchSubtitlesFromWyzie(
@@ -15,7 +15,7 @@ export async function fetchSubtitlesFromWyzie(
   preferredLang: string,
 ): Promise<{ list: SubtitleEntry[]; selected: string | null }> {
   try {
-    const res  = await fetch(searchUrl, { signal: AbortSignal.timeout(5000) });
+    const res = await fetch(searchUrl, { signal: AbortSignal.timeout(5000) });
     const list = (await res.json()) as SubtitleEntry[];
     if (!Array.isArray(list) || list.length === 0) return { list: [], selected: null };
 

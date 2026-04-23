@@ -6,21 +6,20 @@ import type { PlaywrightProvider } from "./types";
 //   nextEpisode=false     → hides the overlay "next episode" button
 
 export const VidKing: PlaywrightProvider = {
-  kind:        "playwright",
-  id:          "vidking",
-  name:        "VidKing",
+  kind: "playwright",
+  id: "vidking",
+  name: "VidKing",
   description: "VidKing  (recommended)",
-  domain:      "vidking.net",
+  domain: "vidking.net",
   recommended: true,
 
-  movieUrl:  (id) =>
-    `https://www.vidking.net/embed/movie/${id}?autoPlay=true`,
+  movieUrl: (id) => `https://www.vidking.net/embed/movie/${id}?autoPlay=true`,
 
   seriesUrl: (id, s, e) =>
     `https://www.vidking.net/embed/tv/${id}/${s}/${e}?autoPlay=true&episodeSelector=false&nextEpisode=false`,
 
   needsClick: false, // autoPlay=true handles it
 
-  titleSource:    "selectors",
+  titleSource: "selectors",
   titleSelectors: ["h1", "h2", "[class*='title']", "[class*='name']"],
 };

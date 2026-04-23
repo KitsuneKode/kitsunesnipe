@@ -8,7 +8,7 @@ export interface Span {
   readonly id: string;
   readonly name: string;
   readonly startTime: number;
-  
+
   setAttribute(key: string, value: unknown): void;
   addEvent(name: string, attributes?: Record<string, unknown>): void;
   end(): void;

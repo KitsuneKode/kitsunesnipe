@@ -16,6 +16,7 @@ export interface TitleInfo {
   readonly overview?: string;
   readonly posterUrl?: string;
   readonly genreIds?: number[];
+  readonly episodeCount?: number;
 }
 
 export interface EpisodeInfo {
@@ -24,6 +25,12 @@ export interface EpisodeInfo {
   readonly name?: string;
   readonly airDate?: string;
   readonly overview?: string;
+}
+
+export interface EpisodePickerOption {
+  readonly index: number;
+  readonly label: string;
+  readonly detail?: string;
 }
 
 export interface StreamInfo {
@@ -49,6 +56,7 @@ export interface SearchResult {
   readonly year: string;
   readonly overview: string;
   readonly posterPath: string | null;
+  readonly episodeCount?: number;
 }
 
 export interface PlaybackResult {

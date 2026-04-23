@@ -14,7 +14,7 @@ export interface SearchDeps {
 export interface SearchService {
   readonly metadata: SearchMetadata;
   readonly compatibleProviders: string[]; // Advisory coupling
-  
+
   search(query: string, signal?: AbortSignal): Promise<SearchResult[]>;
   getTitleDetails(id: string, signal?: AbortSignal): Promise<TitleInfo | null>;
 }

@@ -20,9 +20,9 @@ export type SearchResult = {
 };
 
 export type SearchService = {
-  readonly id:                  string;
-  readonly name:                string;
-  readonly description:         string;
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
   readonly compatibleProviders: readonly string[];
   search(query: string): Promise<SearchResult[]>;
 };
@@ -37,7 +37,7 @@ export async function searchVideasy(query: string): Promise<SearchResult[]> {
   if (cache.has(key)) return cache.get(key)!;
 
   const url = `https://db.videasy.net/3/search/multi?language=en&page=1&query=${encodeURIComponent(query)}`;
-  const res  = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`Search failed: ${res.status}`);
 
   const data = (await res.json()) as any;
@@ -45,11 +45,11 @@ export async function searchVideasy(query: string): Promise<SearchResult[]> {
     .filter((r) => r.media_type === "movie" || r.media_type === "tv")
     .slice(0, 12)
     .map((r) => ({
-      id:         String(r.id),
-      type:       (r.media_type === "tv" ? "series" : "movie") as "movie" | "series",
-      title:      r.title || r.name || "Unknown",
-      year:       (r.release_date || r.first_air_date || "").split("-")[0] || "?",
-      overview:   (r.overview || "").slice(0, 120),
+      id: String(r.id),
+      type: (r.media_type === "tv" ? "series" : "movie") as "movie" | "series",
+      title: r.title || r.name || "Unknown",
+      year: (r.release_date || r.first_air_date || "").split("-")[0] || "?",
+      overview: (r.overview || "").slice(0, 120),
       posterPath: r.poster_path || null,
     }));
 
@@ -64,11 +64,11 @@ export async function searchVideasy(query: string): Promise<SearchResult[]> {
 // don't appear here — this registry is for shared-endpoint providers only.
 
 export const TMDB_SERVICE: SearchService = {
-  id:                  "tmdb",
-  name:                "TMDB / Videasy",
-  description:         "TMDB proxy (db.videasy.net) — movies, series, no API key",
+  id: "tmdb",
+  name: "TMDB / Videasy",
+  description: "TMDB proxy (db.videasy.net) — movies, series, no API key",
   compatibleProviders: ["vidking", "cineby", "bitcine", "braflix"],
-  search:              searchVideasy,
+  search: searchVideasy,
 };
 
 export const SEARCH_SERVICES: readonly SearchService[] = [
@@ -77,5 +77,6 @@ export const SEARCH_SERVICES: readonly SearchService[] = [
   // rather than owned by the cineby-anime provider.
 ];
 
-export const SEARCH_SERVICE_MAP: Readonly<Record<string, SearchService>> =
-  Object.fromEntries(SEARCH_SERVICES.map((s) => [s.id, s]));
+export const SEARCH_SERVICE_MAP: Readonly<Record<string, SearchService>> = Object.fromEntries(
+  SEARCH_SERVICES.map((s) => [s.id, s]),
+);
