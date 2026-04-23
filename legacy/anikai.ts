@@ -223,7 +223,7 @@ function pickHeaders(headers: Record<string, string>): Record<string, string> {
 
 function decodeHtml(value: string): string {
   return value
-    .replace(/&quot;/g, "\"")
+    .replace(/&quot;/g, '"')
     .replace(/&#039;/g, "'")
     .replace(/&apos;/g, "'")
     .replace(/&amp;/g, "&")
@@ -234,7 +234,10 @@ function decodeHtml(value: string): string {
 }
 
 function stripTags(value: string): string {
-  return decodeHtml(value).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return decodeHtml(value)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function matchFirst(source: string, regex: RegExp): string | null {
@@ -290,7 +293,9 @@ function parseStaticSearch(html: string): StaticSearchSummary {
   const seen = new Set<string>();
   const resultLinks: SearchResultLink[] = [];
 
-  for (const match of html.matchAll(/<a\b([^>]*href=["']([^"']*\/watch\/[^"']+)["'][^>]*)>([\s\S]*?)<\/a>/gi)) {
+  for (const match of html.matchAll(
+    /<a\b([^>]*href=["']([^"']*\/watch\/[^"']+)["'][^>]*)>([\s\S]*?)<\/a>/gi,
+  )) {
     const attrs = parseAttributes(match[1]);
     const href = attrs.href;
     if (!href || seen.has(href)) continue;
@@ -306,13 +311,15 @@ function parseStaticSearch(html: string): StaticSearchSummary {
 
   const pageLinks = matchAll(
     html,
-    /<a\b[^>]*class=["'][^"']*\bpage-link\b[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>/gi
+    /<a\b[^>]*class=["'][^"']*\bpage-link\b[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>/gi,
   );
 
   return {
     url: browserUrl,
     searchFormAction: matchFirst(html, /<form\b[^>]*action=["']([^"']+)["'][^>]*>/i),
-    suggestionContainerPresent: /<div\b[^>]*class=["'][^"']*\bsuggestion\b[^"']*["'][^>]*>/i.test(html),
+    suggestionContainerPresent: /<div\b[^>]*class=["'][^"']*\bsuggestion\b[^"']*["'][^>]*>/i.test(
+      html,
+    ),
     resultLinks,
     totalResultLinks: resultLinks.length,
     pageLinks,
@@ -330,27 +337,19 @@ function parseJsonScript(raw: string | null): Json | null {
 }
 
 function parseStaticWatch(html: string): StaticWatchSummary {
-  const syncData = matchFirst(
-    html,
-    /<script\b[^>]*id=["']syncData["'][^>]*>([\s\S]*?)<\/script>/i
-  );
+  const syncData = matchFirst(html, /<script\b[^>]*id=["']syncData["'][^>]*>([\s\S]*?)<\/script>/i);
   const playerServerHtml = matchFirst(
     html,
-    /<div\b[^>]*id=["']player-server["'][^>]*>([\s\S]*?)<\/div>/i
+    /<div\b[^>]*id=["']player-server["'][^>]*>([\s\S]*?)<\/div>/i,
   );
   const playerControlLabels = Array.from(
-    html.matchAll(
-      /<div\b[^>]*id=["']player-control["'][\s\S]*?<span>([\s\S]*?)<\/span>/gi
-    ),
-    (match) => stripTags(match[1])
+    html.matchAll(/<div\b[^>]*id=["']player-control["'][\s\S]*?<span>([\s\S]*?)<\/span>/gi),
+    (match) => stripTags(match[1]),
   ).filter(Boolean);
 
   return {
     url: watchUrl,
-    watchPageDataset: extractDatasetFromTag(
-      html,
-      /(<div\b[^>]*id=["']watch-page["'][^>]*>)/i
-    ),
+    watchPageDataset: extractDatasetFromTag(html, /(<div\b[^>]*id=["']watch-page["'][^>]*>)/i),
     syncData: parseJsonScript(syncData),
     playerServerHtml: clip(playerServerHtml, 2000),
     playerControlLabels,
@@ -407,7 +406,10 @@ function isInterestingUrl(url: string): boolean {
   return true;
 }
 
-function classifyPhase(url: string, currentPhase: "search" | "watch" | "interactions"): keyof Findings["network"] {
+function classifyPhase(
+  url: string,
+  currentPhase: "search" | "watch" | "interactions",
+): keyof Findings["network"] {
   if (url.includes("/browser")) return "search";
   if (currentPhase === "interactions") return "interactions";
   if (url.includes("/watch/")) return "watch";
@@ -431,7 +433,9 @@ async function snapshotDom(page: Page, reason: string) {
     const player = document.querySelector("#player") as HTMLElement | null;
     const episodeSection = document.querySelector(".episode-section") as HTMLElement | null;
     const buttonCandidates = Array.from(
-      document.querySelectorAll("button, [role='button'], .btn, .tab, [data-value], [data-id], [data-server]")
+      document.querySelectorAll(
+        "button, [role='button'], .btn, .tab, [data-value], [data-id], [data-server]",
+      ),
     ) as HTMLElement[];
 
     const activeServerLikeButtons = buttonCandidates
@@ -439,11 +443,12 @@ async function snapshotDom(page: Page, reason: string) {
         text: element.textContent?.replace(/\s+/g, " ").trim() ?? "",
         className: element.className ?? "",
         dataAttrs: Object.fromEntries(
-          Object.entries(element.dataset).filter(([, value]) => typeof value === "string")
+          Object.entries(element.dataset).filter(([, value]) => typeof value === "string"),
         ),
       }))
       .filter((entry) => {
-        const haystack = `${entry.text} ${entry.className} ${Object.values(entry.dataAttrs).join(" ")}`.toLowerCase();
+        const haystack =
+          `${entry.text} ${entry.className} ${Object.values(entry.dataAttrs).join(" ")}`.toLowerCase();
         return (
           haystack.includes("server") ||
           haystack.includes("soft") ||
@@ -533,7 +538,9 @@ async function attachNetworkLogging(context: BrowserContext) {
 async function installClickProbe(page: Page) {
   await page.exposeBinding("anikaiRecordClick", (_source, payload: ClickRecord) => {
     findings.clicks.push(payload);
-    findings.notes.push(`[${payload.at}] click: ${payload.text ?? "<no text>"} ${payload.href ?? ""}`.trim());
+    findings.notes.push(
+      `[${payload.at}] click: ${payload.text ?? "<no text>"} ${payload.href ?? ""}`.trim(),
+    );
   });
 
   await page.addInitScript(() => {
@@ -551,14 +558,21 @@ async function installClickProbe(page: Page) {
       "click",
       (event) => {
         const target = event.target as HTMLElement | null;
-        const chain = event.composedPath().filter((node): node is Element => node instanceof Element);
+        const chain = event
+          .composedPath()
+          .filter((node): node is Element => node instanceof Element);
         const clickable =
-          target?.closest("button, a, [role='button'], .btn, .tab, [data-id], [data-value], [data-server]") ?? target;
+          target?.closest(
+            "button, a, [role='button'], .btn, .tab, [data-id], [data-value], [data-server]",
+          ) ?? target;
 
         const payload = {
           at: new Date().toISOString(),
           text: clickable?.textContent?.replace(/\s+/g, " ").trim() || null,
-          href: clickable instanceof HTMLAnchorElement ? clickable.href : clickable?.getAttribute("href") || null,
+          href:
+            clickable instanceof HTMLAnchorElement
+              ? clickable.href
+              : clickable?.getAttribute("href") || null,
           tagName: clickable?.tagName ?? null,
           id: clickable?.id ?? null,
           className: clickable?.className ?? null,
@@ -568,11 +582,12 @@ async function installClickProbe(page: Page) {
         };
 
         queueMicrotask(() => {
-          void (window as typeof window & { anikaiRecordClick?: (payload: unknown) => Promise<void> })
-            .anikaiRecordClick?.(payload);
+          void (
+            window as typeof window & { anikaiRecordClick?: (payload: unknown) => Promise<void> }
+          ).anikaiRecordClick?.(payload);
         });
       },
-      true
+      true,
     );
   });
 }
@@ -610,7 +625,7 @@ async function runInteractiveCapture(context: BrowserContext) {
 
   if (!page.isClosed()) {
     findings.notes.push(
-      `[${new Date().toISOString()}] interactive timeout reached after ${interactiveSeconds} seconds`
+      `[${new Date().toISOString()}] interactive timeout reached after ${interactiveSeconds} seconds`,
     );
     await snapshotDom(page, "timeout-final");
     await page.close();
@@ -622,7 +637,7 @@ async function main() {
   const searchHtml = await fetchHtml(browserUrl);
   findings.staticSearch = parseStaticSearch(searchHtml);
   findings.notes.push(
-    `Search appears server-rendered via ${findings.staticSearch.searchFormAction ?? "/browser"} with ${findings.staticSearch.totalResultLinks} result links parsed from HTML.`
+    `Search appears server-rendered via ${findings.staticSearch.searchFormAction ?? "/browser"} with ${findings.staticSearch.totalResultLinks} result links parsed from HTML.`,
   );
 
   log("[*] Fetching raw watch HTML...");
@@ -630,10 +645,14 @@ async function main() {
   findings.staticWatch = parseStaticWatch(watchHtml);
 
   if (findings.staticWatch.watchPageDataset.meta) {
-    findings.notes.push("Watch page exposes #watch-page[data-meta], which is likely important for later internal requests.");
+    findings.notes.push(
+      "Watch page exposes #watch-page[data-meta], which is likely important for later internal requests.",
+    );
   }
   if (findings.staticWatch.syncData) {
-    findings.notes.push("Watch page exposes #syncData JSON, which includes anime_id and current episode.");
+    findings.notes.push(
+      "Watch page exposes #syncData JSON, which includes anime_id and current episode.",
+    );
   }
 
   log("[*] Launching browser...");
@@ -677,7 +696,9 @@ async function main() {
   log(`[✓] Wrote findings to ${outFile}`);
   log(`[✓] Clicks: ${summary.counts.clicks}`);
   log(`[✓] DOM snapshots: ${summary.counts.domSnapshots}`);
-  log(`[✓] Network responses: ${summary.counts.networkSearch + summary.counts.networkWatch + summary.counts.networkInteractions}`);
+  log(
+    `[✓] Network responses: ${summary.counts.networkSearch + summary.counts.networkWatch + summary.counts.networkInteractions}`,
+  );
 }
 
 await main().catch(async (error: unknown) => {
@@ -692,9 +713,9 @@ await main().catch(async (error: unknown) => {
         findings,
       },
       null,
-      2
+      2,
     ),
-    "utf8"
+    "utf8",
   ).catch(() => {});
   process.stderr.write(`${message}\n`);
   process.exit(1);

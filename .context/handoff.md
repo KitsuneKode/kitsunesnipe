@@ -1,7 +1,7 @@
 ---
 updated: 2026-04-22T01:17:00+05:30
 branch: main
-session_name: 'KitsuneSnipe Refactor Phase 1 - Foundation'
+session_name: "KitsuneSnipe Refactor Phase 1 - Foundation"
 context_pressure: medium
 ---
 
@@ -35,7 +35,6 @@ context_pressure: medium
   - `src/services/providers/definitions/braflix.ts` (API provider)
   - `src/services/providers/definitions/allanime.ts` (API provider)
   - `src/services/providers/definitions/cineby-anime.ts` (API provider)
-  
 - [ ] **Create `src/services/providers/index.ts`** with `PROVIDER_DEFINITIONS` array
   - Export all definitions as `PROVIDER_DEFINITIONS = [VidKingDef, CinebyDef, ...]`
   - Wire into container @ `src/container.ts:103-106`
@@ -43,7 +42,7 @@ context_pressure: medium
 - [ ] **Create search service implementations**:
   - `src/services/search/definitions/tmdb.ts` - Wrap `src/search.ts:searchVideasy()` into `SearchService`
   - `src/services/search/definitions/allanime.ts` - Wrap AllAnime GraphQL search
-  - 
+  -
 - [ ] **Create `src/services/search/index.ts`** with `SEARCH_SERVICE_DEFINITIONS` array
   - Wire into container @ `src/container.ts:108-111`
 
@@ -62,14 +61,14 @@ context_pressure: medium
 
 ## Decisions
 
-| Decision | Choice | Why |
-|----------|--------|-----|
-| DI pattern | Constructor injection | Testable, explicit deps |
-| State | Immutable snapshots | Debuggable, traceable transitions |
-| Provider registration | Explicit list in `index.ts` | Type-safe, no dynamic imports |
-| Search coupling | Advisory (`compatibleProviders`) | TMDB results work with VidKing/Cineby |
-| Error recovery | Conservative | Don't auto-switch providers without asking |
-| UI | Search-first, full-screen | No "press enter to search" gate |
+| Decision              | Choice                           | Why                                        |
+| --------------------- | -------------------------------- | ------------------------------------------ |
+| DI pattern            | Constructor injection            | Testable, explicit deps                    |
+| State                 | Immutable snapshots              | Debuggable, traceable transitions          |
+| Provider registration | Explicit list in `index.ts`      | Type-safe, no dynamic imports              |
+| Search coupling       | Advisory (`compatibleProviders`) | TMDB results work with VidKing/Cineby      |
+| Error recovery        | Conservative                     | Don't auto-switch providers without asking |
+| UI                    | Search-first, full-screen        | No "press enter to search" gate            |
 
 ## Key Files
 
@@ -117,18 +116,18 @@ Example pattern for VidKing (Playwright):
 export class VidKingProvider implements Provider {
   metadata = { id: "vidking", name: "VidKing", ... };
   capabilities = { contentTypes: ["movie", "series"] };
-  
+
   constructor(private deps: ProviderDeps) {}
-  
+
   canHandle(title: TitleInfo): boolean {
     return title.type === "movie" || title.type === "series";
   }
-  
+
   async resolveStream(request, signal): Promise<StreamInfo | null> {
     const url = title.type === "movie"
       ? `https://vidking.to/movie/${title.id}`
       : `https://vidking.to/tv/${title.id}-${request.episode.season}-${request.episode.episode}`;
-    
+
     return this.deps.browser.scrape({ url, signal });
   }
 }

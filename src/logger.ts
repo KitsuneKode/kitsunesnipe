@@ -18,7 +18,7 @@ export function initLogger(enabled: boolean) {
 export function dbg(module: string, msg: string, data?: Record<string, unknown>) {
   if (!_debugEnabled) return;
   const line = JSON.stringify({
-    t:      new Date().toISOString(),
+    t: new Date().toISOString(),
     module,
     msg,
     ...data,

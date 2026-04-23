@@ -79,9 +79,7 @@ export interface ContainerOptions {
  * Create the container with all services wired together.
  * This is called once at application startup.
  */
-export async function createContainer(
-  options?: ContainerOptions,
-): Promise<Container> {
+export async function createContainer(options?: ContainerOptions): Promise<Container> {
   const debug = options?.debug ?? false;
 
   // Core infrastructure first (no dependencies on other services)
@@ -115,10 +113,7 @@ export async function createContainer(
     PROVIDER_DEFINITIONS,
   );
 
-  const searchRegistry = new SearchRegistryImpl(
-    { logger, tracer },
-    SEARCH_SERVICE_DEFINITIONS,
-  );
+  const searchRegistry = new SearchRegistryImpl({ logger, tracer }, SEARCH_SERVICE_DEFINITIONS);
 
   const container: Container = {
     logger,

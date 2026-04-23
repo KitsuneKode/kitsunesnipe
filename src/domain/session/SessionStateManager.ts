@@ -26,9 +26,9 @@ export interface SessionStateManagerDeps {
 export class SessionStateManagerImpl implements SessionStateManager {
   private state: SessionState = createInitialState("vidking", "allanime");
   private listeners = new Set<StateListener>();
-  
+
   constructor(private deps: SessionStateManagerDeps) {}
-  
+
   initialize(defaultProvider: string, defaultAnimeProvider: string): void {
     this.state = createInitialState(defaultProvider, defaultAnimeProvider);
     this.deps.logger.info("Session state initialized", {
@@ -36,15 +36,15 @@ export class SessionStateManagerImpl implements SessionStateManager {
       defaultAnimeProvider,
     });
   }
-  
+
   getState(): SessionState {
     return this.state;
   }
-  
+
   dispatch(transition: StateTransition): void {
     const prevState = this.state;
     this.state = reduceState(prevState, transition);
-    
+
     // Log transition for debugging
     this.deps.logger.debug("State transition", {
       type: transition.type,
@@ -53,7 +53,7 @@ export class SessionStateManagerImpl implements SessionStateManager {
       hasTitle: !!this.state.currentTitle,
       searchResults: this.state.searchResults.length,
     });
-    
+
     // Notify listeners
     this.listeners.forEach((listener) => {
       try {
@@ -63,7 +63,7 @@ export class SessionStateManagerImpl implements SessionStateManager {
       }
     });
   }
-  
+
   subscribe(listener: StateListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

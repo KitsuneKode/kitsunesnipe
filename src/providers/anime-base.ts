@@ -17,6 +17,7 @@
 
 import type { ApiProvider, ApiSearchResult } from "./types";
 import type { StreamData } from "@/scraper";
+import type { EpisodePickerOption } from "@/domain/types";
 import { dbg, dbgErr } from "@/logger";
 
 // ── Hex-decode cipher (ani-cli provider_init) ─────────────────────────────────
@@ -424,6 +425,27 @@ export async function resolveEpisodeSources(opts: {
     (a, b) => (parseInt(b.quality) || 0) - (parseInt(a.quality) || 0),
   );
   return all;
+}
+
+export async function fetchAnimeEpisodeCatalog(opts: {
+  apiUrl: string;
+  referer: string;
+  ua: string;
+  showId: string;
+  mode: "sub" | "dub";
+}): Promise<EpisodePickerOption[]> {
+  const { apiUrl, referer, ua, showId, mode } = opts;
+  const listQ = `query($id:String!){show(_id:$id){availableEpisodesDetail}}`;
+  const listData = (await gqlPost(apiUrl, referer, ua, listQ, { id: showId })) as {
+    data: { show: { availableEpisodesDetail: Record<string, unknown[]> } };
+  };
+  const episodeStrings = (listData.data.show.availableEpisodesDetail[mode] ?? []) as string[];
+
+  return episodeStrings.map((episodeString, index) => ({
+    index: index + 1,
+    label: `Episode ${episodeString}`,
+    detail: `Source episode ${episodeString}`,
+  }));
 }
 
 // ── Factory: createAnimeProvider ──────────────────────────────────────────────

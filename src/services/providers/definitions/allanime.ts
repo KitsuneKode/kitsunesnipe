@@ -3,9 +3,11 @@
 // =============================================================================
 
 import { AllAnime as LegacyAllAnime } from "../../../providers/allanime";
+import { fetchAnimeEpisodeCatalog } from "../../../providers/anime-base";
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import type {
   TitleInfo,
+  EpisodePickerOption,
   StreamInfo,
   ProviderMetadata,
   ProviderCapabilities,
@@ -31,10 +33,7 @@ export class AllAnimeProvider implements Provider {
     return title.type === "series";
   }
 
-  async resolveStream(
-    request: StreamRequest,
-    signal?: AbortSignal,
-  ): Promise<StreamInfo | null> {
+  async resolveStream(request: StreamRequest, signal?: AbortSignal): Promise<StreamInfo | null> {
     const legacyOpts = {
       subLang: request.subLang,
       animeLang: this.deps.config.animeLang,
@@ -63,6 +62,19 @@ export class AllAnimeProvider implements Provider {
         | undefined,
       timestamp: result.timestamp,
     };
+  }
+
+  async listEpisodes(
+    request: { title: TitleInfo },
+    _signal?: AbortSignal,
+  ): Promise<EpisodePickerOption[] | null> {
+    return fetchAnimeEpisodeCatalog({
+      apiUrl: "https://api.allanime.day/api",
+      referer: "https://allmanga.to",
+      ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+      showId: request.title.id,
+      mode: this.deps.config.animeLang,
+    });
   }
 }
 

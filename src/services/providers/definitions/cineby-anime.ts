@@ -30,10 +30,7 @@ export class CinebyAnimeProvider implements Provider {
     return title.type === "series";
   }
 
-  async resolveStream(
-    request: StreamRequest,
-    signal?: AbortSignal,
-  ): Promise<StreamInfo | null> {
+  async resolveStream(request: StreamRequest, signal?: AbortSignal): Promise<StreamInfo | null> {
     const legacyOpts = {
       subLang: request.subLang,
       animeLang: this.deps.config.animeLang,

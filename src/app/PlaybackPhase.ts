@@ -6,7 +6,13 @@
 // =============================================================================
 
 import type { Phase, PhaseResult, PhaseContext } from "./Phase";
-import type { TitleInfo, EpisodeInfo, StreamInfo, PlaybackResult } from "../domain/types";
+import type {
+  TitleInfo,
+  EpisodeInfo,
+  EpisodePickerOption,
+  StreamInfo,
+  PlaybackResult,
+} from "../domain/types";
 
 export type PlaybackOutcome = "back_to_search" | "mode_switch" | "quit";
 
@@ -20,6 +26,12 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     try {
       // Episode selection (for series)
       let episode: EpisodeInfo | undefined;
+      const provider = providerRegistry.get(stateManager.getState().provider);
+      const animeEpisodes = await this.loadAnimeEpisodeOptions(
+        title,
+        stateManager.getState().mode,
+        provider,
+      );
 
       if (title.type === "series") {
         // Check history for resume
@@ -38,7 +50,8 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         const selection = await chooseStartingEpisode({
           currentId: title.id,
           isAnime: stateManager.getState().mode === "anime",
-          apiPicked: null,
+          animeEpisodeCount: title.episodeCount,
+          animeEpisodes,
           flags: {},
           getHistoryEntry: () => Promise.resolve(history),
         });
@@ -210,6 +223,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             "toggle-mode",
             "provider",
             "replay",
+            "pick-episode",
             "next",
             "previous",
             "next-season",
@@ -236,6 +250,24 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           return { status: "success", value: "back_to_search" };
         } else if (postAction === "replay") {
           // Loop continues - same episode
+          continue;
+        } else if (postAction === "pick-episode" && title.type === "series") {
+          const { chooseEpisodeFromMetadata } = await import("../session-flow");
+          const selection = await chooseEpisodeFromMetadata({
+            currentId: title.id,
+            isAnime: stateManager.getState().mode === "anime",
+            currentSeason: currentEpisode.season,
+            currentEpisode: currentEpisode.episode,
+            animeEpisodeCount: title.episodeCount,
+            animeEpisodes,
+          });
+          stateManager.dispatch({
+            type: "SELECT_EPISODE",
+            episode: {
+              season: selection.season,
+              episode: selection.episode,
+            },
+          });
           continue;
         } else if (postAction === "next" && title.type === "series") {
           stateManager.dispatch({
@@ -339,6 +371,22 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "finished" });
 
     return result;
+  }
+
+  private async loadAnimeEpisodeOptions(
+    title: TitleInfo,
+    mode: "series" | "anime",
+    provider: import("../services/providers/Provider").Provider | undefined,
+  ): Promise<readonly EpisodePickerOption[] | undefined> {
+    if (mode !== "anime" || title.type !== "series" || !provider?.listEpisodes) {
+      return undefined;
+    }
+
+    try {
+      return (await provider.listEpisodes({ title })) ?? undefined;
+    } catch {
+      return undefined;
+    }
   }
 }
 

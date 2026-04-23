@@ -24,20 +24,20 @@ export interface ShellService {
   // State management
   setState(state: ShellState): void;
   getState(): ShellState;
-  
+
   // Search interface
   setSearchQuery(query: string): void;
   setSearchResults(results: SearchResult[]): void;
   setSearchState(state: "idle" | "loading" | "ready" | "error", error?: string): void;
-  
+
   // Modal system
   pushModal(modal: ModalType): void;
   popModal(): void;
   closeAllModals(): void;
-  
+
   // User input (returns promise that resolves on selection)
   waitForSelection<T>(): Promise<T | null>;
-  
+
   // Lifecycle
   start(): Promise<void>;
   stop(): Promise<void>;

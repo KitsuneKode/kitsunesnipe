@@ -4,16 +4,16 @@ import type { PlaywrightProvider } from "./types";
 // needsClick + og title strategy carry over exactly.
 
 export const BitCine: PlaywrightProvider = {
-  kind:        "playwright",
-  id:          "bitcine",
-  name:        "BitCine",
+  kind: "playwright",
+  id: "bitcine",
+  name: "BitCine",
   description: "BitCine  (Cineby mirror)",
-  domain:      "bitcine.net",
+  domain: "bitcine.net",
   recommended: false,
 
-  movieUrl:  (id) => `https://www.bitcine.net/movie/${id}?play=true`,
+  movieUrl: (id) => `https://www.bitcine.net/movie/${id}?play=true`,
   seriesUrl: (id, s, e) => `https://www.bitcine.net/tv/${id}/${s}/${e}?play=true`,
 
-  needsClick:  true,
+  needsClick: true,
   titleSource: "og",
 };

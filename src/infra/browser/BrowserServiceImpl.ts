@@ -49,9 +49,7 @@ export class BrowserServiceImpl implements BrowserService {
       url: result.url,
       headers: result.headers,
       subtitle: result.subtitle ?? undefined,
-      subtitleList: result.subtitleList as
-        | import("../../domain/types").SubtitleTrack[]
-        | undefined,
+      subtitleList: result.subtitleList as import("../../domain/types").SubtitleTrack[] | undefined,
       title: result.title,
       timestamp: result.timestamp,
     };

@@ -173,9 +173,7 @@
         "episode": 1
       },
       "playerServerHtml": null,
-      "playerControlLabels": [
-        "Expand"
-      ],
+      "playerControlLabels": ["Expand"],
       "rawWatchIndicators": {
         "hasPlayerServer": true,
         "hasEpisodeSection": true,
@@ -194,9 +192,7 @@
         "id": "",
         "className": "",
         "role": null,
-        "path": [
-          "html"
-        ],
+        "path": ["html"],
         "outerHtmlSnippet": "<html><head></head><body></body></html>"
       }
     ],

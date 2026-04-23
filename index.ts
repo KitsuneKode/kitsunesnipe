@@ -16,6 +16,7 @@ import {
   type ApiProvider,
   type ApiSearchResult,
 } from "@/providers";
+import { fetchAnimeEpisodeCatalog } from "@/providers/anime-base";
 import { scrapeStream, type StreamData } from "@/scraper";
 import { launchMpv } from "@/mpv";
 import { checkDeps } from "@/ui";
@@ -34,8 +35,14 @@ import {
   openSearchShell,
   formatMemoryUsage,
 } from "@/app-shell/ink-shell";
-import { chooseStartingEpisode, cycleProvider, describeHistoryEntry } from "@/session-flow";
+import {
+  chooseStartingEpisode,
+  chooseEpisodeFromMetadata,
+  cycleProvider,
+  describeHistoryEntry,
+} from "@/session-flow";
 import { openProviderPicker, openSettingsShell, openSubtitlePicker } from "@/app-shell/workflows";
+import type { EpisodePickerOption } from "@/domain/types";
 
 // =============================================================================
 // 1. FLAGS
@@ -73,6 +80,7 @@ let currentSubLang: string;
 let useHeadless: boolean;
 let isAnime: boolean; // true → anime provider flow
 let config: KitsuneConfig;
+let animeEpisodeOptions: readonly EpisodePickerOption[] | undefined;
 
 // Pre-fetch slot — only active for Playwright providers
 let prefetchedStream: { url: string; data: Promise<StreamData | null> } | null = null;
@@ -265,6 +273,25 @@ function startPrefetch() {
   prefetchedStream = { url: nextUrl, data: scrapeStream(provider, nextUrl, currentSubLang, true) };
 }
 
+async function loadAnimeEpisodeOptions(
+  providerId: string,
+  titleId: string,
+): Promise<readonly EpisodePickerOption[] | undefined> {
+  if (providerId !== "allanime") return undefined;
+
+  try {
+    return await fetchAnimeEpisodeCatalog({
+      apiUrl: "https://api.allanime.day/api",
+      referer: "https://allmanga.to",
+      ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+      showId: titleId,
+      mode: config.animeLang,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 // =============================================================================
 // 5. MAIN
 // =============================================================================
@@ -452,7 +479,7 @@ function startPrefetch() {
           title: "Choose title",
           subtitle: `${results.length} results  ·  Search mode`,
           items: results,
-          toLabel: (result) => `${result.title} (${result.year})`,
+          toLabel: (result) => (result.year ? `${result.title} (${result.year})` : result.title),
           toDetail: (result) =>
             `${result.type === "series" ? "Series" : "Movie"}${result.overview ? `  ·  ${result.overview}` : ""}`,
         });
@@ -482,13 +509,17 @@ function startPrefetch() {
     }
 
     if (currentType === "series") {
+      animeEpisodeOptions = isAnime
+        ? await loadAnimeEpisodeOptions(currentProvider, currentId)
+        : undefined;
       const history = await getHistory(currentId);
       if (history) log.info(describeHistoryEntry(history));
 
       const selection = await chooseStartingEpisode({
         currentId,
         isAnime,
-        apiPicked,
+        animeEpisodeCount: apiPicked?.epCount,
+        animeEpisodes: animeEpisodeOptions,
         flags: {
           season: values.season as string | undefined,
           episode: values.episode as string | undefined,
@@ -499,6 +530,7 @@ function startPrefetch() {
       currentSeason = selection.season;
       currentEpisode = selection.episode;
     } else {
+      animeEpisodeOptions = undefined;
       currentSeason = 1;
       currentEpisode = 1;
     }
@@ -675,6 +707,17 @@ function startPrefetch() {
         }
       } else if (postAction === "replay") {
         // replay — loop restarts
+      } else if (postAction === "pick-episode" && currentType === "series") {
+        const selection = await chooseEpisodeFromMetadata({
+          currentId,
+          isAnime,
+          currentSeason,
+          currentEpisode,
+          animeEpisodeCount: apiPicked?.epCount,
+          animeEpisodes: animeEpisodeOptions,
+        });
+        currentSeason = selection.season;
+        currentEpisode = selection.episode;
       } else if (postAction === "next" && currentType === "series") {
         currentEpisode++;
       } else if (postAction === "previous" && currentType === "series") {

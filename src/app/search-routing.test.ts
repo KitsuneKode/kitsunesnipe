@@ -54,6 +54,7 @@ describe("searchTitles", () => {
         year: "",
         overview: "",
         posterPath: null,
+        episodeCount: 12,
       },
     ]);
   });

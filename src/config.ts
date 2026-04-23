@@ -3,28 +3,28 @@ import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 
 export type KitsuneConfig = {
-  provider:      string;             // provider ID (e.g. "vidking")
-  animeProvider: string;             // anime provider ID (e.g. "allanime")
-  subLang:       string;             // subtitle language code or "fzf" | "none"
-  animeLang:     "sub" | "dub";      // preferred audio type for anime
-  headless:      boolean;
-  showMemory:    boolean;
-  autoNext:      boolean;
+  provider: string; // provider ID (e.g. "vidking")
+  animeProvider: string; // anime provider ID (e.g. "allanime")
+  subLang: string; // subtitle language code or "fzf" | "none"
+  animeLang: "sub" | "dub"; // preferred audio type for anime
+  headless: boolean;
+  showMemory: boolean;
+  autoNext: boolean;
 };
 
 export const DEFAULT_CONFIG: KitsuneConfig = {
-  provider:      "vidking",
+  provider: "vidking",
   animeProvider: "allanime",
-  subLang:       "en",
-  animeLang:     "sub",
-  headless:      true,
-  showMemory:    false,
-  autoNext:      true,
+  subLang: "en",
+  animeLang: "sub",
+  headless: true,
+  showMemory: false,
+  autoNext: true,
 };
 
-const CONFIG_DIR   = join(process.env.HOME ?? "~", ".config", "kitsunesnipe");
-const CONFIG_FILE  = join(CONFIG_DIR, "config.json");
-const DOMAIN_FILE  = join(CONFIG_DIR, "providers.json");
+const CONFIG_DIR = join(process.env.HOME ?? "~", ".config", "kitsunesnipe");
+const CONFIG_FILE = join(CONFIG_DIR, "config.json");
+const DOMAIN_FILE = join(CONFIG_DIR, "providers.json");
 
 function ensureDir() {
   if (!existsSync(CONFIG_DIR)) mkdirSync(CONFIG_DIR, { recursive: true });

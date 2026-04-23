@@ -60,8 +60,8 @@ export type EndReason = "eof" | "quit" | "error" | "unknown";
 
 export type PlaybackResult = {
   watchedSeconds: number;
-  duration:       number;
-  endReason:      EndReason;
+  duration: number;
+  endReason: EndReason;
 };
 
 // =============================================================================
@@ -79,16 +79,16 @@ export type PlaybackResult = {
 // =============================================================================
 
 export async function launchMpv(opts: {
-  url:          string;
-  headers:      Record<string, string>;
-  subtitle:     string | null;
+  url: string;
+  headers: Record<string, string>;
+  subtitle: string | null;
   displayTitle: string;
-  startAt?:     number;
-  autoNext?:    boolean;
-  attach?:      boolean;   // true → stdio:inherit (old behaviour)
+  startAt?: number;
+  autoNext?: boolean;
+  attach?: boolean; // true → stdio:inherit (old behaviour)
 }): Promise<PlaybackResult> {
   const scriptPath = join(tmpdir(), "kitsune-reporter.lua");
-  const posPath    = join(tmpdir(), "kitsune-position");
+  const posPath = join(tmpdir(), "kitsune-position");
 
   await writeFile(scriptPath, LUA_REPORTER, "utf-8");
   if (existsSync(posPath)) await unlink(posPath);
@@ -96,23 +96,23 @@ export async function launchMpv(opts: {
   const args: string[] = [opts.url];
 
   // HTTP context for CDN auth
-  const referer   = opts.headers["referer"]    ?? opts.headers["Referer"];
+  const referer = opts.headers["referer"] ?? opts.headers["Referer"];
   const userAgent = opts.headers["user-agent"] ?? opts.headers["User-Agent"];
-  const origin    = opts.headers["origin"]     ?? opts.headers["Origin"];
-  if (referer)   args.push(`--referrer=${referer}`);
+  const origin = opts.headers["origin"] ?? opts.headers["Origin"];
+  if (referer) args.push(`--referrer=${referer}`);
   if (userAgent) args.push(`--user-agent=${userAgent}`);
-  if (origin)    args.push(`--http-header-fields=Origin: ${origin}`);
+  if (origin) args.push(`--http-header-fields=Origin: ${origin}`);
 
-  if (opts.subtitle)            args.push(`--sub-file=${opts.subtitle}`);
+  if (opts.subtitle) args.push(`--sub-file=${opts.subtitle}`);
   if (opts.startAt && opts.startAt > 5) args.push(`--start=${opts.startAt}`);
-  if (opts.autoNext)            args.push("--keep-open=yes");
+  if (opts.autoNext) args.push("--keep-open=yes");
 
   args.push(`--force-media-title=${opts.displayTitle}`);
   args.push(`--script=${scriptPath}`);
 
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
-    KITSUNE_POS_FILE:  posPath,
+    KITSUNE_POS_FILE: posPath,
     KITSUNE_AUTO_NEXT: opts.autoNext ? "1" : "0",
   };
 
@@ -121,7 +121,10 @@ export async function launchMpv(opts: {
     await new Promise<void>((resolve) => {
       const mpv = spawn("mpv", args, { stdio: "inherit", env });
       mpv.on("close", resolve);
-      mpv.on("error", (e) => { console.error(`\n[!] mpv: ${e.message}`); resolve(); });
+      mpv.on("error", (e) => {
+        console.error(`\n[!] mpv: ${e.message}`);
+        resolve();
+      });
     });
   } else {
     // ── Detached mode (default): MPV window opens independently ──────────
@@ -130,13 +133,15 @@ export async function launchMpv(opts: {
 
     const mpv = spawn("mpv", args, {
       detached: true,
-      stdio:    ["ignore", "ignore", "ignore"],
+      stdio: ["ignore", "ignore", "ignore"],
       env,
     });
 
     // Track process exit so we don't poll forever if MPV crashes before
     // the Lua reporter writes the position file.
-    mpv.on("close", () => { mpvExited = true; });
+    mpv.on("close", () => {
+      mpvExited = true;
+    });
     mpv.on("error", (e) => {
       console.error(`\n[!] mpv: ${e.message}`);
       mpvExited = true;
@@ -153,10 +158,10 @@ export async function launchMpv(opts: {
   // ── Parse position file ───────────────────────────────────────────────────
   if (existsSync(posPath)) {
     try {
-      const raw   = await readFile(posPath, "utf-8");
+      const raw = await readFile(posPath, "utf-8");
       const parts = raw.trim().split(",");
-      const pos    = Number(parts[0]) || 0;
-      const dur    = Number(parts[1]) || 0;
+      const pos = Number(parts[0]) || 0;
+      const dur = Number(parts[1]) || 0;
       const reason = (parts[2]?.trim() ?? "unknown") as EndReason;
       await unlink(posPath).catch(() => {});
       return { watchedSeconds: pos, duration: dur, endReason: reason };

@@ -11,13 +11,13 @@ export class TracerImpl implements Tracer {
   private currentTrace: Trace | null = null;
   private currentSpan: Span | null = null;
   private spanStack: Span[] = [];
-  
+
   constructor(private options: TracerOptions) {}
-  
+
   async span<T>(name: string, fn: (span: Span) => Promise<T>): Promise<T> {
     const span = this.createSpan(name);
     this.pushSpan(span);
-    
+
     try {
       const result = await fn(span);
       span.end();
@@ -30,15 +30,15 @@ export class TracerImpl implements Tracer {
       this.popSpan();
     }
   }
-  
+
   getCurrentTrace(): Trace | null {
     return this.currentTrace;
   }
-  
+
   getCurrentSpan(): Span | null {
     return this.currentSpan;
   }
-  
+
   private createSpan(name: string): Span {
     return {
       id: Math.random().toString(36).slice(2),
@@ -55,12 +55,12 @@ export class TracerImpl implements Tracer {
       },
     };
   }
-  
+
   private pushSpan(span: Span): void {
     this.spanStack.push(span);
     this.currentSpan = span;
   }
-  
+
   private popSpan(): void {
     this.spanStack.pop();
     this.currentSpan = this.spanStack[this.spanStack.length - 1] ?? null;

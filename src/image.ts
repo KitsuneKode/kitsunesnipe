@@ -14,10 +14,7 @@ const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
 const MAX_ROWS = 18;
 
 export function isKittyCompatible(): boolean {
-  return !!(
-    process.env.KITTY_WINDOW_ID ||
-    process.env.TERM_PROGRAM === "ghostty"
-  );
+  return !!(process.env.KITTY_WINDOW_ID || process.env.TERM_PROGRAM === "ghostty");
 }
 
 export async function displayPoster(posterPath: string | null): Promise<void> {
@@ -39,8 +36,8 @@ export async function displayPoster(posterPath: string | null): Promise<void> {
 
     for (let i = 0; i < chunks.length; i++) {
       const isFirst = i === 0;
-      const isLast  = i === chunks.length - 1;
-      const more    = isLast ? 0 : 1; // m=1 means more chunks follow
+      const isLast = i === chunks.length - 1;
+      const more = isLast ? 0 : 1; // m=1 means more chunks follow
 
       let ctrl: string;
       if (isFirst) {

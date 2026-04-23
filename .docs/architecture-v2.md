@@ -69,37 +69,37 @@ Until that cutover is complete, treat `index.ts` as the legacy runtime path and 
 
 ### Created Files
 
-| File | Purpose |
-|------|---------|
-| `src/container.ts` | DI container with all service wiring |
-| `src/domain/types.ts` | Core domain types (TitleInfo, EpisodeInfo, StreamInfo) |
-| `src/domain/errors.ts` | Typed error taxonomy with recovery strategies |
-| `src/domain/session/SessionState.ts` | Immutable session state with transitions |
-| `src/domain/session/SessionStateManager.ts` | Centralized state management |
-| `src/infra/logger/Logger.ts` | Logger interface |
-| `src/infra/logger/StructuredLogger.ts` | Implementation with structured output |
-| `src/infra/tracer/Tracer.ts` | Tracer interface |
-| `src/infra/tracer/TracerImpl.ts` | Implementation with spans |
-| `src/infra/storage/StorageService.ts` | Storage interface |
-| `src/infra/storage/FileStorage.ts` | JSON file implementation |
-| `src/infra/shell/ShellService.ts` | Shell interface |
-| `src/infra/shell/ShellServiceImpl.ts` | Stub implementation |
-| `src/infra/browser/BrowserService.ts` | Browser interface |
-| `src/infra/browser/BrowserServiceImpl.ts` | Stub implementation |
-| `src/infra/player/PlayerService.ts` | Player interface |
-| `src/infra/player/PlayerServiceImpl.ts` | Stub implementation |
-| `src/services/providers/Provider.ts` | Provider interface definition |
-| `src/services/providers/ProviderRegistry.ts` | Registry with auto-discovery |
-| `src/services/search/SearchService.ts` | Search service interface |
-| `src/services/search/SearchRegistry.ts` | Registry with advisory coupling |
-| `src/services/persistence/ConfigService.ts` | Config interface |
-| `src/services/persistence/ConfigServiceImpl.ts` | Implementation |
-| `src/services/persistence/ConfigStore.ts` | Store interface |
-| `src/services/persistence/ConfigStoreImpl.ts` | File implementation |
-| `src/services/persistence/HistoryStore.ts` | History interface |
-| `src/services/persistence/HistoryStoreImpl.ts` | File implementation |
-| `src/services/persistence/CacheStore.ts` | Cache interface |
-| `src/services/persistence/CacheStoreImpl.ts` | File implementation |
+| File                                            | Purpose                                                |
+| ----------------------------------------------- | ------------------------------------------------------ |
+| `src/container.ts`                              | DI container with all service wiring                   |
+| `src/domain/types.ts`                           | Core domain types (TitleInfo, EpisodeInfo, StreamInfo) |
+| `src/domain/errors.ts`                          | Typed error taxonomy with recovery strategies          |
+| `src/domain/session/SessionState.ts`            | Immutable session state with transitions               |
+| `src/domain/session/SessionStateManager.ts`     | Centralized state management                           |
+| `src/infra/logger/Logger.ts`                    | Logger interface                                       |
+| `src/infra/logger/StructuredLogger.ts`          | Implementation with structured output                  |
+| `src/infra/tracer/Tracer.ts`                    | Tracer interface                                       |
+| `src/infra/tracer/TracerImpl.ts`                | Implementation with spans                              |
+| `src/infra/storage/StorageService.ts`           | Storage interface                                      |
+| `src/infra/storage/FileStorage.ts`              | JSON file implementation                               |
+| `src/infra/shell/ShellService.ts`               | Shell interface                                        |
+| `src/infra/shell/ShellServiceImpl.ts`           | Stub implementation                                    |
+| `src/infra/browser/BrowserService.ts`           | Browser interface                                      |
+| `src/infra/browser/BrowserServiceImpl.ts`       | Stub implementation                                    |
+| `src/infra/player/PlayerService.ts`             | Player interface                                       |
+| `src/infra/player/PlayerServiceImpl.ts`         | Stub implementation                                    |
+| `src/services/providers/Provider.ts`            | Provider interface definition                          |
+| `src/services/providers/ProviderRegistry.ts`    | Registry with auto-discovery                           |
+| `src/services/search/SearchService.ts`          | Search service interface                               |
+| `src/services/search/SearchRegistry.ts`         | Registry with advisory coupling                        |
+| `src/services/persistence/ConfigService.ts`     | Config interface                                       |
+| `src/services/persistence/ConfigServiceImpl.ts` | Implementation                                         |
+| `src/services/persistence/ConfigStore.ts`       | Store interface                                        |
+| `src/services/persistence/ConfigStoreImpl.ts`   | File implementation                                    |
+| `src/services/persistence/HistoryStore.ts`      | History interface                                      |
+| `src/services/persistence/HistoryStoreImpl.ts`  | File implementation                                    |
+| `src/services/persistence/CacheStore.ts`        | Cache interface                                        |
+| `src/services/persistence/CacheStoreImpl.ts`    | File implementation                                    |
 
 ### Bug Fix
 
@@ -108,16 +108,19 @@ Until that cutover is complete, treat `index.ts` as the legacy runtime path and 
 ## Migration Phases
 
 ### Phase 2: Domain Layer (In Progress)
+
 - Define concrete Provider implementations
 - Create provider adapters for existing providers
 - Implement SearchService definitions
 
 ### Phase 3: Infrastructure (Pending)
+
 - Integrate BrowserService with existing scraper.ts
 - Integrate PlayerService with existing mpv.ts
 - Build new search-first Ink shell
 
 ### Phase 4: Application Layer (Pending)
+
 - Implement SessionController
 - Build Phase classes (SearchPhase, PlaybackPhase)
 - Wire up telemetry throughout
@@ -136,15 +139,15 @@ export class MyProvider implements Provider {
     recommended: false,
     isAnimeProvider: false,
   };
-  
+
   capabilities = { contentTypes: ["movie", "series"] };
-  
+
   constructor(private deps: ProviderDeps) {}
-  
+
   canHandle(title: TitleInfo): boolean {
     return true;
   }
-  
+
   async resolveStream(request, signal): Promise<StreamInfo | null> {
     // Provider-specific logic
   }
@@ -153,7 +156,7 @@ export class MyProvider implements Provider {
 // Add one line to src/services/providers/index.ts:
 export const PROVIDER_DEFINITIONS = [
   // ... existing providers
-  MyProvider,  // ← one line
+  MyProvider, // ← one line
 ];
 ```
 

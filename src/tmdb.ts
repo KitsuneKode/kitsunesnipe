@@ -6,21 +6,21 @@
 // Results are memory-cached (per-session, never stale during a session).
 // =============================================================================
 
-const PROXY  = "https://db.videasy.net/3";
+const PROXY = "https://db.videasy.net/3";
 const DIRECT = "https://api.themoviedb.org/3";
 // Public TMDB API key (same as used in the luffy reference project)
 const TMDB_KEY = "653bb8af90162bd98fc7ee32bcbbfb3d";
 
 export type EpisodeInfo = {
-  number:   number;
-  name:     string;
-  airDate:  string;
+  number: number;
+  name: string;
+  airDate: string;
   overview: string;
 };
 
 export type SeasonInfo = {
-  number:   number;
-  name:     string;
+  number: number;
+  name: string;
   episodes: EpisodeInfo[];
 };
 
@@ -41,8 +41,9 @@ export async function fetchSeasons(tmdbId: string): Promise<number[]> {
 
   try {
     // Try proxy first, fall back to direct
-    const data = await fetchJson(`${PROXY}/tv/${tmdbId}`)
-      .catch(() => fetchJson(`${DIRECT}/tv/${tmdbId}?api_key=${TMDB_KEY}`));
+    const data = await fetchJson(`${PROXY}/tv/${tmdbId}`).catch(() =>
+      fetchJson(`${DIRECT}/tv/${tmdbId}?api_key=${TMDB_KEY}`),
+    );
 
     const seasons = ((data as any).seasons ?? []) as Array<{
       season_number: number;
@@ -67,13 +68,14 @@ export async function fetchEpisodes(tmdbId: string, season: number): Promise<Epi
   if (epCache.has(key)) return epCache.get(key)!;
 
   try {
-    const data = await fetchJson(`${PROXY}/tv/${tmdbId}/season/${season}`)
-      .catch(() => fetchJson(`${DIRECT}/tv/${tmdbId}/season/${season}?api_key=${TMDB_KEY}`));
+    const data = await fetchJson(`${PROXY}/tv/${tmdbId}/season/${season}`).catch(() =>
+      fetchJson(`${DIRECT}/tv/${tmdbId}/season/${season}?api_key=${TMDB_KEY}`),
+    );
 
     const eps: EpisodeInfo[] = ((data as any).episodes ?? []).map((e: any) => ({
-      number:   e.episode_number,
-      name:     e.name || `Episode ${e.episode_number}`,
-      airDate:  (e.air_date || "").split("-")[0] || "",
+      number: e.episode_number,
+      name: e.name || `Episode ${e.episode_number}`,
+      airDate: (e.air_date || "").split("-")[0] || "",
       overview: (e.overview || "").slice(0, 100),
     }));
 
@@ -102,7 +104,7 @@ export async function fetchSeriesData(
 // Format an EpisodeInfo for display in a picker.
 // Returns a consistent-width string suitable for fzf.
 export function formatEpisode(ep: EpisodeInfo): string {
-  const num  = `Ep ${String(ep.number).padStart(3, " ")}`;
+  const num = `Ep ${String(ep.number).padStart(3, " ")}`;
   const name = ep.name.slice(0, 44).padEnd(44, " ");
   const year = ep.airDate.padEnd(4, " ");
   return `${num}  ${name}  ${year}`;

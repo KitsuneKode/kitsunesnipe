@@ -20,13 +20,14 @@ import { dbg, dbgErr } from "@/logger";
 const DEFAULT_BASE = "https://braflix.mov";
 
 const HEADERS = {
-  "User-Agent":        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "X-Requested-With":  "XMLHttpRequest",
+  "User-Agent":
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "X-Requested-With": "XMLHttpRequest",
 };
 
 function base(): string {
   // Domain override hook — set by loadDomainOverrides() before first use.
-  return (globalThis as Record<string, unknown>).__braflixBase as string ?? DEFAULT_BASE;
+  return ((globalThis as Record<string, unknown>).__braflixBase as string) ?? DEFAULT_BASE;
 }
 
 async function fetchHtml(url: string, extraHeaders?: Record<string, string>): Promise<string> {
@@ -65,7 +66,7 @@ export async function braflixSearch(query: string): Promise<ApiSearchResult[]> {
   const cards = html.split('<div class="flw-item"').slice(1);
 
   return cards.flatMap((card): ApiSearchResult[] => {
-    const href  = first(card, /class="film-name[^"]*"[^>]*>.*?href="([^"]+)"/s);
+    const href = first(card, /class="film-name[^"]*"[^>]*>.*?href="([^"]+)"/s);
     const title = first(card, /title="([^"]+)"/);
     if (!href || !title) return [];
 
@@ -73,7 +74,7 @@ export async function braflixSearch(query: string): Promise<ApiSearchResult[]> {
 
     // Year: first 4-digit sequence in the info block
     const infoBlock = first(card, /class="film-infor"[^>]*>([\s\S]*?)<\/div>/);
-    const year      = first(infoBlock, /\b(\d{4})\b/);
+    const year = first(infoBlock, /\b(\d{4})\b/);
 
     const poster = first(card, /data-src="([^"]+film-poster[^"]+)"/);
 
@@ -93,22 +94,23 @@ function extractMediaId(href: string): string {
 
 async function getSeasonId(mediaId: string, seasonNumber: number): Promise<string> {
   const html = await fetchHtml(`${base()}/ajax/season/list/${mediaId}`);
-  const ids  = all(html, /class="ss-item[^"]*"[^>]*data-id="(\d+)"/);
+  const ids = all(html, /class="ss-item[^"]*"[^>]*data-id="(\d+)"/);
   // seasons are ordered 1..N; pick by index
   return ids[seasonNumber - 1] ?? ids[0] ?? "";
 }
 
 async function getEpisodeId(seasonId: string, episodeNumber: number): Promise<string> {
   const html = await fetchHtml(`${base()}/ajax/season/episodes/${seasonId}`);
-  const ids  = all(html, /class="eps-item[^"]*"[^>]*data-id="(\d+)"/);
+  const ids = all(html, /class="eps-item[^"]*"[^>]*data-id="(\d+)"/);
   return ids[episodeNumber - 1] ?? ids[0] ?? "";
 }
 
 async function getMovieServerId(mediaId: string): Promise<string> {
   // For movies, episode/list returns server link-items directly
   const html = await fetchHtml(`${base()}/ajax/episode/list/${mediaId}`);
-  return first(html, /class="link-item[^"]*"[^>]*data-id="(\d+)"/) ||
-         first(html, /data-linkid="(\d+)"/);
+  return (
+    first(html, /class="link-item[^"]*"[^>]*data-id="(\d+)"/) || first(html, /data-linkid="(\d+)"/)
+  );
 }
 
 async function getFirstServerId(episodeId: string): Promise<string> {
@@ -119,20 +121,20 @@ async function getFirstServerId(episodeId: string): Promise<string> {
 async function resolveSourceLink(serverId: string): Promise<string> {
   const res = await fetch(`${base()}/ajax/episode/sources/${serverId}`, { headers: HEADERS });
   if (!res.ok) throw new Error(`Braflix sources ${res.status}`);
-  const j = await res.json() as { link?: string };
+  const j = (await res.json()) as { link?: string };
   return j.link ?? "";
 }
 
 // ── Provider object ───────────────────────────────────────────────────────────
 
 export const Braflix: ApiProvider = {
-  kind:          "api",
+  kind: "api",
   searchBackend: "self",
-  id:            "braflix",
-  name:          "Braflix",
-  description:   "Braflix  (braflix.mov, no browser for metadata)",
-  domain:        "braflix.mov",
-  recommended:   false,
+  id: "braflix",
+  name: "Braflix",
+  description: "Braflix  (braflix.mov, no browser for metadata)",
+  domain: "braflix.mov",
+  recommended: false,
 
   async search(query) {
     dbg("braflix", "search", { query });
@@ -144,31 +146,50 @@ export const Braflix: ApiProvider = {
 
     try {
       const mediaId = extractMediaId(id);
-      if (!mediaId) { dbg("braflix", "could not extract media ID", { id }); return null; }
+      if (!mediaId) {
+        dbg("braflix", "could not extract media ID", { id });
+        return null;
+      }
 
       let serverId: string;
       if (type === "movie") {
         serverId = await getMovieServerId(mediaId);
       } else {
-        const seasonId  = await getSeasonId(mediaId, season);
-        if (!seasonId) { dbg("braflix", "no season found", { season }); return null; }
+        const seasonId = await getSeasonId(mediaId, season);
+        if (!seasonId) {
+          dbg("braflix", "no season found", { season });
+          return null;
+        }
         const episodeId = await getEpisodeId(seasonId, episode);
-        if (!episodeId) { dbg("braflix", "no episode found", { episode }); return null; }
+        if (!episodeId) {
+          dbg("braflix", "no episode found", { episode });
+          return null;
+        }
         serverId = await getFirstServerId(episodeId);
       }
 
-      if (!serverId) { dbg("braflix", "no server found"); return null; }
+      if (!serverId) {
+        dbg("braflix", "no server found");
+        return null;
+      }
 
       const embedUrl = await resolveSourceLink(serverId);
-      if (!embedUrl) { dbg("braflix", "no embed URL"); return null; }
+      if (!embedUrl) {
+        dbg("braflix", "no embed URL");
+        return null;
+      }
 
       dbg("braflix", "embed URL resolved", { embedUrl });
 
       // If it's already a direct stream, return as-is.
       if (embedUrl.includes(".m3u8") || embedUrl.includes(".mp4")) {
         return {
-          url: embedUrl, headers: {}, subtitle: null,
-          subtitleList: [], title: "", timestamp: Date.now(),
+          url: embedUrl,
+          headers: {},
+          subtitle: null,
+          subtitleList: [],
+          title: "",
+          timestamp: Date.now(),
         };
       }
 

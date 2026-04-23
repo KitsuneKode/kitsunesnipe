@@ -4,7 +4,12 @@
 
 import { BitCine as LegacyBitCine } from "../../../providers/bitcine";
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
-import type { TitleInfo, StreamInfo, ProviderMetadata, ProviderCapabilities } from "../../../domain/types";
+import type {
+  TitleInfo,
+  StreamInfo,
+  ProviderMetadata,
+  ProviderCapabilities,
+} from "../../../domain/types";
 
 export class BitCineProvider implements Provider {
   readonly metadata: ProviderMetadata = {

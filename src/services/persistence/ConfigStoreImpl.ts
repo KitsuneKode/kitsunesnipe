@@ -10,15 +10,15 @@ const STORAGE_KEY = "config";
 
 export class ConfigStoreImpl implements ConfigStore {
   constructor(private storage: StorageService) {}
-  
+
   async load(): Promise<Partial<KitsuneConfig>> {
     return (await this.storage.read<Partial<KitsuneConfig>>(STORAGE_KEY)) ?? {};
   }
-  
+
   async save(config: KitsuneConfig): Promise<void> {
     await this.storage.write(STORAGE_KEY, config);
   }
-  
+
   async reset(): Promise<void> {
     await this.storage.write(STORAGE_KEY, DEFAULT_CONFIG);
   }

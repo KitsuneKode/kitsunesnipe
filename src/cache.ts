@@ -3,13 +3,13 @@ import { appendFile, readFile, writeFile } from "fs/promises";
 import type { StreamData } from "./scraper";
 
 const CACHE_FILE = "stream_cache.json";
-const CACHE_TTL  = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 export async function getCachedStream(url: string): Promise<StreamData | null> {
   if (!existsSync(CACHE_FILE)) return null;
   try {
     const cache = JSON.parse(await readFile(CACHE_FILE, "utf-8"));
-    const entry  = cache[url];
+    const entry = cache[url];
     if (entry && Date.now() - entry.timestamp < CACHE_TTL) return entry as StreamData;
   } catch {}
   return null;
@@ -19,7 +19,9 @@ export async function getCachedStream(url: string): Promise<StreamData | null> {
 export async function cacheStream(targetUrl: string, data: StreamData): Promise<void> {
   let cache: Record<string, unknown> = {};
   if (existsSync(CACHE_FILE)) {
-    try { cache = JSON.parse(await readFile(CACHE_FILE, "utf-8")); } catch {}
+    try {
+      cache = JSON.parse(await readFile(CACHE_FILE, "utf-8"));
+    } catch {}
   }
   cache[targetUrl] = data;
   await writeFile(CACHE_FILE, JSON.stringify(cache, null, 2), "utf-8").catch(() => {});

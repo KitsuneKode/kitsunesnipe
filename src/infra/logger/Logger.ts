@@ -18,7 +18,7 @@ export interface Logger {
   warn(message: string, context?: Record<string, unknown>): void;
   error(message: string, context?: Record<string, unknown>): void;
   fatal(message: string, context?: Record<string, unknown>): void;
-  
+
   // Create a child logger with bound context
   child(context: Record<string, unknown>): Logger;
 }

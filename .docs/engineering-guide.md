@@ -110,13 +110,13 @@ These names do not have to be exact, but the responsibilities should stay cleanl
 
 Use these repo-local defaults when working in this codebase:
 
-| Situation | Preferred skill(s) | Why |
-| --- | --- | --- |
-| Shell flow, overlays, hotkeys, responsiveness | `make-interfaces-feel-better`, `emil-design-eng` | Keep the TUI polished and intentional instead of merely functional |
-| Large shell or layout changes | `frontend-design` | Useful when shaping a full-screen composition or stronger visual direction |
-| React or Ink component refactors | `vercel-react-best-practices` | Helps keep component boundaries and state usage disciplined |
-| Official library behavior or API lookup | `context7-mcp` or official docs | Prefer primary documentation when touching library-specific behavior |
-| Provider research workflow creation | `skill-creator` | Useful when shaping repeatable agent workflows or instructions |
+| Situation                                     | Preferred skill(s)                               | Why                                                                        |
+| --------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------- |
+| Shell flow, overlays, hotkeys, responsiveness | `make-interfaces-feel-better`, `emil-design-eng` | Keep the TUI polished and intentional instead of merely functional         |
+| Large shell or layout changes                 | `frontend-design`                                | Useful when shaping a full-screen composition or stronger visual direction |
+| React or Ink component refactors              | `vercel-react-best-practices`                    | Helps keep component boundaries and state usage disciplined                |
+| Official library behavior or API lookup       | `context7-mcp` or official docs                  | Prefer primary documentation when touching library-specific behavior       |
+| Provider research workflow creation           | `skill-creator`                                  | Useful when shaping repeatable agent workflows or instructions             |
 
 Notes:
 

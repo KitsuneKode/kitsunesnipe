@@ -127,7 +127,7 @@ export class SearchPhase implements Phase<void, TitleInfo> {
         subtitle: `${results.length} results · ${search.sourceName}`,
         options: results.map((r: import("../domain/types").SearchResult) => ({
           value: r,
-          label: `${r.title} (${r.year})`,
+          label: r.year ? `${r.title} (${r.year})` : r.title,
           detail: `${r.type === "series" ? "Series" : "Movie"}${
             r.overview ? ` · ${r.overview}` : ""
           }`,
@@ -146,6 +146,7 @@ export class SearchPhase implements Phase<void, TitleInfo> {
         year: selected.year,
         overview: selected.overview,
         posterUrl: selected.posterPath ?? undefined,
+        episodeCount: selected.episodeCount,
       };
 
       stateManager.dispatch({ type: "SELECT_TITLE", title });

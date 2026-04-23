@@ -45,11 +45,7 @@ export class StructuredLogger implements Logger {
     this.log("fatal", message, context);
   }
 
-  private log(
-    level: LogEntry["level"],
-    message: string,
-    context?: Record<string, unknown>,
-  ): void {
+  private log(level: LogEntry["level"], message: string, context?: Record<string, unknown>): void {
     // Silent by default - only log in debug mode
     if (!this.isDebugMode) return;
 
@@ -63,9 +59,7 @@ export class StructuredLogger implements Logger {
 
     if (this.options.console !== false) {
       const ctx = context ? ` ${JSON.stringify(context)}` : "";
-      console.log(
-        `[${entry.timestamp}] ${level.toUpperCase()}: ${message}${ctx}`,
-      );
+      console.log(`[${entry.timestamp}] ${level.toUpperCase()}: ${message}${ctx}`);
     }
 
     // File logging would go here

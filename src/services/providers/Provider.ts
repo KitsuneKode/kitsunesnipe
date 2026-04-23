@@ -4,13 +4,23 @@
 // The contract that all providers must implement.
 // =============================================================================
 
-import type { TitleInfo, EpisodeInfo, StreamInfo, ProviderMetadata, ProviderCapabilities } from "../../domain/types";
-import type { KitsuneError } from "../../domain/errors";
+import type {
+  TitleInfo,
+  EpisodeInfo,
+  EpisodePickerOption,
+  StreamInfo,
+  ProviderMetadata,
+  ProviderCapabilities,
+} from "../../domain/types";
 
 export interface StreamRequest {
   title: TitleInfo;
   episode?: EpisodeInfo;
   subLang: string;
+}
+
+export interface EpisodeListRequest {
+  title: TitleInfo;
 }
 
 export interface ProviderDeps {
@@ -23,15 +33,18 @@ export interface ProviderDeps {
 export interface Provider {
   readonly metadata: ProviderMetadata;
   readonly capabilities: ProviderCapabilities;
-  
+
   // Check if this provider can handle this title (fast, no network)
   canHandle(title: TitleInfo): boolean;
-  
+
   // Resolve stream (may involve network, scraping, etc.)
-  resolveStream(
-    request: StreamRequest,
-    signal?: AbortSignal
-  ): Promise<StreamInfo | null>;
+  resolveStream(request: StreamRequest, signal?: AbortSignal): Promise<StreamInfo | null>;
+
+  // Optional richer episode catalog for providers that can expose one.
+  listEpisodes?(
+    request: EpisodeListRequest,
+    signal?: AbortSignal,
+  ): Promise<EpisodePickerOption[] | null>;
 }
 
 // Factory function type for creating providers

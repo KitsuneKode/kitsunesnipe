@@ -4,7 +4,12 @@
 
 import { Cineby as LegacyCineby } from "../../../providers/cineby";
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
-import type { TitleInfo, StreamInfo, ProviderMetadata, ProviderCapabilities } from "../../../domain/types";
+import type {
+  TitleInfo,
+  StreamInfo,
+  ProviderMetadata,
+  ProviderCapabilities,
+} from "../../../domain/types";
 
 export class CinebyProvider implements Provider {
   readonly metadata: ProviderMetadata = {
