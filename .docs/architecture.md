@@ -36,6 +36,11 @@ There are currently two architectural truths that must be kept distinct:
 - `index.ts` is still the live legacy runtime path for the current CLI loop
 - `src/main.ts` is the target entrypoint for the persistent-shell architecture
 
+Practical status right now:
+
+- `src/main.ts` already owns the DI container, config service, history store, cache store, provider registry, and the refactored search/playback phases
+- `index.ts` still remains runnable and still contains legacy control flow, picker orchestration, and some fallback behavior that has not been fully absorbed into the mounted shell architecture yet
+
 Do not mix these mentally.
 
 When fixing current behavior:
@@ -179,6 +184,11 @@ Observability matters here too: failures around stream resolution, cache reuse, 
 | Debug logs         | `./logs.txt`                               | `src/logger.ts`  |
 
 Known caveat: the stream cache TTL is longer than some upstream token lifetimes, especially AllAnime-backed URLs.
+
+Migration note:
+
+- the legacy disk cache format in `stream_cache.json` is still the compatibility format
+- the new runtime cache store now reads and writes that same format for browser/embed scraping so cache behavior stays aligned while the migration is in progress
 
 ## Migration Guidance
 

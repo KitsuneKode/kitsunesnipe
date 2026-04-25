@@ -151,3 +151,10 @@ When the implementation changes a meaningful contract, update the appropriate du
 - major roadmap implications: the relevant `.plans/*.md`
 
 Do not let chat become the only place where important implementation rules exist.
+
+## Comment Rules
+
+- add comments only when control flow, migration seams, or provider behavior would otherwise be easy to misread
+- comments should explain why the path exists, not restate the code mechanically
+- if a comment starts competing with `.docs/` or `.plans/` as a second spec, shrink or remove it
+- when migration work changes the meaning of a comment, update or delete it in the same task

@@ -47,6 +47,11 @@ Exit criteria:
 
 - future contributors can tell where current truth vs target truth lives in under a minute
 
+Status:
+
+- done for docs and routing
+- still not done for executable ownership, because `index.ts` remains runnable and still contains legacy control flow
+
 ## Phase 1: Runtime Consolidation Seams
 
 Goal:
@@ -75,6 +80,12 @@ Testing:
 Exit criteria:
 
 - key state and command behavior are no longer trapped inside top-level prompt loops
+
+Status:
+
+- mostly done
+- shared session state, command registry, subtitle policy helper, browser-cache integration, and shared provider definitions exist in the new runtime
+- still incomplete where legacy flow keeps its own orchestration and picker semantics
 
 ## Phase 2: Persistent Shell Foundation
 
@@ -127,6 +138,8 @@ Current checkpoint:
 - shared shell actions now handle settings, provider, history, diagnostics, help, and about in both search and playback
 - shared pickers now support inline filtering, and browse input keeps terminal-style editing semantics
 - anime episode catalogs now sort into ascending picker order while stream resolution still maps correctly against reverse-ordered upstream episode strings
+- subtitle policy is restored in the new runtime, and the shell now surfaces when subtitles are disabled, attached, or not found
+- browser/embed scraping now reuses the shared runtime cache instead of bypassing the new persistence layer
 
 ## Next Passes
 
@@ -143,6 +156,12 @@ Tasks:
 - define parent-return behavior for season and episode pickers
 - remove startup banner flicker caused by pre-Ink console logging
 
+Status:
+
+- mostly done for start-episode and post-playback episode picker cancellation
+- startup banner flicker removed from `src/main.ts`
+- still incomplete for the mounted root shell because browse, playback, and overlays are not yet one continuous back-stack
+
 ### Pass B: Mounted Root AppShell
 
 Goal:
@@ -154,6 +173,11 @@ Tasks:
 - build a single mounted `AppShell`
 - render home, browse, playback, and post-playback as content states
 - keep the footer, command bar, and overlay host mounted across those states
+
+Status:
+
+- not done yet
+- current code still launches separate shell sessions for browse and playback, even though they now share more state and action plumbing
 
 ### Pass C: Overlay Migration
 
@@ -171,6 +195,11 @@ Tasks:
 - episode picker overlay
 - subtitle picker overlay
 
+Status:
+
+- partially done
+- settings, provider, history, diagnostics, and subtitle picking are available through shared workflows, but they are still blocking shell helpers rather than true mounted overlays
+
 ### Pass D: Naming And Provider Boundary Cleanup
 
 Goal:
@@ -182,6 +211,11 @@ Tasks:
 - rename `anime-base.ts` to `allanime-family.ts` and keep AllAnime-family naming explicit
 - update docs and references so it is not mistaken for a generic anime-provider base
 - reserve generic anime abstractions for shared concepts only
+
+Status:
+
+- done for code, tests, AGENTS routing, and core docs
+- follow-up naming cleanup still applies if future providers introduce genuinely shared anime-provider abstractions
 
 Tasks:
 
