@@ -41,7 +41,11 @@ export class AllAnimeProvider implements Provider {
       subLang: request.subLang,
       animeLang: this.deps.config.animeLang,
       embedScraper: (embedUrl: string) =>
-        this.deps.browser.scrape({ url: embedUrl, subLang: request.subLang, signal }) as Promise<StreamData | null>,
+        this.deps.browser.scrape({
+          url: embedUrl,
+          subLang: request.subLang,
+          signal,
+        }) as Promise<StreamData | null>,
     };
 
     const result = await LegacyAllAnime.resolveStream(

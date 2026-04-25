@@ -2,12 +2,7 @@
 // Cineby Provider Adapter
 // =============================================================================
 
-import type {
-  ProviderCapabilities,
-  ProviderMetadata,
-  StreamInfo,
-  TitleInfo,
-} from "@/domain/types";
+import type { ProviderCapabilities, ProviderMetadata, StreamInfo, TitleInfo } from "@/domain/types";
 import { Cineby as LegacyCineby } from "@/providers/cineby";
 
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
