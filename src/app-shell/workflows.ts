@@ -14,7 +14,7 @@ import type { Container } from "@/container";
 import type { HistoryEntry, HistoryStore } from "@/services/persistence/HistoryStore";
 import type { ShellAction } from "./types";
 
-import { openListShell } from "./ink-shell";
+import { openListShell, type ListShellActionContext } from "./ink-shell";
 
 type HistoryAction =
   | { type: "entry"; id: string; title: string }
@@ -68,17 +68,20 @@ async function chooseOption<T>({
   title,
   subtitle,
   options,
+  actionContext,
 }: {
   title: string;
   subtitle: string;
   options: readonly ShellOption<T>[];
+  actionContext?: ListShellActionContext;
 }): Promise<T | null> {
-  return openListShell({ title, subtitle, options });
+  return openListShell({ title, subtitle, options, actionContext });
 }
 
 export async function chooseSeasonFromOptions(
   seasons: readonly number[],
   currentSeason: number,
+  actionContext?: ListShellActionContext,
 ): Promise<number | null> {
   if (seasons.length === 0) return null;
   if (seasons.length === 1) return seasons[0] ?? currentSeason;
@@ -86,6 +89,7 @@ export async function chooseSeasonFromOptions(
   return chooseOption({
     title: "Choose season",
     subtitle: `Current season ${currentSeason}`,
+    actionContext,
     options: seasons.map((season) => ({
       value: season,
       label: season === currentSeason ? `Season ${season}  ·  current` : `Season ${season}`,
@@ -97,12 +101,14 @@ export async function chooseEpisodeFromOptions(
   episodes: readonly EpisodeInfo[],
   season: number,
   currentEpisode: number,
+  actionContext?: ListShellActionContext,
 ): Promise<EpisodeInfo | null> {
   if (episodes.length === 0) return null;
 
   return chooseOption({
     title: "Choose episode",
     subtitle: `Season ${season}  ·  Current episode ${currentEpisode}`,
+    actionContext,
     options: episodes.map((episode) => ({
       value: episode,
       label:
@@ -468,14 +474,17 @@ export async function handleShellAction({
 export async function openProviderPicker({
   currentProvider,
   isAnime,
+  actionContext,
 }: {
   currentProvider: string;
   isAnime: boolean;
+  actionContext?: ListShellActionContext;
 }): Promise<string | null> {
   const pool = isAnime ? ANIME_PROVIDERS : PLAYWRIGHT_PROVIDERS;
   return chooseOption({
     title: "Choose provider",
     subtitle: `Current provider ${currentProvider}`,
+    actionContext,
     options: pool.map((provider) => ({
       value: provider.id,
       label: provider.id === currentProvider ? `${provider.name}  ·  current` : provider.name,
@@ -491,10 +500,12 @@ export async function openSubtitlePicker(
     language?: string;
     release?: string;
   }>,
+  actionContext?: ListShellActionContext,
 ): Promise<string | null> {
   return chooseOption({
     title: "Choose subtitles",
     subtitle: `${entries.length} tracks available`,
+    actionContext,
     options: entries.map((entry) => ({
       value: entry.url,
       label: entry.display ?? entry.language ?? "Unknown track",
@@ -506,28 +517,32 @@ export async function openSubtitlePicker(
 export async function openSeasonPicker(
   tmdbId: string,
   currentSeason: number,
+  actionContext?: ListShellActionContext,
 ): Promise<number | null> {
   const seasons = await fetchSeasons(tmdbId);
-  return chooseSeasonFromOptions(seasons, currentSeason);
+  return chooseSeasonFromOptions(seasons, currentSeason, actionContext);
 }
 
 export async function openEpisodePicker(
   tmdbId: string,
   season: number,
   currentEpisode: number,
+  actionContext?: ListShellActionContext,
 ): Promise<EpisodeInfo | null> {
   const episodes = await fetchEpisodes(tmdbId, season);
-  return chooseEpisodeFromOptions(episodes, season, currentEpisode);
+  return chooseEpisodeFromOptions(episodes, season, currentEpisode, actionContext);
 }
 
 export async function openAnimeEpisodePicker(
   count: number,
   currentEpisode: number,
+  actionContext?: ListShellActionContext,
 ): Promise<number | null> {
   const episodes = Array.from({ length: count }, (_, index) => index + 1);
   return chooseOption({
     title: "Choose episode",
     subtitle: `${count} episodes available`,
+    actionContext,
     options: episodes.map((episode) => ({
       value: episode,
       label: episode === currentEpisode ? `Episode ${episode}  ·  current` : `Episode ${episode}`,
@@ -538,12 +553,14 @@ export async function openAnimeEpisodePicker(
 export async function openAnimeEpisodeListPicker(
   episodes: readonly EpisodePickerOption[],
   currentEpisode: number,
+  actionContext?: ListShellActionContext,
 ): Promise<number | null> {
   if (episodes.length === 0) return null;
 
   return chooseOption({
     title: "Choose episode",
     subtitle: `${episodes.length} episodes available`,
+    actionContext,
     options: episodes.map((episode) => ({
       value: episode.index,
       label: episode.index === currentEpisode ? `${episode.label}  ·  current` : episode.label,

@@ -14,6 +14,7 @@ import type {
   PlaybackResult,
 } from "@/domain/types";
 import { handleShellAction, openSubtitlePicker } from "@/app-shell/workflows";
+import { resolveCommands } from "@/app-shell/commands";
 import {
   buildAboutPanelLines,
   buildDiagnosticsPanelLines,
@@ -94,6 +95,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           animeEpisodes: initialAnimeEpisodes,
           flags: {},
           getHistoryEntry: () => Promise.resolve(history),
+          container,
         });
 
         if (!selection) {
@@ -338,7 +340,6 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
 
         // Show post-playback menu
         const { openPlaybackShell } = await import("../app-shell/ink-shell");
-        const { resolveCommands } = await import("../app-shell/commands");
 
         const postAction = await openPlaybackShell({
           state: {
@@ -429,6 +430,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             currentEpisode: currentEpisode.episode,
             animeEpisodeCount: title.episodeCount,
             animeEpisodes: currentAnimeEpisodes,
+            container,
           });
           // Cancel keeps the user in the post-playback menu instead of mutating
           // the current episode or restarting playback implicitly.
@@ -522,7 +524,20 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     const subtitleDecision = await choosePlaybackSubtitle({
       stream,
       subLang,
-      pickSubtitle: (tracks) => openSubtitlePicker(tracks),
+      pickSubtitle: (tracks) =>
+        openSubtitlePicker(tracks, {
+          taskLabel: "Choose subtitles",
+          footerMode: "detailed",
+          commands: resolveCommands(stateManager.getState(), [
+            "settings",
+            "history",
+            "diagnostics",
+            "help",
+            "about",
+            "quit",
+          ]),
+          onAction: (action) => handleShellAction({ action, container: context.container }),
+        }),
     });
 
     logger.info("Subtitle resolution", {

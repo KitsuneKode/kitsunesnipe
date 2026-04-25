@@ -212,6 +212,26 @@ Status:
 - browse and post-playback now host provider, history, diagnostics, help, and about panels in the mounted shell
 - settings, season, episode, and subtitle flows still rely on blocking shell helpers rather than true mounted overlays
 - diagnostics now show recent runtime events from the new in-memory diagnostics store, which improves developer-mode inspection before the mounted overlay host lands
+- picker states still lose the shared command layer because standalone list shells remain in the path
+
+### Pass C1: Command-Consistent Picker States
+
+Goal:
+
+- keep settings, help, history, diagnostics, and `/` command access reachable inside pickers and filter flows before the full overlay host lands
+
+Tasks:
+
+- make picker and list shells command-aware without breaking normal text filtering
+- allow `/` in picker states even when a filter is active
+- preserve filter text, selection, and focus when the command palette closes
+- simplify picker footers into task-first guidance instead of long command rows
+- add lightweight local picker header strips with context summaries
+
+Exit criteria:
+
+- picker flows no longer feel like a separate commandless mode
+- settings and other nearby actions remain reachable without breaking text input
 
 ### Pass D: Naming And Provider Boundary Cleanup
 

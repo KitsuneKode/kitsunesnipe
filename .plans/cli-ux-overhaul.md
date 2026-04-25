@@ -88,6 +88,9 @@ These are the current decisions and should be treated as the default direction u
 - One global command router owns command registration, enablement, labels, and disabled reasons
 - Components render state; they do not each invent a separate hotkey model
 - The footer should always show a stable core action set plus contextual additions
+- `/` is the one truly universal command entry and must work in browse, playback, picker, and filter states
+- text-entry contexts keep normal typing semantics; do not steal letters like `c` or `h` while the user is filtering or searching
+- non-text-heavy states may keep direct hotkeys in addition to `/`
 - Recommended direct hotkeys:
   - `/` command bar
   - `c` settings
@@ -115,6 +118,31 @@ These are the current decisions and should be treated as the default direction u
 - `Esc` closes only the top overlay
 - Provider picker, settings, history, diagnostics, subtitles, season picker, and episode picker should be overlays or large panels inside the same shell
 - Confirmations and “apply now / later” prompts should be secondary overlays, not entirely separate flows
+
+### Footer and orientation model
+
+- The persistent footer should stop acting like a full cheat sheet
+- Default footer mode:
+  - line 1: task-first guidance like `Filter episodes`
+  - line 2: only the most relevant live actions, plus `/ commands`
+- Minimal footer mode:
+  - keep line 1
+  - reduce line 2 to the smallest useful shortcut strip
+- Footer should show live and relevant actions only
+- Disabled actions move into the command palette and help overlay
+- The command palette should replace footer guidance while open
+- Picker and filter states should simplify the footer instead of showing a long command row
+
+### Picker presentation
+
+- Pickers should gain a light local title strip instead of feeling like anonymous lists
+- Picker title strip should include:
+  - local task title
+  - one short context summary
+- Rows stay dense and single-line
+- Detail lives in the selection or companion panel instead of multi-line list rows
+- `/` should open the command palette from active picker filters without clearing the filter
+- Closing the palette should restore the exact prior filter state and focus target
 
 ### Settings behavior
 

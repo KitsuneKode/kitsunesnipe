@@ -1142,6 +1142,27 @@ type ListOption<T> = {
   detail?: string;
 };
 
+type ListShellActionResult = {
+  type: "action";
+  action: ShellAction;
+  filterQuery: string;
+  selectedIndex: number;
+};
+
+type ListShellSubmitResult<T> =
+  | { type: "selected"; value: T }
+  | { type: "cancelled" }
+  | ListShellActionResult;
+
+export type ListShellActionContext = {
+  commands: readonly ResolvedAppCommand[];
+  onAction: (
+    action: ShellAction,
+  ) => Promise<"handled" | "quit" | "unhandled"> | "handled" | "quit" | "unhandled";
+  taskLabel?: string;
+  footerMode?: "detailed" | "minimal";
+};
+
 function truncateLine(value: string, maxLength: number): string {
   if (maxLength <= 0) return "";
   if (value.length <= maxLength) return value;
@@ -1200,18 +1221,29 @@ function ListShell<T>({
   title,
   subtitle,
   options,
+  initialFilter,
+  initialSelectedIndex,
+  actionContext,
   onSubmit,
   onCancel,
+  onAction,
 }: {
   title: string;
   subtitle: string;
   options: readonly ListOption<T>[];
+  initialFilter?: string;
+  initialSelectedIndex?: number;
+  actionContext?: ListShellActionContext;
   onSubmit: (value: T) => void;
   onCancel: () => void;
+  onAction?: (result: ListShellActionResult) => void;
 }) {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(initialSelectedIndex ?? 0);
   const [confirmed, setConfirmed] = useState(false);
-  const [filterQuery, setFilterQuery] = useState("");
+  const [filterQuery, setFilterQuery] = useState(initialFilter ?? "");
+  const [commandMode, setCommandMode] = useState(false);
+  const [commandInput, setCommandInput] = useState("");
+  const [highlightedCommandIndex, setHighlightedCommandIndex] = useState(0);
   const { stdout } = useStdout();
   const normalizedFilter = filterQuery.trim().toLowerCase();
   const filteredOptions = options.filter((option) => {
@@ -1227,6 +1259,19 @@ function ListShell<T>({
     }
     setIndex((current) => Math.min(current, filteredOptions.length - 1));
   }, [filteredOptions.length]);
+
+  useEffect(() => {
+    if (!commandMode) {
+      setHighlightedCommandIndex(0);
+      return;
+    }
+
+    const matches = getCommandMatches(commandInput, actionContext?.commands ?? []);
+    setHighlightedCommandIndex((current) => {
+      if (matches.length === 0) return 0;
+      return Math.min(current, matches.length - 1);
+    });
+  }, [commandInput, commandMode, actionContext]);
 
   const selectedOption = filteredOptions[index];
 
@@ -1244,6 +1289,19 @@ function ListShell<T>({
   const windowStart = getWindowStart(index, filteredOptions.length, maxVisible);
   const windowEnd = Math.min(windowStart + maxVisible, filteredOptions.length);
   const visibleOptions = filteredOptions.slice(windowStart, windowEnd);
+  const taskLine = actionContext?.taskLabel ?? title;
+  const footerActions: readonly FooterAction[] =
+    actionContext?.footerMode === "minimal"
+      ? [
+          { key: "/", label: "commands", action: "search" },
+          { key: "esc", label: "back", action: "quit" },
+        ]
+      : [
+          { key: "type", label: "filter", action: "search" },
+          { key: "enter", label: "select", action: "search" },
+          { key: "esc", label: "back", action: "quit" },
+          ...(actionContext ? [{ key: "/", label: "commands", action: "search" as const }] : []),
+        ];
 
   useInput((input, key) => {
     // Ctrl+C handling
@@ -1251,6 +1309,71 @@ function ListShell<T>({
       if (process.stdin.isTTY) process.stdin.unref();
       process.exit(0);
     }
+
+    if (commandMode) {
+      const matches = getCommandMatches(commandInput, actionContext?.commands ?? []);
+
+      if (key.escape) {
+        setCommandMode(false);
+        setCommandInput("");
+        setHighlightedCommandIndex(0);
+        return;
+      }
+      if (key.return) {
+        const resolved = getHighlightedCommand(
+          commandInput,
+          actionContext?.commands ?? [],
+          highlightedCommandIndex,
+        );
+        if (resolved?.enabled) {
+          onAction?.({
+            type: "action",
+            action: toShellAction(resolved.id),
+            filterQuery,
+            selectedIndex: index,
+          });
+        }
+        return;
+      }
+      if (key.tab) {
+        const nextIndex = matches.length > 0 ? (highlightedCommandIndex + 1) % matches.length : 0;
+        const target = matches[nextIndex];
+        if (target) {
+          setHighlightedCommandIndex(nextIndex);
+          setCommandInput(target.aliases[0] ?? target.id);
+        }
+        return;
+      }
+      if (key.upArrow) {
+        if (matches.length > 0) {
+          setHighlightedCommandIndex((current) => (current - 1 + matches.length) % matches.length);
+        }
+        return;
+      }
+      if (key.downArrow) {
+        if (matches.length > 0) {
+          setHighlightedCommandIndex((current) => (current + 1) % matches.length);
+        }
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setCommandInput((current) => current.slice(0, -1));
+        return;
+      }
+      if (input && !key.ctrl && !key.meta) {
+        setCommandInput((current) => current + input);
+        setHighlightedCommandIndex(0);
+      }
+      return;
+    }
+
+    if (input === "/" && actionContext) {
+      setCommandMode(true);
+      setCommandInput("");
+      setHighlightedCommandIndex(0);
+      return;
+    }
+
     if (key.escape) {
       if (filterQuery.length > 0) {
         setFilterQuery("");
@@ -1290,23 +1413,30 @@ function ListShell<T>({
         paddingY={0}
       >
         <Text color={palette.amber}>{APP_LABEL}</Text>
-        <Box marginTop={1}>
-          <Text bold color="white">
-            {confirmed ? "✓ Selected" : title}
+        <Box
+          marginTop={1}
+          flexDirection="column"
+          borderStyle="round"
+          borderColor={confirmed ? palette.green : palette.cyan}
+          paddingX={1}
+        >
+          <Text color={confirmed ? palette.green : palette.cyan}>
+            {confirmed ? "Selected" : title}
           </Text>
+          <Text color={palette.muted}>{confirmed ? selectedLabel : subtitle}</Text>
         </Box>
-        <Text color={palette.muted}>{confirmed ? selectedLabel : subtitle}</Text>
         <Box marginTop={1}>
           <Text color={palette.cyan}>filter › </Text>
           <TextInput
             value={filterQuery}
             onChange={setFilterQuery}
             placeholder="Type to narrow this list"
+            focus={!commandMode}
             showCursor
           />
         </Box>
         <Text color={palette.gray}>
-          {`Selected ${filteredOptions.length > 0 ? index + 1 : 0} of ${filteredOptions.length}  ·  Showing ${filteredOptions.length} of ${options.length}  ·  Enter confirms  ·  Esc clears/back`}
+          {`Selected ${filteredOptions.length > 0 ? index + 1 : 0} of ${filteredOptions.length}  ·  Showing ${filteredOptions.length} of ${options.length}`}
         </Text>
         <Box flexDirection="column" marginTop={1}>
           {windowStart > 0 && <Text color={palette.gray}> ▲ ...</Text>}
@@ -1348,14 +1478,20 @@ function ListShell<T>({
           <Text color={palette.muted}>{truncateLine(selectedDetail, innerWidth * 2)}</Text>
         </Box>
       </Box>
-      <Footer
-        actions={[
-          { key: "type", label: "filter", action: "search" },
-          { key: "↑↓", label: "navigate", action: "search" },
-          { key: "enter", label: "select", action: "search" },
-          { key: "esc", label: "clear/back", action: "quit" },
-        ]}
-      />
+      {commandMode && actionContext ? (
+        <CommandPalette
+          input={commandInput}
+          commands={actionContext.commands}
+          highlightedIndex={highlightedCommandIndex}
+        />
+      ) : null}
+      <Box flexDirection="column" marginTop={1}>
+        <Box borderStyle="round" borderColor={palette.gray} paddingX={1}>
+          <Text color="white">{taskLine}</Text>
+          <Text color={palette.gray}>{`  ·  ${subtitle}`}</Text>
+        </Box>
+        <Footer actions={footerActions} />
+      </Box>
     </Box>
   );
 }
@@ -2197,25 +2333,56 @@ export function openListShell<T>({
   title,
   subtitle,
   options,
+  initialFilter,
+  initialSelectedIndex,
+  actionContext,
 }: {
   title: string;
   subtitle: string;
   options: readonly ListOption<T>[];
+  initialFilter?: string;
+  initialSelectedIndex?: number;
+  actionContext?: ListShellActionContext;
 }): Promise<T | null> {
-  const session = mountShell<T | null>({
-    renderShell: (finish) => (
-      <ListShell
-        title={title}
-        subtitle={subtitle}
-        options={options}
-        onSubmit={(value) => finish(value)}
-        onCancel={() => finish(null)}
-      />
-    ),
-    fallbackValue: null,
-  });
+  let filterQuery = initialFilter ?? "";
+  let selectedIndex = initialSelectedIndex ?? 0;
 
-  return session.result;
+  const run = async (): Promise<T | null> => {
+    while (true) {
+      const session = mountShell<ListShellSubmitResult<T>>({
+        renderShell: (finish) => (
+          <ListShell
+            title={title}
+            subtitle={subtitle}
+            options={options}
+            initialFilter={filterQuery}
+            initialSelectedIndex={selectedIndex}
+            actionContext={actionContext}
+            onSubmit={(value) => finish({ type: "selected", value })}
+            onCancel={() => finish({ type: "cancelled" })}
+            onAction={(action) => finish(action)}
+          />
+        ),
+        fallbackValue: { type: "cancelled" },
+      });
+
+      const result = await session.result;
+      if (result.type === "selected") return result.value;
+      if (result.type === "cancelled") return null;
+
+      const actionResult = await Promise.resolve(
+        actionContext?.onAction(result.action) ?? "unhandled",
+      );
+      if (actionResult === "quit") {
+        if (process.stdin.isTTY) process.stdin.unref();
+        process.exit(0);
+      }
+      filterQuery = result.filterQuery;
+      selectedIndex = result.selectedIndex;
+    }
+  };
+
+  return run();
 }
 
 export function formatMemoryUsage(): string {

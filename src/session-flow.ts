@@ -1,4 +1,6 @@
 import { type HistoryEntry, formatTimestamp, isFinished } from "@/history";
+import type { Container } from "@/container";
+import { resolveCommands } from "@/app-shell/commands";
 import { cyan, dim, yellow } from "@/menu";
 import { fetchEpisodes, fetchSeriesData } from "@/tmdb";
 import { ANIME_PROVIDERS, PLAYWRIGHT_PROVIDERS, getProvider } from "@/providers";
@@ -6,10 +8,11 @@ import type { EpisodePickerOption } from "@/domain/types";
 import {
   chooseEpisodeFromOptions,
   chooseSeasonFromOptions,
+  handleShellAction,
   openAnimeEpisodePicker,
   openAnimeEpisodeListPicker,
 } from "@/app-shell/workflows";
-import { openListShell } from "@/app-shell/ink-shell";
+import { openListShell, type ListShellActionContext } from "@/app-shell/ink-shell";
 
 export type EpisodeSelection = {
   season: number;
@@ -25,7 +28,29 @@ type SelectionOpts = {
   animeEpisodes?: readonly EpisodePickerOption[];
   flags: { season?: string; episode?: string };
   getHistoryEntry: () => Promise<HistoryEntry | null>;
+  container?: Container;
 };
+
+function createPickerActionContext(
+  container: Container | undefined,
+  taskLabel: string,
+): ListShellActionContext | undefined {
+  if (!container) return undefined;
+
+  return {
+    taskLabel,
+    footerMode: "detailed",
+    commands: resolveCommands(container.stateManager.getState(), [
+      "settings",
+      "history",
+      "diagnostics",
+      "help",
+      "about",
+      "quit",
+    ]),
+    onAction: (action) => handleShellAction({ action, container }),
+  };
+}
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -36,15 +61,18 @@ async function pickAnimeEpisode(
   initialEpisode: number,
   episodes: readonly EpisodePickerOption[] | undefined,
   episodeCount: number | undefined,
+  container?: Container,
 ): Promise<number | null> {
+  const actionContext = createPickerActionContext(container, "Choose episode");
   if (episodes && episodes.length > 0) {
-    return await openAnimeEpisodeListPicker(episodes, initialEpisode);
+    return await openAnimeEpisodeListPicker(episodes, initialEpisode, actionContext);
   }
   if (!episodeCount || episodeCount < 1) {
     const action = await openListShell({
       title: "Episode metadata unavailable",
       subtitle:
         "This anime provider did not return an episode list for the selected title. Starting blindly at episode 1 is risky.",
+      actionContext: createPickerActionContext(container, "Review episode metadata warning"),
       options: [
         {
           value: "start" as const,
@@ -61,29 +89,46 @@ async function pickAnimeEpisode(
 
     return action === "start" ? initialEpisode : null;
   }
-  return await openAnimeEpisodePicker(episodeCount, initialEpisode);
+  return await openAnimeEpisodePicker(episodeCount, initialEpisode, actionContext);
 }
 
 async function pickEpisodeSelection(
   initSeason: number,
   initEpisode: number,
-  opts: Pick<SelectionOpts, "currentId" | "isAnime" | "animeEpisodeCount" | "animeEpisodes">,
+  opts: Pick<
+    SelectionOpts,
+    "currentId" | "isAnime" | "animeEpisodeCount" | "animeEpisodes" | "container"
+  >,
 ): Promise<EpisodeSelectionResult> {
   if (!opts.isAnime) {
     const { seasons, episodes: initialEpisodes } = await fetchSeriesData(
       opts.currentId,
       initSeason,
     );
-    const season = await chooseSeasonFromOptions(seasons, initSeason);
+    const season = await chooseSeasonFromOptions(
+      seasons,
+      initSeason,
+      createPickerActionContext(opts.container, "Choose season"),
+    );
     if (!season) return null;
     const episodes =
       season === initSeason ? initialEpisodes : await fetchEpisodes(opts.currentId, season);
-    const episode = await chooseEpisodeFromOptions(episodes, season, initEpisode);
+    const episode = await chooseEpisodeFromOptions(
+      episodes,
+      season,
+      initEpisode,
+      createPickerActionContext(opts.container, "Choose episode"),
+    );
     if (!episode) return null;
     return { season, episode: episode.number };
   }
 
-  const episode = await pickAnimeEpisode(initEpisode, opts.animeEpisodes, opts.animeEpisodeCount);
+  const episode = await pickAnimeEpisode(
+    initEpisode,
+    opts.animeEpisodes,
+    opts.animeEpisodeCount,
+    opts.container,
+  );
   if (!episode) return null;
   return { season: 1, episode };
 }
@@ -95,6 +140,7 @@ export async function chooseEpisodeFromMetadata(opts: {
   currentEpisode: number;
   animeEpisodeCount?: number;
   animeEpisodes?: readonly EpisodePickerOption[];
+  container?: Container;
 }): Promise<EpisodeSelectionResult> {
   return pickEpisodeSelection(opts.currentSeason, opts.currentEpisode, opts);
 }
@@ -121,6 +167,7 @@ export async function chooseStartingEpisode(opts: SelectionOpts): Promise<Episod
     subtitle: opts.isAnime
       ? "Choose the starting episode"
       : "Choose the starting season and episode",
+    actionContext: createPickerActionContext(opts.container, "Choose starting point"),
     options: [
       ...(!finished
         ? [
