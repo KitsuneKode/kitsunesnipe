@@ -26,6 +26,10 @@ mp.register_event("end-file", function(event)
     local dur    = mp.get_property_number("duration") or 0
     local reason = (event and event.reason) or "unknown"
 
+    if reason == "eof" and dur > 0 and pos <= 0 then
+        pos = dur
+    end
+
     local path = os.getenv("KITSUNE_POS_FILE")
     if path then
         local f = io.open(path, "w")
@@ -71,8 +75,9 @@ export async function launchMpv(opts: {
   startAt?: number;
   attach?: boolean; // true → stdio:inherit (old behaviour)
 }): Promise<PlaybackResult> {
-  const scriptPath = join(tmpdir(), "kitsune-reporter.lua");
-  const posPath = join(tmpdir(), "kitsune-position");
+  const nonce = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const scriptPath = join(tmpdir(), `kitsune-reporter-${nonce}.lua`);
+  const posPath = join(tmpdir(), `kitsune-position-${nonce}`);
 
   await writeFile(scriptPath, LUA_REPORTER, "utf-8");
   if (existsSync(posPath)) await unlink(posPath);
@@ -145,9 +150,12 @@ export async function launchMpv(opts: {
       const dur = Number(parts[1]) || 0;
       const reason = (parts[2]?.trim() ?? "unknown") as EndReason;
       await unlink(posPath).catch(() => {});
+      await unlink(scriptPath).catch(() => {});
       return { watchedSeconds: pos, duration: dur, endReason: reason };
     } catch {}
   }
+
+  await unlink(scriptPath).catch(() => {});
 
   return { watchedSeconds: 0, duration: 0, endReason: "unknown" };
 }

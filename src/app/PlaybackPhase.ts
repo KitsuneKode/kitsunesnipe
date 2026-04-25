@@ -26,6 +26,7 @@ import {
   resolveEpisodeAvailability,
   toEpisodeNavigationState,
 } from "@/app/playback-policy";
+import { shouldPersistHistory, toHistoryTimestamp } from "@/app/playback-history";
 import { choosePlaybackSubtitle } from "@/app/subtitle-selection";
 import { fetchEpisodes, fetchSeasons } from "@/tmdb";
 
@@ -274,16 +275,30 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         const result = await this.playStream(preparedStream, title, currentEpisode, context);
 
         // Save history
-        if (result.watchedSeconds > 10) {
+        if (shouldPersistHistory(result)) {
+          const historyTimestamp = toHistoryTimestamp(result);
           await historyStore.save(title.id, {
             title: title.name,
             type: title.type,
             season: currentEpisode.season,
             episode: currentEpisode.episode,
-            timestamp: result.watchedSeconds,
+            timestamp: historyTimestamp,
             duration: result.duration,
             provider: stateManager.getState().provider,
             watchedAt: new Date().toISOString(),
+          });
+        } else {
+          diagnosticsStore.record({
+            category: "playback",
+            message: "Skipped history save",
+            context: {
+              titleId: title.id,
+              season: currentEpisode.season,
+              episode: currentEpisode.episode,
+              watchedSeconds: result.watchedSeconds,
+              duration: result.duration,
+              endReason: result.endReason,
+            },
           });
         }
 

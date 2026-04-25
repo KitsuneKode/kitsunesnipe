@@ -23,6 +23,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Shell-local debug POST instrumentation has been removed from the Ink UI path
 - Browse and post-playback now keep provider, help, about, history, and diagnostics inside the mounted shell instead of bouncing into separate helper screens
 - Playback navigation labels and availability now come from real episode metadata or provider catalogs instead of blind episode math
+- History persistence is hardened so completed playback still saves even if mpv reports a weak final playback position
 
 ### Active Follow-Ups
 

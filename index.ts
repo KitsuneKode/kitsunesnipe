@@ -5,6 +5,7 @@ import { parseArgs } from "util";
 import { searchVideasy, type SearchResult } from "@/search";
 import { displayPoster, isKittyCompatible } from "@/image";
 import { getHistory, saveHistory, isFinished, formatTimestamp, type HistoryEntry } from "@/history";
+import { shouldPersistHistory, toHistoryTimestamp } from "@/app/playback-history";
 import { getCachedStream } from "@/cache";
 import {
   buildUrl,
@@ -648,22 +649,23 @@ async function loadAnimeEpisodeOptions(
         });
 
         // ── Persist history ─────────────────────────────────────────────────────
-        if (result.watchedSeconds > 10) {
+        if (shouldPersistHistory(result)) {
+          const historyTimestamp = toHistoryTimestamp(result);
           const entry: HistoryEntry = {
             title: currentTitle,
             type: currentType,
             season: currentSeason,
             episode: currentEpisode,
-            timestamp: result.watchedSeconds,
+            timestamp: historyTimestamp,
             duration: result.duration,
             provider: currentProvider,
             watchedAt: new Date().toISOString(),
           };
           await saveHistory(currentId, entry);
           const pct =
-            result.duration > 0 ? Math.round((result.watchedSeconds / result.duration) * 100) : 0;
+            result.duration > 0 ? Math.round((historyTimestamp / result.duration) * 100) : 0;
           log.success(
-            `Saved position: ${yellow(formatTimestamp(result.watchedSeconds))} ${dim(`(${pct}%)`)}`,
+            `Saved position: ${yellow(formatTimestamp(historyTimestamp))} ${dim(`(${pct}%)`)}`,
           );
         }
 
