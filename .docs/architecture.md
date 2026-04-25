@@ -91,6 +91,13 @@ This remains the legacy runtime contract while parity work is still being draine
 
 If your change is broad enough to blur these module boundaries, stop and check whether the work belongs in the v2 migration path instead.
 
+Diagnostics note:
+
+- the new runtime also keeps a small in-memory diagnostics event buffer for live inspection in the diagnostics overlay
+- the new runtime preserves browse search state across pre-playback cancel paths, so episode-picker escape can return to the prior result list without a fresh search
+- startup mode is now part of persisted config and is applied by `src/main.ts` before the session loop starts
+- this is currently the main developer-facing trace surface inside the shell while broader report/export work is still pending
+
 ## Provider Model
 
 There are two provider families:

@@ -10,6 +10,7 @@ import type { Logger } from "../logger/Logger";
 import type { Tracer } from "../tracer/Tracer";
 import type { ConfigService } from "../../services/persistence/ConfigService";
 import type { CacheStore } from "../../services/persistence/CacheStore";
+import type { DiagnosticsStore } from "../../services/diagnostics/DiagnosticsStore";
 import { scrapeStream } from "../../scraper";
 import type { PlaywrightProvider } from "../../providers/types";
 
@@ -20,6 +21,7 @@ export class BrowserServiceImpl implements BrowserService {
       tracer: Tracer;
       config: ConfigService;
       cacheStore: CacheStore;
+      diagnosticsStore: DiagnosticsStore;
     },
   ) {}
 
@@ -29,8 +31,18 @@ export class BrowserServiceImpl implements BrowserService {
       this.deps.logger.info("Browser scrape cache hit", {
         url: options.url,
       });
+      this.deps.diagnosticsStore.record({
+        category: "cache",
+        message: "Browser scrape cache hit",
+        context: { url: options.url },
+      });
       return cached;
     }
+    this.deps.diagnosticsStore.record({
+      category: "provider",
+      message: "Browser scrape started",
+      context: { url: options.url, subLang: options.subLang ?? this.deps.config.subLang },
+    });
 
     // Create a synthetic PlaywrightProvider for the legacy scraper
     const syntheticProvider: PlaywrightProvider = {
@@ -64,6 +76,16 @@ export class BrowserServiceImpl implements BrowserService {
       timestamp: result.timestamp,
     };
     await this.deps.cacheStore.set(options.url, stream);
+    this.deps.diagnosticsStore.record({
+      category: stream.subtitle ? "subtitle" : "provider",
+      message: "Browser scrape resolved stream",
+      context: {
+        url: options.url,
+        streamUrl: stream.url,
+        subtitle: stream.subtitle ?? null,
+        subtitleTrackCount: stream.subtitleList?.length ?? 0,
+      },
+    });
     return stream;
   }
 

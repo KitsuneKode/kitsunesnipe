@@ -4,7 +4,7 @@
 // Centralized state management with transition logging.
 // =============================================================================
 
-import type { Logger } from "../../infra/logger/Logger";
+import type { Logger } from "@/infra/logger/Logger";
 import type { SessionState, StateTransition } from "./SessionState";
 import { createInitialState, reduceState } from "./SessionState";
 

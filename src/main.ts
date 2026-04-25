@@ -54,17 +54,19 @@ async function main(): Promise<void> {
   const { logger, config, stateManager } = container;
 
   if (args.debug) {
+    const initialMode = args.anime ? "anime" : config.defaultMode;
     logger.info("KitsuneSnipe started", {
       version: "2.0.0-beta",
-      mode: args.anime ? "anime" : "series",
-      provider: args.anime ? config.animeProvider : config.provider,
+      mode: initialMode,
+      provider: initialMode === "anime" ? config.animeProvider : config.provider,
     });
   }
 
   // Initialize session state with CLI overrides
   stateManager.initialize(config.provider, config.animeProvider);
 
-  if (args.anime) {
+  const initialMode = args.anime ? "anime" : config.defaultMode;
+  if (initialMode === "anime") {
     stateManager.dispatch({
       type: "SET_MODE",
       mode: "anime",

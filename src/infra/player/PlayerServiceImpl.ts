@@ -8,6 +8,7 @@ import type { PlayerService, PlayerOptions } from "./PlayerService";
 import type { PlaybackResult } from "../../domain/types";
 import type { Logger } from "../logger/Logger";
 import type { Tracer } from "../tracer/Tracer";
+import type { DiagnosticsStore } from "../../services/diagnostics/DiagnosticsStore";
 import { launchMpv } from "../../mpv";
 
 export class PlayerServiceImpl implements PlayerService {
@@ -15,6 +16,7 @@ export class PlayerServiceImpl implements PlayerService {
     private deps: {
       logger: Logger;
       tracer: Tracer;
+      diagnosticsStore: DiagnosticsStore;
     },
   ) {}
 
@@ -29,6 +31,15 @@ export class PlayerServiceImpl implements PlayerService {
       title: options.displayTitle,
       url: stream.url,
       startAt: options.startAt,
+    });
+    this.deps.diagnosticsStore.record({
+      category: "playback",
+      message: "Launching MPV",
+      context: {
+        title: options.displayTitle,
+        hasSubtitle: Boolean(stream.subtitle),
+        startAt: options.startAt ?? 0,
+      },
     });
 
     try {
@@ -47,10 +58,24 @@ export class PlayerServiceImpl implements PlayerService {
         duration: result.duration,
         endReason: result.endReason,
       });
+      this.deps.diagnosticsStore.record({
+        category: "playback",
+        message: "MPV playback complete",
+        context: {
+          watchedSeconds: result.watchedSeconds,
+          duration: result.duration,
+          endReason: result.endReason,
+        },
+      });
 
       return result;
     } catch (e) {
       this.deps.logger.error("MPV playback failed", { error: String(e) });
+      this.deps.diagnosticsStore.record({
+        category: "playback",
+        message: "MPV playback failed",
+        context: { error: String(e) },
+      });
       return {
         watchedSeconds: 0,
         duration: 0,

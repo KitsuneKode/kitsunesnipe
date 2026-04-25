@@ -195,7 +195,7 @@ export async function handleShellAction({
   action: ShellAction;
   container: Container;
 }): Promise<"handled" | "quit" | "unhandled"> {
-  const { stateManager, config } = container;
+  const { stateManager, config, diagnosticsStore } = container;
 
   const withOverlay = async <T>(
     overlay: import("@/domain/session/SessionState").OverlayState,
@@ -293,6 +293,10 @@ export async function handleShellAction({
             detail: `${stateManager.getState().mode}  ·  Provider ${stateManager.getState().provider}`,
           },
           {
+            label: "Default startup mode",
+            detail: `${config.getRaw().defaultMode}  ·  Series ${config.getRaw().provider}  ·  Anime ${config.getRaw().animeProvider}`,
+          },
+          {
             label: "Privacy",
             detail: "Diagnostics stay local unless you explicitly export or share them.",
           },
@@ -304,6 +308,7 @@ export async function handleShellAction({
 
   if (action === "diagnostics") {
     const state = stateManager.getState();
+    const recentEvents = diagnosticsStore.getRecent(6);
     await withOverlay({ type: "diagnostics" }, () =>
       openStaticInfoShell({
         title: "Diagnostics",
@@ -322,6 +327,10 @@ export async function handleShellAction({
             detail: state.stream?.subtitle
               ? `resolved  ·  ${state.stream.subtitle}`
               : "not found or disabled",
+          },
+          {
+            label: "Selected subtitle URL",
+            detail: state.stream?.subtitle ?? "not found or disabled",
           },
           {
             label: "Subtitle tracks",
@@ -343,6 +352,12 @@ export async function handleShellAction({
             label: "Memory",
             detail: `RSS ${(process.memoryUsage().rss / 1_048_576).toFixed(1)} MB`,
           },
+          ...recentEvents.map((event) => ({
+            label: `${new Date(event.timestamp).toLocaleTimeString()}  ·  ${event.category}`,
+            detail: event.context
+              ? `${event.message}  ·  ${JSON.stringify(event.context)}`
+              : event.message,
+          })),
         ],
       }),
     );
@@ -402,6 +417,14 @@ export async function handleShellAction({
         stateManager.dispatch({
           type: "SET_PROVIDER",
           provider: nextDefault,
+        });
+      }
+
+      if (state.mode === current.defaultMode && state.mode !== next.defaultMode) {
+        stateManager.dispatch({
+          type: "SET_MODE",
+          mode: next.defaultMode,
+          provider: next.defaultMode === "anime" ? next.animeProvider : next.provider,
         });
       }
     }
@@ -500,7 +523,7 @@ export async function openAnimeEpisodeListPicker(
 }
 
 function configSummary(config: KitsuneConfig): string {
-  return `provider ${config.provider}  ·  anime ${config.animeProvider}  ·  subs ${config.subLang}`;
+  return `default ${config.defaultMode}  ·  provider ${config.provider}  ·  anime ${config.animeProvider}  ·  subs ${config.subLang}`;
 }
 
 export async function openSettingsShell(current: KitsuneConfig): Promise<KitsuneConfig | null> {
@@ -512,6 +535,11 @@ export async function openSettingsShell(current: KitsuneConfig): Promise<Kitsune
       title: "Settings",
       subtitle: configSummary(next),
       options: [
+        {
+          value: "defaultMode" as const,
+          label: `Default startup mode  ·  ${next.defaultMode}`,
+          detail: "Series or anime when the app launches",
+        },
         {
           value: "provider" as const,
           label: `Default provider  ·  ${next.provider}`,
@@ -556,7 +584,11 @@ export async function openSettingsShell(current: KitsuneConfig): Promise<Kitsune
       ],
     });
 
-    if (!action || action === "done") {
+    if (!action) {
+      return null;
+    }
+
+    if (action === "done") {
       return changed ? next : null;
     }
 
@@ -577,6 +609,30 @@ export async function openSettingsShell(current: KitsuneConfig): Promise<Kitsune
       });
       if (picked && picked !== next.provider) {
         next.provider = picked;
+        changed = true;
+      }
+      continue;
+    }
+
+    if (action === "defaultMode") {
+      const picked = await chooseOption({
+        title: "Default startup mode",
+        subtitle: `Current ${next.defaultMode}`,
+        options: [
+          {
+            value: "series" as const,
+            label: next.defaultMode === "series" ? "Series mode  ·  current" : "Series mode",
+            detail: "Browse movies and TV on launch",
+          },
+          {
+            value: "anime" as const,
+            label: next.defaultMode === "anime" ? "Anime mode  ·  current" : "Anime mode",
+            detail: "Browse anime on launch",
+          },
+        ],
+      });
+      if (picked && picked !== next.defaultMode) {
+        next.defaultMode = picked;
         changed = true;
       }
       continue;

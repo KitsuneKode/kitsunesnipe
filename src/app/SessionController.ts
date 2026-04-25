@@ -15,18 +15,28 @@ export type SessionOutcome = "quit" | "mode_switch";
 export interface SessionBootstrap {
   initialQuery?: string;
   initialTitle?: TitleInfo | null;
+  preserveExistingSearch?: boolean;
 }
 
 export class SessionController {
   constructor(private container: Container) {}
 
   async run(bootstrap: SessionBootstrap = {}): Promise<void> {
-    const { logger, tracer, stateManager } = this.container;
+    const { logger, tracer, stateManager, diagnosticsStore } = this.container;
     let pendingInitialTitle = bootstrap.initialTitle ?? null;
     let pendingInitialQuery = bootstrap.initialQuery;
+    let preserveExistingSearch = bootstrap.preserveExistingSearch ?? false;
 
     await tracer.span("session", async () => {
       try {
+        diagnosticsStore.record({
+          category: "session",
+          message: "Session started",
+          context: {
+            mode: stateManager.getState().mode,
+            provider: stateManager.getState().provider,
+          },
+        });
         while (true) {
           let title: TitleInfo;
           if (pendingInitialTitle) {
@@ -36,10 +46,14 @@ export class SessionController {
           } else {
             // Phase 1: Search
             const searchResult = await this.executePhase(
-              { initialQuery: pendingInitialQuery } satisfies SearchPhaseInput,
+              {
+                initialQuery: pendingInitialQuery,
+                preserveExistingSearch,
+              } satisfies SearchPhaseInput,
               new (await import("./SearchPhase")).SearchPhase(),
             );
             pendingInitialQuery = undefined;
+            preserveExistingSearch = false;
 
             if (searchResult.status === "quit") break;
             if (searchResult.status === "cancelled") continue;
@@ -68,10 +82,19 @@ export class SessionController {
           // Playback completed (mode switch or back to search)
           const outcome = playbackResult.value;
           if (outcome === "quit") break;
+          if (outcome === "back_to_results") {
+            stateManager.dispatch({ type: "RESET_CONTENT" });
+            preserveExistingSearch = true;
+          }
           // "mode_switch" falls through to next iteration
         }
       } catch (e) {
         logger.error("Session fatal error", { error: String(e) });
+        diagnosticsStore.record({
+          category: "session",
+          message: "Session fatal error",
+          context: { error: String(e) },
+        });
         throw e;
       }
     });

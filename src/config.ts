@@ -3,6 +3,7 @@ import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 
 export type KitsuneConfig = {
+  defaultMode: "series" | "anime";
   provider: string; // provider ID (e.g. "vidking")
   animeProvider: string; // anime provider ID (e.g. "allanime")
   subLang: string; // subtitle language code or "fzf" | "none"
@@ -13,13 +14,14 @@ export type KitsuneConfig = {
 };
 
 export const DEFAULT_CONFIG: KitsuneConfig = {
+  defaultMode: "series",
   provider: "vidking",
   animeProvider: "allanime",
   subLang: "en",
   animeLang: "sub",
   headless: true,
   showMemory: false,
-  autoNext: true,
+  autoNext: false,
 };
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config", "kitsunesnipe");

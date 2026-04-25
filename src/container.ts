@@ -17,6 +17,7 @@ import type { StorageService } from "./infra/storage/StorageService";
 import type { HistoryStore } from "./services/persistence/HistoryStore";
 import type { ConfigStore } from "./services/persistence/ConfigStore";
 import type { CacheStore } from "./services/persistence/CacheStore";
+import type { DiagnosticsStore } from "./services/diagnostics/DiagnosticsStore";
 import type { SessionStateManager } from "./domain/session/SessionStateManager";
 
 // Import implementations
@@ -27,6 +28,7 @@ import { ConfigServiceImpl } from "./services/persistence/ConfigServiceImpl";
 import { ConfigStoreImpl } from "./services/persistence/ConfigStoreImpl";
 import { HistoryStoreImpl } from "./services/persistence/HistoryStoreImpl";
 import { CacheStoreImpl } from "./services/persistence/CacheStoreImpl";
+import { DiagnosticsStoreImpl } from "./services/diagnostics/DiagnosticsStoreImpl";
 import { SessionStateManagerImpl } from "./domain/session/SessionStateManager";
 import { ShellServiceImpl } from "./infra/shell/ShellServiceImpl";
 import { BrowserServiceImpl } from "./infra/browser/BrowserServiceImpl";
@@ -60,6 +62,7 @@ export interface Container {
   readonly historyStore: HistoryStore;
   readonly configStore: ConfigStore;
   readonly cacheStore: CacheStore;
+  readonly diagnosticsStore: DiagnosticsStore;
 
   // Session
   readonly stateManager: SessionStateManager;
@@ -95,6 +98,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   const configStore = new ConfigStoreImpl(storage);
   const historyStore = new HistoryStoreImpl(storage);
   const cacheStore = new CacheStoreImpl(storage);
+  const diagnosticsStore = new DiagnosticsStoreImpl();
 
   // Load config
   const config = await ConfigServiceImpl.load(configStore);
@@ -104,8 +108,8 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
 
   // Infrastructure services
   const shell = new ShellServiceImpl({ logger, tracer, stateManager });
-  const browser = new BrowserServiceImpl({ logger, tracer, config, cacheStore });
-  const player = new PlayerServiceImpl({ logger, tracer });
+  const browser = new BrowserServiceImpl({ logger, tracer, config, cacheStore, diagnosticsStore });
+  const player = new PlayerServiceImpl({ logger, tracer, diagnosticsStore });
 
   // Registries (depend on infrastructure)
   const providerRegistry = new ProviderRegistryImpl(
@@ -128,6 +132,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     historyStore,
     configStore,
     cacheStore,
+    diagnosticsStore,
     stateManager,
   };
 

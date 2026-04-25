@@ -15,6 +15,7 @@ export interface ConfigStore {
 
 // Default configuration
 export const DEFAULT_CONFIG: KitsuneConfig = {
+  defaultMode: "series",
   provider: "vidking",
   animeProvider: "allanime",
   subLang: "en",
