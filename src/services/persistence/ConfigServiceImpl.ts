@@ -25,6 +25,10 @@ export class ConfigServiceImpl implements ConfigService {
     return this.config.provider;
   }
 
+  get defaultMode(): "series" | "anime" {
+    return this.config.defaultMode;
+  }
+
   get animeProvider(): string {
     return this.config.animeProvider;
   }

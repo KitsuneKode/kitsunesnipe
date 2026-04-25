@@ -5,6 +5,7 @@
 // =============================================================================
 
 export interface KitsuneConfig {
+  defaultMode: "series" | "anime";
   provider: string;
   animeProvider: string;
   subLang: string;

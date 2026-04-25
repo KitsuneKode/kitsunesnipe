@@ -14,6 +14,7 @@ import { handleShellAction } from "@/app-shell/workflows";
 
 export type SearchPhaseInput = {
   initialQuery?: string;
+  preserveExistingSearch?: boolean;
 };
 
 export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
@@ -24,14 +25,21 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
     context: PhaseContext,
   ): Promise<PhaseResult<TitleInfo>> {
     const { container } = context;
-    const { searchRegistry, stateManager, logger } = container;
+    const { searchRegistry, stateManager, logger, diagnosticsStore } = container;
 
     try {
-      stateManager.dispatch({ type: "RESET_SEARCH" });
+      const preserveExistingSearch =
+        !!input && "preserveExistingSearch" in input && input.preserveExistingSearch === true;
+
+      if (!preserveExistingSearch) {
+        stateManager.dispatch({ type: "RESET_SEARCH" });
+      }
       if (input && "initialQuery" in input && input.initialQuery?.trim()) {
         stateManager.dispatch({ type: "SET_SEARCH_QUERY", query: input.initialQuery.trim() });
       }
-      stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "idle" });
+      if (!preserveExistingSearch || stateManager.getState().searchResults.length === 0) {
+        stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "idle" });
+      }
 
       while (true) {
         const currentState = stateManager.getState();
@@ -52,6 +60,16 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
             strategy: search.strategy,
             source: search.sourceId,
           });
+          diagnosticsStore.record({
+            category: "search",
+            message: "Bootstrap search complete",
+            context: {
+              query: currentState.searchQuery,
+              count: results.length,
+              strategy: search.strategy,
+              source: search.sourceId,
+            },
+          });
 
           stateManager.dispatch({ type: "SET_SEARCH_RESULTS", results });
           stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "ready" });
@@ -66,6 +84,18 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
           mode: currentState.mode,
           provider: currentState.provider,
           initialQuery: currentState.searchQuery,
+          initialResults: currentState.searchResults.map((result) => ({
+            value: result,
+            label: result.year ? `${result.title} (${result.year})` : result.title,
+            detail: `${result.type === "series" ? "Series" : "Movie"}${
+              result.overview ? ` · ${result.overview}` : ""
+            }`,
+          })),
+          initialResultSubtitle:
+            currentState.searchResults.length > 0
+              ? `${currentState.searchResults.length} results · previous search`
+              : undefined,
+          initialSelectedIndex: currentState.selectedResultIndex,
           placeholder: currentState.mode === "anime" ? "Demon Slayer" : "Breaking Bad",
           commands: resolveCommands(currentState, [
             "settings",
@@ -94,6 +124,16 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
               strategy: search.strategy,
               source: search.sourceId,
             });
+            diagnosticsStore.record({
+              category: "search",
+              message: "Search complete",
+              context: {
+                query,
+                count: results.length,
+                strategy: search.strategy,
+                source: search.sourceId,
+              },
+            });
 
             stateManager.dispatch({ type: "SET_SEARCH_RESULTS", results });
 
@@ -117,7 +157,7 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
 
         if (outcome.type === "action") {
           if (outcome.action === "quit") {
-            return { status: "cancelled" };
+            return { status: "quit" };
           }
 
           if (outcome.action === "toggle-mode") {
@@ -160,6 +200,12 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
         }
 
         const selected = outcome.value;
+        const selectedIndex = stateManager
+          .getState()
+          .searchResults.findIndex((result) => result.id === selected.id);
+        if (selectedIndex >= 0) {
+          stateManager.dispatch({ type: "SELECT_RESULT", index: selectedIndex });
+        }
 
         // Convert SearchResult to TitleInfo
         const title: TitleInfo = {
@@ -178,6 +224,11 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
       }
     } catch (e) {
       logger.error("Search phase error", { error: String(e) });
+      diagnosticsStore.record({
+        category: "search",
+        message: "Search phase error",
+        context: { error: String(e) },
+      });
       return {
         status: "error",
         error: {

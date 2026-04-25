@@ -3,7 +3,7 @@
 // =============================================================================
 
 import type { ConfigStore, KitsuneConfig } from "./ConfigStore";
-import type { StorageService } from "../../infra/storage/StorageService";
+import type { StorageService } from "@/infra/storage/StorageService";
 import { DEFAULT_CONFIG } from "./ConfigStore";
 
 const STORAGE_KEY = "config";

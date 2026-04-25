@@ -16,14 +16,15 @@ import type {
 import { handleShellAction, openSubtitlePicker } from "@/app-shell/workflows";
 import { choosePlaybackSubtitle } from "@/app/subtitle-selection";
 
-export type PlaybackOutcome = "back_to_search" | "mode_switch" | "quit";
+export type PlaybackOutcome = "back_to_search" | "back_to_results" | "mode_switch" | "quit";
 
 export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
   name = "playback";
 
   async execute(title: TitleInfo, context: PhaseContext): Promise<PhaseResult<PlaybackOutcome>> {
     const { container } = context;
-    const { providerRegistry, stateManager, logger, historyStore, config } = container;
+    const { providerRegistry, stateManager, logger, historyStore, config, diagnosticsStore } =
+      container;
 
     try {
       // Episode selection (for series)
@@ -41,6 +42,17 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         episodeCount: title.episodeCount ?? null,
         animeEpisodeOptions: animeEpisodes?.length ?? 0,
       });
+      diagnosticsStore.record({
+        category: "provider",
+        message: "Episode selection metadata",
+        context: {
+          titleId: title.id,
+          mode: stateManager.getState().mode,
+          provider: stateManager.getState().provider,
+          episodeCount: title.episodeCount ?? null,
+          animeEpisodeOptions: animeEpisodes?.length ?? 0,
+        },
+      });
 
       if (title.type === "series") {
         // Check history for resume
@@ -55,7 +67,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
 
         // Session-flow owns the current season/episode selection rules until the
         // mounted root shell fully absorbs the picker stack.
-        const { chooseStartingEpisode } = await import("../session-flow");
+        const { chooseStartingEpisode } = await import("@/session-flow");
         const selection = await chooseStartingEpisode({
           currentId: title.id,
           isAnime: stateManager.getState().mode === "anime",
@@ -70,7 +82,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             titleId: title.id,
             mode: stateManager.getState().mode,
           });
-          return { status: "success", value: "back_to_search" };
+          return { status: "success", value: "back_to_results" };
         }
 
         episode = {
@@ -143,6 +155,16 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         if (!stream) {
           console.log(`⚠ Stream not found on ${provider.metadata.id}`);
           logger.error("Stream not found", { provider: provider.metadata.id });
+          diagnosticsStore.record({
+            category: "provider",
+            message: "Stream not found",
+            context: {
+              provider: provider.metadata.id,
+              titleId: title.id,
+              season: currentEpisode.season,
+              episode: currentEpisode.episode,
+            },
+          });
 
           // Try fallback provider
           const compatible = providerRegistry
@@ -157,6 +179,14 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             console.log(`🔄 Trying fallback: ${fallback.metadata.id}...`);
             logger.info("Trying fallback provider", {
               fallback: fallback.metadata.id,
+            });
+            diagnosticsStore.record({
+              category: "provider",
+              message: "Trying fallback provider",
+              context: {
+                from: provider.metadata.id,
+                fallback: fallback.metadata.id,
+              },
             });
             const fallbackStream = await fallback.resolveStream({
               title,
@@ -266,7 +296,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         });
 
         if (postAction === "quit") {
-          return { status: "cancelled" };
+          return { status: "quit" };
         } else if (postAction === "toggle-mode") {
           const currentState = stateManager.getState();
           const newMode = currentState.mode === "anime" ? "series" : "anime";
@@ -283,7 +313,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           // Loop continues - same episode
           continue;
         } else if (postAction === "pick-episode" && title.type === "series") {
-          const { chooseEpisodeFromMetadata } = await import("../session-flow");
+          const { chooseEpisodeFromMetadata } = await import("@/session-flow");
           const selection = await chooseEpisodeFromMetadata({
             currentId: title.id,
             isAnime: stateManager.getState().mode === "anime",
@@ -354,7 +384,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             container,
           });
           if (actionResult === "quit") {
-            return { status: "cancelled" };
+            return { status: "quit" };
           }
           continue;
         } else {
@@ -402,6 +432,21 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       subtitleReason: subtitleDecision.reason,
       availableTracks: subtitleDecision.availableTracks,
       subtitleSelected: subtitleDecision.subtitle ?? null,
+    });
+    context.container.diagnosticsStore.record({
+      category: "subtitle",
+      message: "Subtitle resolution",
+      context: {
+        provider: stateManager.getState().provider,
+        titleId: title.id,
+        type: title.type,
+        season: episode.season,
+        episode: episode.episode,
+        requestedSubLang: subLang,
+        subtitleReason: subtitleDecision.reason,
+        availableTracks: subtitleDecision.availableTracks,
+        subtitleSelected: subtitleDecision.subtitle ?? null,
+      },
     });
 
     return {

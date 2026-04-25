@@ -13,6 +13,8 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Search, playback, history, subtitles, and auto-next all exist
 - `AGENTS.md`, `.docs/`, and `.plans/` now have separated responsibilities
 - New runtime subtitle policy is restored: `none`, interactive picker, and provider-default flows all work again
+- New runtime now preserves the previous browse/result state when episode selection is cancelled before playback starts
+- Default startup mode is now configurable and honored by `src/main.ts`
 - Browser/embed scraping in the new runtime now reads and writes the shared stream cache
 - AllAnime family parity code is explicitly named `allanime-family.ts`
 - `src/main.ts` is now the default runnable and build entrypoint
@@ -29,6 +31,11 @@ Use this file as the planning index. It should stay short. Put implementation de
 - First-run dependency guardrails for `mpv` and Playwright
 - Developer-mode diagnostics surface for stream, subtitle, and provider resolution stages
 - Metadata-store and preview-service migration beyond the current in-memory caches
+
+### Recently Improved
+
+- Diagnostics overlay now includes recent runtime events for search, provider resolution, subtitle decisions, playback, and cache hits
+- Anime episode fallback no longer silently drops into episode 1 when metadata is missing
 
 ## Planned Tracks
 

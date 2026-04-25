@@ -141,6 +141,8 @@ Current checkpoint:
 - shared pickers now support inline filtering, and browse input keeps terminal-style editing semantics
 - anime episode catalogs now sort into ascending picker order while stream resolution still maps correctly against reverse-ordered upstream episode strings
 - subtitle policy is restored in the new runtime, and the shell now surfaces when subtitles are disabled, attached, or not found
+- canceling before first playback now returns to the previous browse result list instead of discarding search context
+- settings now expose the default startup mode, and `src/main.ts` honors it unless CLI flags override it
 - browser/embed scraping now reuses the shared runtime cache instead of bypassing the new persistence layer
 
 ## Next Passes
@@ -201,6 +203,7 @@ Status:
 
 - partially done
 - settings, provider, history, diagnostics, and subtitle picking are available through shared workflows, but they are still blocking shell helpers rather than true mounted overlays
+- diagnostics now show recent runtime events from the new in-memory diagnostics store, which improves developer-mode inspection before the mounted overlay host lands
 
 ### Pass D: Naming And Provider Boundary Cleanup
 

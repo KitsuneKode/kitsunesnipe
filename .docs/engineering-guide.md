@@ -12,6 +12,7 @@ This file exists to keep the codebase from drifting back into tightly coupled pr
 - shell state should live in explicit app or session state, not in scattered component-local assumptions
 - provider registration stays centralized
 - diagnostics, caching, and recovery policy should each have a clear owner
+- when settings affect startup behavior, keep the persisted config, runtime bootstrap, and visible settings copy in sync in the same task
 
 Avoid duplicating runtime orchestration in multiple entry paths.
 
@@ -88,6 +89,7 @@ Owns:
 - config
 - history
 - cache stores
+- in-memory diagnostics event buffers
 - local reports
 - privacy-safe trace buffers
 

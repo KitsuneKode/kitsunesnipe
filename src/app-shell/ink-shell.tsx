@@ -1062,6 +1062,9 @@ function BrowseShell<T>({
   mode,
   provider,
   initialQuery,
+  initialResults,
+  initialResultSubtitle,
+  initialSelectedIndex,
   placeholder,
   commands,
   onSearch,
@@ -1072,6 +1075,9 @@ function BrowseShell<T>({
   mode: "series" | "anime";
   provider: string;
   initialQuery?: string;
+  initialResults?: readonly BrowseShellOption<T>[];
+  initialResultSubtitle?: string;
+  initialSelectedIndex?: number;
   placeholder: string;
   commands: readonly ResolvedAppCommand[];
   onSearch: (query: string) => Promise<BrowseShellSearchResponse<T>>;
@@ -1085,14 +1091,21 @@ function BrowseShell<T>({
   const [commandMode, setCommandMode] = useState(false);
   const [commandInput, setCommandInput] = useState("");
   const [highlightedCommandIndex, setHighlightedCommandIndex] = useState(0);
-  const [options, setOptions] = useState<readonly BrowseShellOption<T>[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [selectedDetail, setSelectedDetail] = useState("Type a title and press Enter to search.");
-  const [resultSubtitle, setResultSubtitle] = useState(
-    `Provider ${provider}  ·  Enter searches  ·  / commands`,
+  const [options, setOptions] = useState<readonly BrowseShellOption<T>[]>(initialResults ?? []);
+  const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex ?? 0);
+  const [selectedDetail, setSelectedDetail] = useState(
+    initialResults?.[initialSelectedIndex ?? 0]?.detail ??
+      "Type a title and press Enter to search.",
   );
-  const [searchState, setSearchState] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [lastSearchedQuery, setLastSearchedQuery] = useState("");
+  const [resultSubtitle, setResultSubtitle] = useState(
+    initialResultSubtitle ?? `Provider ${provider}  ·  Enter searches  ·  / commands`,
+  );
+  const [searchState, setSearchState] = useState<"idle" | "loading" | "ready" | "error">(
+    initialResults && initialResults.length > 0 ? "ready" : "idle",
+  );
+  const [lastSearchedQuery, setLastSearchedQuery] = useState(
+    initialResults && initialResults.length > 0 ? (initialQuery ?? "") : "",
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [emptyMessage, setEmptyMessage] = useState("Type a title and press Enter to search.");
   const requestIdRef = useRef(0);
@@ -1416,6 +1429,9 @@ export function openBrowseShell<T>({
   mode,
   provider,
   initialQuery,
+  initialResults,
+  initialResultSubtitle,
+  initialSelectedIndex,
   placeholder,
   commands,
   onSearch,
@@ -1423,6 +1439,9 @@ export function openBrowseShell<T>({
   mode: "series" | "anime";
   provider: string;
   initialQuery?: string;
+  initialResults?: readonly BrowseShellOption<T>[];
+  initialResultSubtitle?: string;
+  initialSelectedIndex?: number;
   placeholder: string;
   commands: readonly ResolvedAppCommand[];
   onSearch: (query: string) => Promise<BrowseShellSearchResponse<T>>;
@@ -1433,6 +1452,9 @@ export function openBrowseShell<T>({
         mode={mode}
         provider={provider}
         initialQuery={initialQuery}
+        initialResults={initialResults}
+        initialResultSubtitle={initialResultSubtitle}
+        initialSelectedIndex={initialSelectedIndex}
         placeholder={placeholder}
         commands={commands}
         onSearch={onSearch}
