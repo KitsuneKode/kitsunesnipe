@@ -313,6 +313,12 @@ export async function handleShellAction({
             detail: `${state.view}  ·  ${state.playbackStatus}`,
           },
           {
+            label: "Subtitle state",
+            detail: state.stream?.subtitle
+              ? `resolved  ·  ${state.stream.subtitle}`
+              : "not found or disabled",
+          },
+          {
             label: "Search state",
             detail: `${state.searchState}  ·  ${state.searchResults.length} results`,
           },

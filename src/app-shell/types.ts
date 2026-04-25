@@ -50,6 +50,7 @@ export type PlaybackShellState = {
   type: "movie" | "series";
   season: number;
   episode: number;
+  subtitleStatus?: string;
   showMemory: boolean;
   memoryUsage?: string;
   status?: ShellStatus;
