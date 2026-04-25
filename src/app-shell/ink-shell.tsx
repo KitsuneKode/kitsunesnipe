@@ -722,6 +722,10 @@ function PlaybackShell({
 
   useInput((input, key) => {
     if (activeOverlay) {
+      if (input === "/") {
+        return;
+      }
+
       if (key.escape) {
         setActiveOverlay(null);
         return;
@@ -1960,6 +1964,13 @@ function BrowseShell<T>({
     }
 
     if (activeOverlay) {
+      if (input === "/") {
+        setCommandMode(true);
+        setCommandInput("");
+        setHighlightedCommandIndex(0);
+        return;
+      }
+
       if (key.escape) {
         closeOverlay();
         return;
