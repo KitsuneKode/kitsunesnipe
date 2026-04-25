@@ -43,6 +43,7 @@ export class CinebyProvider implements Provider {
     return this.deps.browser.scrape({
       url,
       needsClick: LegacyCineby.needsClick,
+      subLang: request.subLang,
       signal,
     });
   }

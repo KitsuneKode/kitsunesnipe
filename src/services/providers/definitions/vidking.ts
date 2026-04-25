@@ -45,6 +45,7 @@ export class VidKingProvider implements Provider {
     return this.deps.browser.scrape({
       url,
       needsClick: LegacyVidKing.needsClick,
+      subLang: request.subLang,
       signal,
     });
   }

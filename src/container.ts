@@ -104,7 +104,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
 
   // Infrastructure services
   const shell = new ShellServiceImpl({ logger, tracer, stateManager });
-  const browser = new BrowserServiceImpl({ logger, tracer, config });
+  const browser = new BrowserServiceImpl({ logger, tracer, config, cacheStore });
   const player = new PlayerServiceImpl({ logger, tracer });
 
   // Registries (depend on infrastructure)

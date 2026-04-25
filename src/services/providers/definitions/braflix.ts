@@ -2,7 +2,7 @@
 // Braflix Provider Adapter
 // =============================================================================
 
-import { Braflix as LegacyBraflix, braflixSearch } from "../../../providers/braflix";
+import { Braflix as LegacyBraflix } from "../../../providers/braflix";
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import type {
   TitleInfo,
@@ -36,7 +36,7 @@ export class BraflixProvider implements Provider {
       subLang: request.subLang,
       animeLang: "sub" as const,
       embedScraper: (embedUrl: string) =>
-        this.deps.browser.scrape({ url: embedUrl, signal }) as Promise<
+        this.deps.browser.scrape({ url: embedUrl, subLang: request.subLang, signal }) as Promise<
           import("../../../scraper").StreamData | null
         >,
     };

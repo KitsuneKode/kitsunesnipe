@@ -38,7 +38,7 @@ export class AllAnimeProvider implements Provider {
       subLang: request.subLang,
       animeLang: this.deps.config.animeLang,
       embedScraper: (embedUrl: string) =>
-        this.deps.browser.scrape({ url: embedUrl, signal }) as Promise<
+        this.deps.browser.scrape({ url: embedUrl, subLang: request.subLang, signal }) as Promise<
           import("../../../scraper").StreamData | null
         >,
     };

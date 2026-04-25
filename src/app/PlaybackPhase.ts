@@ -13,7 +13,8 @@ import type {
   StreamInfo,
   PlaybackResult,
 } from "../domain/types";
-import { handleShellAction } from "../app-shell/workflows";
+import { handleShellAction, openSubtitlePicker } from "../app-shell/workflows";
+import { choosePlaybackSubtitle } from "./subtitle-selection";
 
 export type PlaybackOutcome = "back_to_search" | "mode_switch" | "quit";
 
@@ -149,15 +150,21 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             });
 
             if (fallbackStream) {
+              const preparedFallback = await this.preparePlaybackStream(
+                fallbackStream,
+                title,
+                currentEpisode,
+                context,
+              );
               stateManager.dispatch({
                 type: "SET_STREAM",
-                stream: fallbackStream,
+                stream: preparedFallback,
               });
               stateManager.dispatch({
                 type: "SET_PLAYBACK_STATUS",
                 status: "ready",
               });
-              await this.playStream(fallbackStream, title, currentEpisode, context);
+              await this.playStream(preparedFallback, title, currentEpisode, context);
               continue;
             }
           }
@@ -173,11 +180,17 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           };
         }
 
-        stateManager.dispatch({ type: "SET_STREAM", stream });
+        const preparedStream = await this.preparePlaybackStream(
+          stream,
+          title,
+          currentEpisode,
+          context,
+        );
+        stateManager.dispatch({ type: "SET_STREAM", stream: preparedStream });
         stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "ready" });
 
         // Play in MPV
-        const result = await this.playStream(stream, title, currentEpisode, context);
+        const result = await this.playStream(preparedStream, title, currentEpisode, context);
 
         // Save history
         if (result.watchedSeconds > 10) {
@@ -337,6 +350,38 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
 
     // Fallback return (should not reach here)
     return { status: "success", value: "back_to_search" };
+  }
+
+  private async preparePlaybackStream(
+    stream: StreamInfo,
+    title: TitleInfo,
+    episode: EpisodeInfo,
+    context: PhaseContext,
+  ): Promise<StreamInfo> {
+    const { stateManager, logger } = context.container;
+    const subLang = stateManager.getState().subLang;
+    const subtitleDecision = await choosePlaybackSubtitle({
+      stream,
+      subLang,
+      pickSubtitle: (tracks) => openSubtitlePicker(tracks),
+    });
+
+    logger.info("Subtitle resolution", {
+      provider: stateManager.getState().provider,
+      titleId: title.id,
+      type: title.type,
+      season: episode.season,
+      episode: episode.episode,
+      requestedSubLang: subLang,
+      subtitleReason: subtitleDecision.reason,
+      availableTracks: subtitleDecision.availableTracks,
+      subtitleSelected: subtitleDecision.subtitle ?? null,
+    });
+
+    return {
+      ...stream,
+      subtitle: subtitleDecision.subtitle ?? undefined,
+    };
   }
 
   private async playStream(

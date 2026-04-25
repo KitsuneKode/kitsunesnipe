@@ -9,6 +9,7 @@ import type { StreamInfo } from "../../domain/types";
 import type { Logger } from "../logger/Logger";
 import type { Tracer } from "../tracer/Tracer";
 import type { ConfigService } from "../../services/persistence/ConfigService";
+import type { CacheStore } from "../../services/persistence/CacheStore";
 import { scrapeStream } from "../../scraper";
 import type { PlaywrightProvider } from "../../providers/types";
 
@@ -18,10 +19,19 @@ export class BrowserServiceImpl implements BrowserService {
       logger: Logger;
       tracer: Tracer;
       config: ConfigService;
+      cacheStore: CacheStore;
     },
   ) {}
 
   async scrape(options: ScrapeOptions): Promise<StreamInfo | null> {
+    const cached = await this.deps.cacheStore.get(options.url);
+    if (cached) {
+      this.deps.logger.info("Browser scrape cache hit", {
+        url: options.url,
+      });
+      return cached;
+    }
+
     // Create a synthetic PlaywrightProvider for the legacy scraper
     const syntheticProvider: PlaywrightProvider = {
       kind: "playwright",
@@ -39,13 +49,13 @@ export class BrowserServiceImpl implements BrowserService {
     const result = await scrapeStream(
       syntheticProvider,
       options.url,
-      "en", // TODO: Get from config
+      options.subLang ?? this.deps.config.subLang,
       this.deps.config.headless,
     );
 
     if (!result) return null;
 
-    return {
+    const stream = {
       url: result.url,
       headers: result.headers,
       subtitle: result.subtitle ?? undefined,
@@ -53,6 +63,8 @@ export class BrowserServiceImpl implements BrowserService {
       title: result.title,
       timestamp: result.timestamp,
     };
+    await this.deps.cacheStore.set(options.url, stream);
+    return stream;
   }
 
   async isAvailable(): Promise<boolean> {
