@@ -10,6 +10,7 @@ export interface ScrapeOptions {
   url: string;
   needsClick?: boolean;
   intercept?: string[]; // URL patterns to intercept (e.g., "*.m3u8")
+  subLang?: string;
   signal?: AbortSignal;
 }
 

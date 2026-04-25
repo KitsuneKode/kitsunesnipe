@@ -43,6 +43,7 @@ export class BitCineProvider implements Provider {
     return this.deps.browser.scrape({
       url,
       needsClick: LegacyBitCine.needsClick,
+      subLang: request.subLang,
       signal,
     });
   }
