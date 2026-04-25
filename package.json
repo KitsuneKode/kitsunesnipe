@@ -36,15 +36,15 @@
     "access": "public"
   },
   "scripts": {
-    "dev": "bun run index.ts",
-    "start": "bun run index.ts",
+    "dev": "bun run src/main.ts",
+    "start": "bun run src/main.ts",
     "test": "bun test",
     "typecheck": "bun tsc --noEmit",
     "lint": "oxlint .",
     "format": "oxfmt --write .",
     "check": "bun run typecheck && bun run lint && bun run format",
     "clean": "rm -rf dist",
-    "build": "bun run clean && bun build index.ts --target bun --packages external --outfile dist/kitsune-snipe.js && chmod 755 dist/kitsune-snipe.js",
+    "build": "bun run clean && bun build src/main.ts --target bun --packages external --outfile dist/kitsune-snipe.js && chmod 755 dist/kitsune-snipe.js",
     "build:prod": "bun run check && bun run build",
     "pkg:check": "bun run build && npm pack --dry-run --ignore-scripts",
     "release:dry-run": "bun run build:prod && bun run pkg:check",

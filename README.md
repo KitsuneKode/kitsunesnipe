@@ -56,7 +56,7 @@ bun run link:global
 ### Fully interactive (recommended)
 
 ```bash
-bun run index.ts
+bun run src/main.ts
 kitsune-snipe
 ```
 
@@ -73,28 +73,22 @@ You'll be guided through:
 All flags are optional — mix and match to pre-fill any step:
 
 ```bash
-bun run index.ts -S "Breaking Bad"               # pre-fill search query
-bun run index.ts -S "Inception" -t movie         # force movie type
-bun run index.ts -i 1396 -s 3 -e 5              # jump to S3E5 by TMDB ID
-bun run index.ts -S "The Boys" -l fzf            # pick subtitle interactively in shell
-bun run index.ts -S "Breaking Bad" -l ar         # Arabic subtitles
-bun run index.ts -S "Oppenheimer" -p cineby      # force Cineby
-bun run index.ts -S "Breaking Bad" -H            # visible browser (debug)
+bun run src/main.ts -S "Breaking Bad"            # pre-fill search query
+bun run src/main.ts -i 1396 -t series            # jump by TMDB ID in the new runtime
+bun run src/main.ts -i 438631 -t movie           # direct movie bootstrap
+bun run src/main.ts -a                           # start in anime mode
+bun run src/main.ts --debug                      # debug logging
 ```
 
 ### All flags
 
-| Short | Long            | Description                                       |
-| ----- | --------------- | ------------------------------------------------- |
-| `-S`  | `--search`      | Pre-fill the search query                         |
-| `-i`  | `--id`          | Use a known TMDB ID (skip search entirely)        |
-| `-T`  | `--title`       | Override the display title shown in MPV           |
-| `-t`  | `--type`        | `movie` or `series` (used with `--id`)            |
-| `-s`  | `--season`      | Starting season                                   |
-| `-e`  | `--episode`     | Starting episode                                  |
-| `-p`  | `--provider`    | `vidking` (default) or `cineby`                   |
-| `-l`  | `--sub-lang`    | `en`, `ar`, `fr`, `de`, `es`, `ja`, `fzf`, `none` |
-| `-H`  | `--no-headless` | Force visible browser window                      |
+| Short | Long       | Description                                  |
+| ----- | ---------- | -------------------------------------------- |
+| `-S`  | `--search` | Pre-fill the search query                    |
+| `-i`  | `--id`     | Bootstrap a known TMDB ID in the new runtime |
+| `-t`  | `--type`   | `movie` or `series` (used with `--id`)       |
+| `-a`  | `--anime`  | Start in anime mode                          |
+|       | `--debug`  | Enable debug logging                         |
 
 ## 🧭 Shell controls
 
@@ -118,7 +112,8 @@ History is stored at `~/.local/share/kitsunesnipe/history.json`, keyed by TMDB I
 ## 🗂️ Project Structure
 
 ```text
-index.ts                main entry and session loops
+src/main.ts             canonical runtime entrypoint
+index.ts                legacy runtime path kept during migration
 src/app-shell/*         Ink shell, command UI, settings/history/picker workflows
 src/search.ts           db.videasy/TMDB-backed search
 src/scraper.ts          Playwright stream + subtitle interception

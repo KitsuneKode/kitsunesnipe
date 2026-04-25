@@ -11,6 +11,7 @@
 
 import { createContainer } from "@/container";
 import { SessionController } from "@/app/SessionController";
+import type { TitleInfo } from "@/domain/types";
 
 // Simple CLI arg parser
 function parseArgs(argv: string[]): {
@@ -71,21 +72,42 @@ async function main(): Promise<void> {
     });
   }
 
-  // Handle direct search or ID-based entry
-  if (args.search) {
-    // TODO: Direct search flow - skip initial search prompt
-    logger.info("Direct search requested", { query: args.search });
+  let bootstrapQuery: string | undefined;
+  let bootstrapTitle: TitleInfo | null = null;
+
+  if (args.search?.trim()) {
+    bootstrapQuery = args.search.trim();
+    logger.info("Bootstrap search requested", { query: bootstrapQuery });
   }
 
   if (args.id) {
-    // TODO: Direct ID flow - skip search entirely
-    logger.info("Direct ID requested", { id: args.id, type: args.type });
+    if (args.anime) {
+      logger.warn("Direct ID bootstrap is not supported for anime mode yet", { id: args.id });
+    } else if (args.type === "movie" || args.type === "series") {
+      bootstrapTitle = {
+        id: args.id,
+        type: args.type,
+        name: `TMDB ${args.id}`,
+      };
+      logger.info("Bootstrap title requested", {
+        id: args.id,
+        type: args.type,
+      });
+    } else {
+      logger.warn("Ignoring direct ID without a supported --type", {
+        id: args.id,
+        type: args.type,
+      });
+    }
   }
 
   // Run the main session loop
   try {
     const controller = new SessionController(container);
-    await controller.run();
+    await controller.run({
+      initialQuery: bootstrapQuery,
+      initialTitle: bootstrapTitle,
+    });
 
     logger.info("KitsuneSnipe exited normally");
     process.exit(0);

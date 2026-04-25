@@ -45,8 +45,8 @@ KitsuneSnipe is a terminal-first Bun CLI that finds playable video streams by in
 ## Fast Map
 
 ```text
-index.ts                    entry point; outer search loop + inner playback loop
-src/main.ts                 refactored entry target; keep aligned with runtime consolidation plans
+src/main.ts                 canonical runtime entrypoint and refactored session controller
+index.ts                    legacy runtime path kept during migration and parity verification
 src/app-shell/*             Ink shell, command bar, list pickers, settings/history workflows
 src/search.ts               search service registry and TMDB-backed search
 src/scraper.ts              Playwright interception for stream/subtitle capture
@@ -64,11 +64,11 @@ src/providers/*             provider implementations and registry
 ## Commands
 
 ```sh
-bun run index.ts
-bun run index.ts -S "Dune"
-bun run index.ts -i 438631 -t movie
-bun run index.ts -a
-bun run index.ts --debug
+bun run src/main.ts
+bun run src/main.ts -S "Dune"
+bun run src/main.ts -i 438631 -t movie
+bun run src/main.ts -a
+bun run src/main.ts --debug
 bun run link:global
 ```
 
@@ -84,7 +84,7 @@ Use `bun run test` if tests are relevant and available. Do not use `bun test` di
 
 ## Hard Boundaries
 
-- `index.ts` keeps the outer search loop separate from the inner playback loop; `[a]` returns to search by breaking the inner loop
+- `index.ts` keeps the legacy outer search loop separate from the inner playback loop; `[a]` returns to search by breaking the inner loop
 - Episode numbers are 1-based in the UI; providers adapt internally
 - `src/providers/index.ts` is the single registry source of truth
 - `isAnimeProvider: true` is what places a provider in anime mode

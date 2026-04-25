@@ -100,6 +100,11 @@ function formatHistoryDetail(entry: HistoryEntry): string {
   return `${watched}${isFinished(entry) ? "  ·  finished" : ""}  ·  provider ${entry.provider}`;
 }
 
+function summarizeHeaderKeys(headers: Record<string, string> | undefined): string {
+  const keys = Object.keys(headers ?? {});
+  return keys.length > 0 ? keys.join(", ") : "none";
+}
+
 async function openHistoryShell(): Promise<void> {
   while (true) {
     const entries = Object.entries(await getAllHistory()).sort(
@@ -317,6 +322,18 @@ export async function handleShellAction({
             detail: state.stream?.subtitle
               ? `resolved  ·  ${state.stream.subtitle}`
               : "not found or disabled",
+          },
+          {
+            label: "Subtitle tracks",
+            detail: String(state.stream?.subtitleList?.length ?? 0),
+          },
+          {
+            label: "Stream URL",
+            detail: state.stream?.url ?? "not resolved yet",
+          },
+          {
+            label: "Header keys",
+            detail: summarizeHeaderKeys(state.stream?.headers),
           },
           {
             label: "Search state",
