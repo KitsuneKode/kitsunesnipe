@@ -21,12 +21,12 @@ bun run link:global   # optional: installs local CLI command
 ## Run
 
 ```sh
-bun run index.ts
-bun run index.ts -S "Attack on Titan"
-bun run index.ts -i 1429 -t series
-bun run index.ts -i 438631 -t movie
-bun run index.ts -a
-bun run index.ts --debug
+bun run src/main.ts
+bun run src/main.ts -S "Attack on Titan"
+bun run src/main.ts -i 1429 -t series
+bun run src/main.ts -i 438631 -t movie
+bun run src/main.ts -a
+bun run src/main.ts --debug
 kitsune-snipe -S "Dune"   # after bun run link:global
 ```
 
@@ -46,7 +46,7 @@ Do not use `bun test` directly.
 | Flag         | Short | Description               |
 | ------------ | ----- | ------------------------- |
 | `--search`   | `-S`  | Pre-fill search query     |
-| `--id`       | `-i`  | TMDB ID and skip search   |
+| `--id`       | `-i`  | TMDB ID bootstrap         |
 | `--type`     | `-t`  | `movie` or `series`       |
 | `--anime`    | `-a`  | Start in anime mode       |
 | `--season`   |       | Initial season            |

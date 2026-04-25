@@ -5,36 +5,52 @@
 // Outer loop: Search → Playback → (repeat or quit)
 // =============================================================================
 
-import type { Container } from "../container";
-import type { Phase, PhaseResult, PhaseContext } from "./Phase";
-import type { TitleInfo } from "../domain/types";
+import type { Container } from "@/container";
+import type { Phase, PhaseResult, PhaseContext } from "@/app/Phase";
+import type { TitleInfo } from "@/domain/types";
+import type { SearchPhaseInput } from "@/app/SearchPhase";
 
 export type SessionOutcome = "quit" | "mode_switch";
+
+export interface SessionBootstrap {
+  initialQuery?: string;
+  initialTitle?: TitleInfo | null;
+}
 
 export class SessionController {
   constructor(private container: Container) {}
 
-  async run(): Promise<void> {
+  async run(bootstrap: SessionBootstrap = {}): Promise<void> {
     const { logger, tracer, stateManager } = this.container;
+    let pendingInitialTitle = bootstrap.initialTitle ?? null;
+    let pendingInitialQuery = bootstrap.initialQuery;
 
     await tracer.span("session", async () => {
       try {
         while (true) {
-          // Phase 1: Search
-          const searchResult = await this.executePhase(
-            null as unknown as void,
-            new (await import("./SearchPhase")).SearchPhase(),
-          );
+          let title: TitleInfo;
+          if (pendingInitialTitle) {
+            title = pendingInitialTitle;
+            pendingInitialTitle = null;
+            stateManager.dispatch({ type: "SELECT_TITLE", title });
+          } else {
+            // Phase 1: Search
+            const searchResult = await this.executePhase(
+              { initialQuery: pendingInitialQuery } satisfies SearchPhaseInput,
+              new (await import("./SearchPhase")).SearchPhase(),
+            );
+            pendingInitialQuery = undefined;
 
-          if (searchResult.status === "quit") break;
-          if (searchResult.status === "cancelled") continue;
-          if (searchResult.status === "error") {
-            // Log error and continue to next iteration
-            logger.error("Search phase failed", { error: searchResult.error });
-            continue;
+            if (searchResult.status === "quit") break;
+            if (searchResult.status === "cancelled") continue;
+            if (searchResult.status === "error") {
+              // Log error and continue to next iteration
+              logger.error("Search phase failed", { error: searchResult.error });
+              continue;
+            }
+
+            title = searchResult.value;
           }
-
-          const title = searchResult.value;
 
           // Phase 2: Playback (inner loop for episodes)
           const playbackResult = await this.executePhase(

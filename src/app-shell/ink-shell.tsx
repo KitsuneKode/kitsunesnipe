@@ -850,35 +850,14 @@ export function openSearchShell({
 }): Promise<string | null> {
   const session = mountShell<string | null>({
     renderShell: (finish) => {
-      const finishWithLog = (value: string | null) => {
-        // #region agent log
-        fetch("http://127.0.0.1:7354/ingest/f23bf8ed-06ee-406a-91ac-a87f92e34e82", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Session-Id": "d7fbe5",
-          },
-          body: JSON.stringify({
-            sessionId: "d7fbe5",
-            location: "ink-shell.tsx:openSearchShell.finish",
-            message: "search finish",
-            data: { hasValue: value !== null, len: value?.length ?? 0 },
-            timestamp: Date.now(),
-            hypothesisId: "D",
-          }),
-        }).catch(() => {});
-        // #endregion
-        finish(value);
-      };
-
       return (
         <SearchShell
           mode={mode}
           provider={provider}
           initialValue={initialValue}
           placeholder={placeholder}
-          onSubmit={(value) => finishWithLog(value.length > 0 ? value : null)}
-          onCancel={() => finishWithLog(null)}
+          onSubmit={(value) => finish(value.length > 0 ? value : null)}
+          onCancel={() => finish(null)}
         />
       );
     },
@@ -984,28 +963,6 @@ function ListShell<T>({
     }
     if (key.return) {
       const selected = filteredOptions[index];
-      // #region agent log
-      fetch("http://127.0.0.1:7354/ingest/f23bf8ed-06ee-406a-91ac-a87f92e34e82", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "d7fbe5",
-        },
-        body: JSON.stringify({
-          sessionId: "d7fbe5",
-          location: "ink-shell.tsx:ListShell.useInput",
-          message: "return key",
-          data: {
-            index,
-            confirmed,
-            hasSelected: Boolean(selected),
-            label: selected?.label?.slice(0, 80),
-          },
-          timestamp: Date.now(),
-          hypothesisId: "A",
-        }),
-      }).catch(() => {});
-      // #endregion
       if (selected && !confirmed) {
         setConfirmed(true);
         setTimeout(() => onSubmit(selected.value), 150);
@@ -1499,82 +1456,17 @@ export function openListShell<T>({
   subtitle: string;
   options: readonly ListOption<T>[];
 }): Promise<T | null> {
-  // #region agent log
-  fetch("http://127.0.0.1:7354/ingest/f23bf8ed-06ee-406a-91ac-a87f92e34e82", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "d7fbe5",
-    },
-    body: JSON.stringify({
-      sessionId: "d7fbe5",
-      location: "ink-shell.tsx:openListShell",
-      message: "openListShell invoked",
-      data: { title, optionCount: options.length },
-      timestamp: Date.now(),
-      hypothesisId: "E",
-    }),
-  }).catch(() => {});
-  // #endregion
-
   const session = mountShell<T | null>({
-    renderShell: (finish) => {
-      const finishWithLog = (value: T | null) => {
-        // #region agent log
-        fetch("http://127.0.0.1:7354/ingest/f23bf8ed-06ee-406a-91ac-a87f92e34e82", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Session-Id": "d7fbe5",
-          },
-          body: JSON.stringify({
-            sessionId: "d7fbe5",
-            location: "ink-shell.tsx:openListShell.finish",
-            message: "finish called",
-            data: {
-              hasValue: value !== null,
-              title,
-              optionCount: options.length,
-            },
-            timestamp: Date.now(),
-            hypothesisId: "B",
-          }),
-        }).catch(() => {});
-        // #endregion
-        finish(value);
-      };
-
-      return (
-        <ListShell
-          title={title}
-          subtitle={subtitle}
-          options={options}
-          onSubmit={(value) => finishWithLog(value)}
-          onCancel={() => finishWithLog(null)}
-        />
-      );
-    },
+    renderShell: (finish) => (
+      <ListShell
+        title={title}
+        subtitle={subtitle}
+        options={options}
+        onSubmit={(value) => finish(value)}
+        onCancel={() => finish(null)}
+      />
+    ),
     fallbackValue: null,
-  });
-
-  void session.result.finally(() => {
-    // #region agent log
-    fetch("http://127.0.0.1:7354/ingest/f23bf8ed-06ee-406a-91ac-a87f92e34e82", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "d7fbe5",
-      },
-      body: JSON.stringify({
-        sessionId: "d7fbe5",
-        location: "ink-shell.tsx:openListShell.waitUntilExit",
-        message: "waitUntilExit resolved",
-        data: { title },
-        timestamp: Date.now(),
-        hypothesisId: "C",
-      }),
-    }).catch(() => {});
-    // #endregion
   });
 
   return session.result;

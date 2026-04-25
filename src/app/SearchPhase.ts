@@ -5,26 +5,58 @@
 // Returns the selected title or cancellation/quit signals.
 // =============================================================================
 
-import type { Phase, PhaseResult, PhaseContext } from "./Phase";
-import type { TitleInfo } from "../domain/types";
-import { searchTitles } from "./search-routing";
-import { resolveCommands } from "../app-shell/commands";
-import { openBrowseShell } from "../app-shell/ink-shell";
-import { handleShellAction } from "../app-shell/workflows";
+import type { Phase, PhaseResult, PhaseContext } from "@/app/Phase";
+import type { TitleInfo } from "@/domain/types";
+import { searchTitles } from "@/app/search-routing";
+import { resolveCommands } from "@/app-shell/commands";
+import { openBrowseShell } from "@/app-shell/ink-shell";
+import { handleShellAction } from "@/app-shell/workflows";
 
-export class SearchPhase implements Phase<void, TitleInfo> {
+export type SearchPhaseInput = {
+  initialQuery?: string;
+};
+
+export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
   name = "search";
 
-  async execute(_input: void, context: PhaseContext): Promise<PhaseResult<TitleInfo>> {
+  async execute(
+    input: SearchPhaseInput | void,
+    context: PhaseContext,
+  ): Promise<PhaseResult<TitleInfo>> {
     const { container } = context;
     const { searchRegistry, stateManager, logger } = container;
 
     try {
       stateManager.dispatch({ type: "RESET_SEARCH" });
+      if (input && "initialQuery" in input && input.initialQuery?.trim()) {
+        stateManager.dispatch({ type: "SET_SEARCH_QUERY", query: input.initialQuery.trim() });
+      }
       stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "idle" });
 
       while (true) {
         const currentState = stateManager.getState();
+        if (currentState.searchQuery.trim().length > 0 && currentState.searchResults.length === 0) {
+          stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "loading" });
+
+          const search = await searchTitles(currentState.searchQuery, {
+            mode: currentState.mode,
+            providerId: currentState.provider,
+            animeLang: currentState.animeLang,
+            searchRegistry,
+          });
+          const results = search.results;
+
+          logger.info("Bootstrap search complete", {
+            query: currentState.searchQuery,
+            count: results.length,
+            strategy: search.strategy,
+            source: search.sourceId,
+          });
+
+          stateManager.dispatch({ type: "SET_SEARCH_RESULTS", results });
+          stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "ready" });
+        }
+
         stateManager.dispatch({
           type: "SET_VIEW",
           view: currentState.searchResults.length > 0 ? "results" : "search",
