@@ -178,6 +178,7 @@ Autoplay and next/previous actions should follow real episode availability from 
   - line 1: current task, optionally with one short context suffix
   - line 2: 3-4 live shortcuts plus `/ commands`
 - minimal footer mode should keep line 1 and collapse line 2 into a smaller shortcut strip
+- footer density should be configurable between `detailed` and `minimal`
 - the footer should show only actions that are usable right now
 - disabled actions belong in the command palette and help overlay, not the persistent footer
 - the command palette should temporarily replace footer content with palette-specific guidance while open

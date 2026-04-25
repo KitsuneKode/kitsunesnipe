@@ -23,4 +23,5 @@ export const DEFAULT_CONFIG: KitsuneConfig = {
   headless: true,
   showMemory: false,
   autoNext: false,
+  footerHints: "detailed",
 };

@@ -212,7 +212,7 @@ Status:
 - browse and post-playback now host provider, history, diagnostics, help, and about panels in the mounted shell
 - settings, season, episode, and subtitle flows still rely on blocking shell helpers rather than true mounted overlays
 - diagnostics now show recent runtime events from the new in-memory diagnostics store, which improves developer-mode inspection before the mounted overlay host lands
-- picker states still lose the shared command layer because standalone list shells remain in the path
+- picker states now keep the shared command layer and task-first footer guidance even while standalone list shells remain in the path
 
 ### Pass C1: Command-Consistent Picker States
 

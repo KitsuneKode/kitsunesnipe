@@ -26,6 +26,8 @@ export type ShellStatus = {
   tone?: ShellStatusTone;
 };
 
+export type ShellFooterMode = "detailed" | "minimal";
+
 export type FooterAction = {
   key: string;
   label: string;
@@ -41,6 +43,7 @@ export type HomeShellState = {
   animeLang: "sub" | "dub";
   status?: ShellStatus;
   commands?: readonly ResolvedAppCommand[];
+  footerMode?: ShellFooterMode;
 };
 
 export type PlaybackShellState = {
@@ -55,6 +58,7 @@ export type PlaybackShellState = {
   memoryUsage?: string;
   status?: ShellStatus;
   commands?: readonly ResolvedAppCommand[];
+  footerMode?: ShellFooterMode;
 };
 
 export type LoadingShellState = {

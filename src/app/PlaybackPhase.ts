@@ -353,9 +353,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             episode: currentEpisode.episode,
             provider: stateManager.getState().provider,
             subtitleStatus: describeSubtitleStatus(preparedStream, stateManager.getState().subLang),
-            showMemory: false,
+            showMemory: config.showMemory,
             mode: stateManager.getState().mode,
             status: { label: "Ready for next action", tone: "success" },
+            footerMode: config.getRaw().footerHints,
             commands: resolveCommands(stateManager.getState(), [
               "settings",
               "toggle-mode",

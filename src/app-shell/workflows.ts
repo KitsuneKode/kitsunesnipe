@@ -232,7 +232,7 @@ async function openStaticInfoShell({
 export function buildPickerActionContext({
   container,
   taskLabel,
-  footerMode = "detailed",
+  footerMode = container.config.getRaw().footerHints,
   allowed = ["settings", "history", "diagnostics", "help", "about", "quit"],
 }: {
   container: Container;
@@ -614,7 +614,7 @@ export async function openAnimeEpisodeListPicker(
 }
 
 function configSummary(config: KitsuneConfig): string {
-  return `default ${config.defaultMode}  ·  provider ${config.provider}  ·  anime ${config.animeProvider}  ·  subs ${config.subLang}`;
+  return `default ${config.defaultMode}  ·  provider ${config.provider}  ·  anime ${config.animeProvider}  ·  footer ${config.footerHints}`;
 }
 
 export async function openSettingsShell(
@@ -672,6 +672,11 @@ export async function openSettingsShell(
           label: `Autoplay next  ·  ${next.autoNext ? "on" : "off"}`,
           detail:
             "Close mpv on episode EOF, then continue through the next available released episode automatically",
+        },
+        {
+          value: "footerHints" as const,
+          label: `Footer hints  ·  ${next.footerHints}`,
+          detail: "Detailed keeps a two-line footer, minimal keeps only the task line",
         },
         {
           value: "history" as const,
@@ -807,6 +812,31 @@ export async function openSettingsShell(
     if (action === "autoNext") {
       next.autoNext = !next.autoNext;
       changed = true;
+      continue;
+    }
+
+    if (action === "footerHints") {
+      const picked = await chooseOption({
+        title: "Footer hint density",
+        subtitle: `Current ${next.footerHints}`,
+        actionContext,
+        options: [
+          {
+            value: "detailed" as const,
+            label: next.footerHints === "detailed" ? "Detailed  ·  current" : "Detailed",
+            detail: "Show the current task plus a second line of active shortcuts",
+          },
+          {
+            value: "minimal" as const,
+            label: next.footerHints === "minimal" ? "Minimal  ·  current" : "Minimal",
+            detail: "Keep the current task visible and trim the shortcut line down",
+          },
+        ],
+      });
+      if (picked && picked !== next.footerHints) {
+        next.footerHints = picked;
+        changed = true;
+      }
     }
   }
 }

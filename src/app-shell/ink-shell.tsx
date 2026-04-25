@@ -22,6 +22,7 @@ import {
   type ShellPickerOption,
   type ShellAction,
   type ShellStatus,
+  type ShellFooterMode,
 } from "./types";
 
 // =============================================================================
@@ -102,35 +103,80 @@ function hotkeyLabel(key: string): string {
   return `[${key}]`;
 }
 
-function Footer({ actions }: { actions: readonly FooterAction[] }) {
+function Footer({
+  taskLabel,
+  actions,
+  mode = "detailed",
+  commandMode = false,
+}: {
+  taskLabel: string;
+  actions: readonly FooterAction[];
+  mode?: ShellFooterMode;
+  commandMode?: boolean;
+}) {
+  const visibleActions =
+    mode === "minimal"
+      ? actions.filter((action) => !action.disabled).slice(0, 3)
+      : actions.filter((action) => !action.disabled);
+
+  if (commandMode) {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Box borderStyle="round" borderColor={palette.gray} paddingX={1}>
+          <Text color="white">{taskLabel}</Text>
+        </Box>
+        <Box borderStyle="round" borderColor={palette.amber} paddingX={1} marginTop={1}>
+          <Text color={palette.amber}>Command palette</Text>
+          <Text color={palette.gray}>
+            {" "}
+            · Type to search · Tab autocomplete · ↑↓ choose · Enter run · Esc close
+          </Text>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Box borderStyle="round" borderColor={palette.gray} paddingX={1} flexWrap="wrap">
-        {actions.map((action, index) => (
-          <Box
-            key={`${action.key}-${action.label}`}
-            marginRight={index === actions.length - 1 ? 0 : 2}
-            marginBottom={1}
-          >
-            <Text color={action.disabled ? palette.gray : palette.cyan}>
-              {hotkeyLabel(action.key)}
-            </Text>
-            <Text color={action.disabled ? palette.gray : "white"}> {action.label}</Text>
-          </Box>
-        ))}
+      <Box borderStyle="round" borderColor={palette.gray} paddingX={1}>
+        <Text color="white">{taskLabel}</Text>
       </Box>
-      {actions.some((action) => action.disabled && action.reason) ? (
-        <Box marginTop={1}>
-          <Text color={palette.gray}>
-            {actions
-              .filter((action) => action.disabled && action.reason)
-              .map((action) => `${action.label}: ${action.reason}`)
-              .join("  ·  ")}
-          </Text>
+      {visibleActions.length > 0 ? (
+        <Box
+          borderStyle="round"
+          borderColor={palette.gray}
+          paddingX={1}
+          flexWrap="wrap"
+          marginTop={1}
+        >
+          {visibleActions.map((action, index) => (
+            <Box
+              key={`${action.key}-${action.label}`}
+              marginRight={index === visibleActions.length - 1 ? 0 : 2}
+              marginBottom={1}
+            >
+              <Text color={palette.cyan}>{hotkeyLabel(action.key)}</Text>
+              <Text color="white"> {action.label}</Text>
+            </Box>
+          ))}
         </Box>
       ) : null}
     </Box>
   );
+}
+
+function ShellFooter({
+  taskLabel,
+  actions,
+  mode = "detailed",
+  commandMode = false,
+}: {
+  taskLabel: string;
+  actions: readonly FooterAction[];
+  mode?: ShellFooterMode;
+  commandMode?: boolean;
+}) {
+  return <Footer taskLabel={taskLabel} actions={actions} mode={mode} commandMode={commandMode} />;
 }
 
 function getCommandMatches(
@@ -310,7 +356,9 @@ function ShellFrame({
   title,
   subtitle,
   status,
+  footerTask,
   footerActions,
+  footerMode,
   commands,
   onResolve,
   children,
@@ -319,7 +367,9 @@ function ShellFrame({
   title: string;
   subtitle: string;
   status?: ShellStatus;
+  footerTask: string;
   footerActions: readonly FooterAction[];
+  footerMode?: ShellFooterMode;
   commands: readonly ResolvedAppCommand[];
   onResolve: (action: ShellAction) => void;
   children: React.ReactNode;
@@ -369,7 +419,12 @@ function ShellFrame({
         />
       ) : null}
 
-      <Footer actions={footerActions} />
+      <ShellFooter
+        taskLabel={footerTask}
+        actions={footerActions}
+        mode={footerMode}
+        commandMode={commandMode}
+      />
     </Box>
   );
 }
@@ -480,7 +535,9 @@ function HomeShell({
         state.subtitle
       }${state.mode === "anime" ? `  ·  Audio ${state.animeLang}` : ""}`}
       status={state.status}
+      footerTask="Start a search or open a nearby command"
       footerActions={footerActions}
+      footerMode={state.footerMode}
       commands={commands}
       onResolve={onResolve}
     >
@@ -532,15 +589,6 @@ function PlaybackShell({
   const footerActions: readonly FooterAction[] = [
     { key: "/", label: "commands", action: "replay" },
     footerActionFromCommand(commands, "replay", { key: "r", label: "replay" }),
-    footerActionFromCommand(commands, "settings", { key: "c", label: "settings" }),
-    footerActionFromCommand(commands, "toggle-mode", {
-      key: "a",
-      label: getCommandLabel(commands, "toggle-mode", "switch mode"),
-    }),
-    footerActionFromCommand(commands, "provider", { key: "o", label: "provider" }),
-    footerActionFromCommand(commands, "history", { key: "h", label: "history" }),
-    footerActionFromCommand(commands, "diagnostics", { key: "d", label: "diagnostics" }),
-    footerActionFromCommand(commands, "quit", { key: "q", label: "quit" }),
     footerActionFromCommand(commands, "pick-episode", { key: "e", label: "episodes" }),
     footerActionFromCommand(commands, "next", {
       key: "n",
@@ -549,10 +597,6 @@ function PlaybackShell({
     footerActionFromCommand(commands, "previous", {
       key: "p",
       label: getCommandLabel(commands, "previous", "previous"),
-    }),
-    footerActionFromCommand(commands, "next-season", {
-      key: "s",
-      label: getCommandLabel(commands, "next-season", "next season"),
     }),
   ];
 
@@ -770,7 +814,9 @@ function PlaybackShell({
       title={state.title}
       subtitle={`${location}  ·  Provider ${activeProvider}  ·  Mode ${state.mode}`}
       status={state.status}
+      footerTask="Review playback actions and continue this session"
       footerActions={footerActions}
+      footerMode={state.footerMode}
       commands={commands}
       onResolve={resolvePlaybackAction}
     >
@@ -1289,7 +1335,10 @@ function ListShell<T>({
   const windowStart = getWindowStart(index, filteredOptions.length, maxVisible);
   const windowEnd = Math.min(windowStart + maxVisible, filteredOptions.length);
   const visibleOptions = filteredOptions.slice(windowStart, windowEnd);
-  const taskLine = actionContext?.taskLabel ?? title;
+  const footerTask =
+    normalizedFilter.length > 0
+      ? "Refine the filter or confirm the highlighted match"
+      : (actionContext?.taskLabel ?? "Filter this list and confirm a selection");
   const footerActions: readonly FooterAction[] =
     actionContext?.footerMode === "minimal"
       ? [
@@ -1485,13 +1534,12 @@ function ListShell<T>({
           highlightedIndex={highlightedCommandIndex}
         />
       ) : null}
-      <Box flexDirection="column" marginTop={1}>
-        <Box borderStyle="round" borderColor={palette.gray} paddingX={1}>
-          <Text color="white">{taskLine}</Text>
-          <Text color={palette.gray}>{`  ·  ${subtitle}`}</Text>
-        </Box>
-        <Footer actions={footerActions} />
-      </Box>
+      <ShellFooter
+        taskLabel={`${footerTask}  ·  ${subtitle}`}
+        actions={footerActions}
+        mode={actionContext?.footerMode}
+        commandMode={commandMode}
+      />
     </Box>
   );
 }
@@ -1628,6 +1676,7 @@ function BrowseShell<T>({
   loadAboutPanel,
   onChangeProvider,
   onSearch,
+  footerMode = "detailed",
   onResolve,
   onSubmit,
   onCancel,
@@ -1647,6 +1696,7 @@ function BrowseShell<T>({
   loadAboutPanel?: () => Promise<readonly ShellPanelLine[]>;
   onChangeProvider?: (providerId: string) => Promise<void>;
   onSearch: (query: string) => Promise<BrowseShellSearchResponse<T>>;
+  footerMode?: ShellFooterMode;
   onResolve: (action: ShellAction) => void;
   onSubmit: (value: T) => void;
   onCancel: () => void;
@@ -2242,7 +2292,16 @@ function BrowseShell<T>({
         />
       ) : null}
 
-      <Footer
+      <ShellFooter
+        taskLabel={
+          options.length > 0 && !queryDirty
+            ? detailsOpen
+              ? "Review title details before opening it"
+              : "Browse results and open details"
+            : `Search ${mode === "anime" ? "anime titles" : "movies and series"}`
+        }
+        mode={footerMode}
+        commandMode={commandMode}
         actions={[
           {
             key: "enter",
@@ -2256,10 +2315,7 @@ function BrowseShell<T>({
             label: getCommandLabel(commands, "toggle-mode", "switch mode"),
             action: "toggle-mode",
           },
-          footerActionFromCommand(commands, "provider", { key: "o", label: "provider" }),
-          footerActionFromCommand(commands, "history", { key: "h", label: "history" }),
-          footerActionFromCommand(commands, "diagnostics", { key: "d", label: "diagnostics" }),
-          { key: "/", label: "commands when empty", action: "search" },
+          { key: "/", label: "commands", action: "search" },
           { key: "esc", label: "clear/back", action: "quit" },
         ]}
       />
@@ -2283,6 +2339,7 @@ export function openBrowseShell<T>({
   loadAboutPanel,
   onChangeProvider,
   onSearch,
+  footerMode,
 }: {
   mode: "series" | "anime";
   provider: string;
@@ -2299,6 +2356,7 @@ export function openBrowseShell<T>({
   loadAboutPanel?: () => Promise<readonly ShellPanelLine[]>;
   onChangeProvider?: (providerId: string) => Promise<void>;
   onSearch: (query: string) => Promise<BrowseShellSearchResponse<T>>;
+  footerMode?: ShellFooterMode;
 }): Promise<BrowseShellResult<T>> {
   const session = mountShell<BrowseShellResult<T>>({
     renderShell: (finish) => (
@@ -2318,6 +2376,7 @@ export function openBrowseShell<T>({
         loadAboutPanel={loadAboutPanel}
         onChangeProvider={onChangeProvider}
         onSearch={onSearch}
+        footerMode={footerMode}
         onResolve={(action) => finish({ type: "action", action })}
         onSubmit={(value) => finish({ type: "selected", value })}
         onCancel={() => finish({ type: "cancelled" })}

@@ -11,6 +11,7 @@ export type KitsuneConfig = {
   headless: boolean;
   showMemory: boolean;
   autoNext: boolean;
+  footerHints: "detailed" | "minimal";
 };
 
 export const DEFAULT_CONFIG: KitsuneConfig = {
@@ -22,6 +23,7 @@ export const DEFAULT_CONFIG: KitsuneConfig = {
   headless: true,
   showMemory: false,
   autoNext: false,
+  footerHints: "detailed",
 };
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config", "kitsunesnipe");

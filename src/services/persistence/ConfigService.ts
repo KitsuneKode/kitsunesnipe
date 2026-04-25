@@ -13,6 +13,7 @@ export interface KitsuneConfig {
   headless: boolean;
   showMemory: boolean;
   autoNext: boolean;
+  footerHints: "detailed" | "minimal";
 }
 
 export interface ConfigService extends KitsuneConfig {

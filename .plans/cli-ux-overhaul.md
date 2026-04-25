@@ -128,6 +128,7 @@ These are the current decisions and should be treated as the default direction u
 - Minimal footer mode:
   - keep line 1
   - reduce line 2 to the smallest useful shortcut strip
+- runtime settings should expose `Footer hints: detailed | minimal`
 - Footer should show live and relevant actions only
 - Disabled actions move into the command palette and help overlay
 - The command palette should replace footer guidance while open

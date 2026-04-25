@@ -53,6 +53,10 @@ export class ConfigServiceImpl implements ConfigService {
     return this.config.autoNext;
   }
 
+  get footerHints(): "detailed" | "minimal" {
+    return this.config.footerHints;
+  }
+
   getRaw(): KitsuneConfig {
     return { ...this.config };
   }

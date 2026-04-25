@@ -27,6 +27,7 @@ describe("panel-data", () => {
         headless: true,
         showMemory: false,
         autoNext: true,
+        footerHints: "detailed",
       },
       state: createInitialState("vidking", "allanime"),
     });

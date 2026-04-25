@@ -138,6 +138,7 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
               : undefined,
           initialSelectedIndex: currentState.selectedResultIndex,
           placeholder: currentState.mode === "anime" ? "Demon Slayer" : "Breaking Bad",
+          footerMode: config.getRaw().footerHints,
           commands: resolveCommands(currentState, [
             "settings",
             "toggle-mode",

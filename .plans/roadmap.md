@@ -25,6 +25,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Playback navigation labels and availability now come from real episode metadata or provider catalogs instead of blind episode math
 - History persistence is hardened so completed playback still saves even if mpv reports a weak final playback position
 - History browsing and clearing in the new runtime now use the shared `HistoryStore` instead of bypassing it through legacy helper wiring
+- Footer hints are now configurable, and the browse, playback, and picker shells use the calmer task-first footer model
 
 ### Active Follow-Ups
 
