@@ -77,17 +77,17 @@ This remains the legacy runtime contract while parity work is still being draine
 
 ## Runtime Modules
 
-| Area                  | Files                                             | Responsibility                                                             |
-| --------------------- | ------------------------------------------------- | -------------------------------------------------------------------------- |
+| Area                  | Files                                             | Responsibility                                                                        |
+| --------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | Entry + orchestration | `src/main.ts`, `src/app/*`, legacy `index.ts`     | Default runtime orchestration in `src/main.ts`; legacy loop kept for migration parity |
-| Shell UI              | `src/app-shell/*`, `src/session-flow.ts`          | Ink shell, commands, settings, history, and structured pickers             |
-| Search                | `src/search.ts`, `src/tmdb.ts`, `src/ui.ts`       | Search backends, metadata fetches, and dependency checks                   |
-| Scraping              | `src/scraper.ts`                                  | Browser automation and network interception                                |
-| Playback              | `src/mpv.ts`                                      | `mpv` launch and Lua-assisted progress tracking                            |
-| Persistence           | `src/config.ts`, `src/history.ts`, `src/cache.ts` | Config, watch progress, stream cache                                       |
-| Providers             | `src/providers/*`                                 | Stream-source-specific resolution logic                                    |
-| Terminal UI           | `src/design.ts`, `src/menu.ts`, `src/image.ts`    | Shared styling tokens, ANSI helpers, posters                               |
-| Observability         | `src/logger.ts`                                   | Structured debug logs                                                      |
+| Shell UI              | `src/app-shell/*`, `src/session-flow.ts`          | Ink shell, commands, settings, history, and structured pickers                        |
+| Search                | `src/search.ts`, `src/tmdb.ts`, `src/ui.ts`       | Search backends, metadata fetches, and dependency checks                              |
+| Scraping              | `src/scraper.ts`                                  | Browser automation and network interception                                           |
+| Playback              | `src/mpv.ts`                                      | `mpv` launch and Lua-assisted progress tracking                                       |
+| Persistence           | `src/config.ts`, `src/history.ts`, `src/cache.ts` | Config, watch progress, stream cache                                                  |
+| Providers             | `src/providers/*`                                 | Stream-source-specific resolution logic                                               |
+| Terminal UI           | `src/design.ts`, `src/menu.ts`, `src/image.ts`    | Shared styling tokens, ANSI helpers, posters                                          |
+| Observability         | `src/logger.ts`                                   | Structured debug logs                                                                 |
 
 If your change is broad enough to blur these module boundaries, stop and check whether the work belongs in the v2 migration path instead.
 
