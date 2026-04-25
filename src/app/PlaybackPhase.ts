@@ -34,6 +34,13 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         stateManager.getState().mode,
         provider,
       );
+      logger.info("Episode selection metadata", {
+        titleId: title.id,
+        mode: stateManager.getState().mode,
+        provider: stateManager.getState().provider,
+        episodeCount: title.episodeCount ?? null,
+        animeEpisodeOptions: animeEpisodes?.length ?? 0,
+      });
 
       if (title.type === "series") {
         // Check history for resume

@@ -40,7 +40,27 @@ async function pickAnimeEpisode(
   if (episodes && episodes.length > 0) {
     return await openAnimeEpisodeListPicker(episodes, initialEpisode);
   }
-  if (!episodeCount || episodeCount < 1) return initialEpisode;
+  if (!episodeCount || episodeCount < 1) {
+    const action = await openListShell({
+      title: "Episode metadata unavailable",
+      subtitle:
+        "This anime provider did not return an episode list for the selected title. Starting blindly at episode 1 is risky.",
+      options: [
+        {
+          value: "start" as const,
+          label: `Start episode ${initialEpisode}`,
+          detail: "Continue anyway with the current fallback episode",
+        },
+        {
+          value: "back" as const,
+          label: "Back",
+          detail: "Return without starting playback",
+        },
+      ],
+    });
+
+    return action === "start" ? initialEpisode : null;
+  }
   return await openAnimeEpisodePicker(episodeCount, initialEpisode);
 }
 

@@ -50,7 +50,8 @@ Exit criteria:
 Status:
 
 - done for docs and routing
-- still not done for executable ownership, because `index.ts` remains runnable and still contains legacy control flow
+- default executable ownership now points at `src/main.ts`
+- still not fully done because `index.ts` remains runnable and still contains legacy control flow for parity verification
 
 ## Phase 1: Runtime Consolidation Seams
 
@@ -85,6 +86,7 @@ Status:
 
 - mostly done
 - shared session state, command registry, subtitle policy helper, browser-cache integration, and shared provider definitions exist in the new runtime
+- `src/main.ts`, package scripts, and the bin shim now point at the refactored runtime
 - still incomplete where legacy flow keeps its own orchestration and picker semantics
 
 ## Phase 2: Persistent Shell Foundation

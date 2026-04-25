@@ -2,16 +2,19 @@
 // AllAnime Provider Adapter
 // =============================================================================
 
-import { AllAnime as LegacyAllAnime } from "../../../providers/allanime";
-import { fetchAnimeEpisodeCatalog } from "../../../providers/allanime-family";
-import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import type {
-  TitleInfo,
   EpisodePickerOption,
-  StreamInfo,
-  ProviderMetadata,
   ProviderCapabilities,
-} from "../../../domain/types";
+  ProviderMetadata,
+  StreamInfo,
+  SubtitleTrack,
+  TitleInfo,
+} from "@/domain/types";
+import type { StreamData } from "@/scraper";
+import { AllAnime as LegacyAllAnime } from "@/providers/allanime";
+import { fetchAnimeEpisodeCatalog } from "@/providers/allanime-family";
+
+import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 
 export class AllAnimeProvider implements Provider {
   readonly metadata: ProviderMetadata = {
@@ -38,9 +41,7 @@ export class AllAnimeProvider implements Provider {
       subLang: request.subLang,
       animeLang: this.deps.config.animeLang,
       embedScraper: (embedUrl: string) =>
-        this.deps.browser.scrape({ url: embedUrl, subLang: request.subLang, signal }) as Promise<
-          import("../../../scraper").StreamData | null
-        >,
+        this.deps.browser.scrape({ url: embedUrl, subLang: request.subLang, signal }) as Promise<StreamData | null>,
     };
 
     const result = await LegacyAllAnime.resolveStream(
@@ -57,9 +58,7 @@ export class AllAnimeProvider implements Provider {
       url: result.url,
       headers: result.headers,
       subtitle: result.subtitle ?? undefined,
-      subtitleList: result.subtitleList as
-        | import("../../../domain/types").SubtitleTrack[]
-        | undefined,
+      subtitleList: result.subtitleList as SubtitleTrack[] | undefined,
       timestamp: result.timestamp,
     };
   }

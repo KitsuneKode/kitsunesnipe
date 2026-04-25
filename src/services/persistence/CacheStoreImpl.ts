@@ -2,9 +2,10 @@
 // Cache Store Implementation
 // =============================================================================
 
+import type { StreamInfo } from "@/domain/types";
+import type { StorageService } from "@/infra/storage/StorageService";
+
 import type { CacheStore, CacheEntry } from "./CacheStore";
-import type { StreamInfo } from "../../domain/types";
-import type { StorageService } from "../../infra/storage/StorageService";
 import { DEFAULT_CACHE_TTL, isExpired } from "./CacheStore";
 
 const STORAGE_KEY = "cache";
@@ -18,7 +19,7 @@ export class CacheStoreImpl implements CacheStore {
 
   constructor(private storage: StorageService) {}
 
-  async get(url: string): Promise<import("../../domain/types").StreamInfo | null> {
+  async get(url: string): Promise<StreamInfo | null> {
     const all = await this.getAllEntries();
     const entry = this.normalizeEntry(all[url]);
 
@@ -31,7 +32,7 @@ export class CacheStoreImpl implements CacheStore {
     return entry.stream;
   }
 
-  async set(url: string, stream: import("../../domain/types").StreamInfo): Promise<void> {
+  async set(url: string, stream: StreamInfo): Promise<void> {
     const all = await this.getAllEntries();
     const now = Date.now();
     all[url] = { ...stream, timestamp: now };

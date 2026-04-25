@@ -18,7 +18,11 @@ The target runtime shape is:
 - `bin/kitsunesnipe.ts` stays a thin executable shim
 - the current root `index.ts` should be reduced to a migration shim and later moved under `legacy/`
 
-Until that cutover is complete, treat `index.ts` as the legacy runtime path and `src/main.ts` as the architectural target.
+Current status:
+
+- `src/main.ts` is now the default runnable and build entrypoint
+- `bin/kitsunesnipe.ts` is already a thin shim to that entrypoint
+- `index.ts` still exists as a runnable legacy path until the remaining parity and shell-mount work is finished
 
 ## Layer Structure
 

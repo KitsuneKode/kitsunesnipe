@@ -4,14 +4,15 @@
 // Wraps the legacy Playwright provider into the new Provider interface.
 // =============================================================================
 
-import { VidKing as LegacyVidKing } from "../../../providers/vidking";
-import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import type {
-  TitleInfo,
-  StreamInfo,
-  ProviderMetadata,
   ProviderCapabilities,
-} from "../../../domain/types";
+  ProviderMetadata,
+  StreamInfo,
+  TitleInfo,
+} from "@/domain/types";
+import { VidKing as LegacyVidKing } from "@/providers/vidking";
+
+import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 
 export class VidKingProvider implements Provider {
   readonly metadata: ProviderMetadata = {
