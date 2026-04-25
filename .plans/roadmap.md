@@ -15,6 +15,8 @@ Use this file as the planning index. It should stay short. Put implementation de
 - New runtime subtitle policy is restored: `none`, interactive picker, and provider-default flows all work again
 - Browser/embed scraping in the new runtime now reads and writes the shared stream cache
 - AllAnime family parity code is explicitly named `allanime-family.ts`
+- `src/main.ts` is now the default runnable and build entrypoint
+- Shell-local debug POST instrumentation has been removed from the Ink UI path
 
 ### Active Follow-Ups
 
@@ -23,7 +25,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 - `Esc` and back-stack correctness for the remaining shell helpers
 - `mpv` reopen reliability bug investigation
 - `cineby-anime` click handling parity
-- Runtime entrypoint consolidation around `src/main.ts`
+- Final legacy runtime drain from `index.ts` into `src/main.ts`
 - First-run dependency guardrails for `mpv` and Playwright
 - Developer-mode diagnostics surface for stream, subtitle, and provider resolution stages
 - Metadata-store and preview-service migration beyond the current in-memory caches

@@ -33,28 +33,26 @@ user input -> Ink shell -> picker -> provider resolve -> Playwright/API stream c
 
 There are currently two architectural truths that must be kept distinct:
 
-- `index.ts` is still the live legacy runtime path for the current CLI loop
-- `src/main.ts` is the target entrypoint for the persistent-shell architecture
+- `src/main.ts` is now the default runnable entrypoint and the target runtime for the persistent-shell architecture
+- `index.ts` remains as a legacy runtime path for parity verification and migration fallback work
 
 Practical status right now:
 
-- `src/main.ts` already owns the DI container, config service, history store, cache store, provider registry, and the refactored search/playback phases
+- `src/main.ts` owns the DI container, config service, history store, cache store, provider registry, shared shell workflows, and the refactored search/playback phases
+- package scripts and build now point at `src/main.ts`
+- shell-local debug POST instrumentation has been removed from the Ink runtime path
 - `index.ts` still remains runnable and still contains legacy control flow, picker orchestration, and some fallback behavior that has not been fully absorbed into the mounted shell architecture yet
 
 Do not mix these mentally.
 
-When fixing current behavior:
+When fixing current behavior in the default runtime:
 
-- preserve the existing nested-loop guarantees unless the task explicitly includes migration work
-
-When implementing the new shell:
-
-- treat `src/main.ts` and the v2 docs as the target source of truth
-- reduce `index.ts` toward shim or legacy status instead of evolving both paths in parallel
+- treat `src/main.ts` and the v2 docs as the primary source of truth
+- migrate missing behavior into `src/main.ts` rather than extending `index.ts` unless the task is explicitly legacy-only
 
 ## Control Flow
 
-`index.ts` owns two nested loops:
+`index.ts` still owns the legacy two-loop shape:
 
 ```ts
 while (true) {
@@ -75,13 +73,13 @@ This split is intentional because it preserves a clean boundary between search s
 - `[a]` breaks the inner loop so anime/series mode can switch without restarting the process
 - CLI bootstrap flags apply on the first outer-loop pass only
 
-This remains the current runtime contract until the persistent-shell migration completes.
+This remains the legacy runtime contract while parity work is still being drained into `src/main.ts`.
 
 ## Runtime Modules
 
 | Area                  | Files                                             | Responsibility                                                             |
 | --------------------- | ------------------------------------------------- | -------------------------------------------------------------------------- |
-| Entry + orchestration | `index.ts`                                        | Search loop, playback loop, provider selection, handoff between subsystems |
+| Entry + orchestration | `src/main.ts`, `src/app/*`, legacy `index.ts`     | Default runtime orchestration in `src/main.ts`; legacy loop kept for migration parity |
 | Shell UI              | `src/app-shell/*`, `src/session-flow.ts`          | Ink shell, commands, settings, history, and structured pickers             |
 | Search                | `src/search.ts`, `src/tmdb.ts`, `src/ui.ts`       | Search backends, metadata fetches, and dependency checks                   |
 | Scraping              | `src/scraper.ts`                                  | Browser automation and network interception                                |

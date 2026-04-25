@@ -2,14 +2,15 @@
 // Cineby Provider Adapter
 // =============================================================================
 
-import { Cineby as LegacyCineby } from "../../../providers/cineby";
-import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import type {
-  TitleInfo,
-  StreamInfo,
-  ProviderMetadata,
   ProviderCapabilities,
-} from "../../../domain/types";
+  ProviderMetadata,
+  StreamInfo,
+  TitleInfo,
+} from "@/domain/types";
+import { Cineby as LegacyCineby } from "@/providers/cineby";
+
+import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 
 export class CinebyProvider implements Provider {
   readonly metadata: ProviderMetadata = {
