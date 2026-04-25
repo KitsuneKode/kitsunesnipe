@@ -1,6 +1,6 @@
 # KitsuneSnipe — Roadmap
 
-Last updated: 2026-04-23
+Last updated: 2026-04-25
 
 Use this file as the planning index. It should stay short. Put implementation detail in the linked plan files, not here.
 
@@ -12,18 +12,21 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Movie/series providers and anime providers are both wired into the main loop
 - Search, playback, history, subtitles, and auto-next all exist
 - `AGENTS.md`, `.docs/`, and `.plans/` now have separated responsibilities
+- New runtime subtitle policy is restored: `none`, interactive picker, and provider-default flows all work again
+- Browser/embed scraping in the new runtime now reads and writes the shared stream cache
+- AllAnime family parity code is explicitly named `allanime-family.ts`
 
 ### Active Follow-Ups
 
-- Search/results migration into the persistent shell path
-- Overlay-driven settings and provider workflows
+- Mounted root `AppShell` migration so home, browse, and playback stop remounting as separate shells
+- Overlay-driven settings, provider, history, diagnostics, season, episode, and subtitle workflows
+- `Esc` and back-stack correctness for the remaining shell helpers
 - `mpv` reopen reliability bug investigation
 - `cineby-anime` click handling parity
 - Runtime entrypoint consolidation around `src/main.ts`
 - First-run dependency guardrails for `mpv` and Playwright
-- Engineering and test discipline docs for the persistent shell and provider-hardening tracks
-- Canonical PRD and persistent-shell implementation sequencing
-- Provider demo patterns and intake templates for agent-led provider work
+- Developer-mode diagnostics surface for stream, subtitle, and provider resolution stages
+- Metadata-store and preview-service migration beyond the current in-memory caches
 
 ## Planned Tracks
 
@@ -42,3 +45,4 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Keep `roadmap.md` high-level and current
 - Give each major initiative its own file when it needs implementation detail
 - When a plan becomes stale, update or delete it instead of letting it drift
+- When runtime ownership changes between `index.ts` and `src/main.ts`, update both this file and the persistent-shell plan in the same task
