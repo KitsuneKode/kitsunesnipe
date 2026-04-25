@@ -5,16 +5,16 @@
 // Returns when user wants to go back to search or switch mode.
 // =============================================================================
 
-import type { Phase, PhaseResult, PhaseContext } from "./Phase";
+import type { Phase, PhaseResult, PhaseContext } from "@/app/Phase";
 import type {
   TitleInfo,
   EpisodeInfo,
   EpisodePickerOption,
   StreamInfo,
   PlaybackResult,
-} from "../domain/types";
-import { handleShellAction, openSubtitlePicker } from "../app-shell/workflows";
-import { choosePlaybackSubtitle } from "./subtitle-selection";
+} from "@/domain/types";
+import { handleShellAction, openSubtitlePicker } from "@/app-shell/workflows";
+import { choosePlaybackSubtitle } from "@/app/subtitle-selection";
 
 export type PlaybackOutcome = "back_to_search" | "mode_switch" | "quit";
 
@@ -229,6 +229,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           season: currentEpisode.season,
           episode: currentEpisode.episode,
           provider: stateManager.getState().provider,
+          subtitleStatus: describeSubtitleStatus(preparedStream, stateManager.getState().subLang),
           showMemory: false,
           mode: stateManager.getState().mode,
           status: { label: "Ready for next action", tone: "success" },
@@ -431,6 +432,22 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       return undefined;
     }
   }
+}
+
+function describeSubtitleStatus(stream: StreamInfo, subLang: string): string {
+  if (subLang === "none") {
+    return "subtitles disabled";
+  }
+
+  if (stream.subtitle) {
+    return `subtitle attached`;
+  }
+
+  if (stream.subtitleList?.length) {
+    return `${stream.subtitleList.length} subtitle tracks available`;
+  }
+
+  return "subtitles not found";
 }
 
 function buildEpisodeNavigationState(type: TitleInfo["type"], episode: EpisodeInfo) {

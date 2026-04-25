@@ -568,7 +568,18 @@ function PlaybackShell({
         ) : (
           <Badge label="movie" />
         )}
+        {state.subtitleStatus ? (
+          <Badge
+            label={state.subtitleStatus}
+            tone={state.subtitleStatus.toLowerCase().includes("not found") ? "neutral" : "info"}
+          />
+        ) : null}
       </Box>
+      {state.subtitleStatus ? (
+        <Box marginTop={1}>
+          <Text color={palette.gray}>{state.subtitleStatus}</Text>
+        </Box>
+      ) : null}
       {state.showMemory && state.memoryUsage ? (
         <Box marginTop={1}>
           <Text color={palette.gray}>{state.memoryUsage}</Text>
