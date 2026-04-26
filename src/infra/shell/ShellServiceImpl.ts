@@ -39,7 +39,7 @@ export class ShellServiceImpl implements ShellService {
     }
   }
 
-  setSearchState(state: "idle" | "loading" | "ready" | "error", error?: string): void {
+  setSearchState(_state: "idle" | "loading" | "ready" | "error", _error?: string): void {
     // Stub
   }
 

@@ -20,7 +20,7 @@ export class StructuredLogger implements Logger {
     this.isDebugMode = options.debug ?? false;
   }
 
-  child(context: Record<string, unknown>): Logger {
+  child(_context: Record<string, unknown>): Logger {
     const child = new StructuredLogger(this.options);
     return child;
   }
@@ -59,7 +59,7 @@ export class StructuredLogger implements Logger {
 
     if (this.options.console !== false) {
       const ctx = context ? ` ${JSON.stringify(context)}` : "";
-      console.log(`[${entry.timestamp}] ${level.toUpperCase()}: ${message}${ctx}`);
+      process.stderr.write(`[${entry.timestamp}] ${level.toUpperCase()}: ${message}${ctx}\n`);
     }
 
     // File logging would go here

@@ -5,7 +5,6 @@
 // =============================================================================
 
 import type { Tracer, TracerOptions, Span, Trace } from "./Tracer";
-import type { Logger } from "../logger/Logger";
 
 export class TracerImpl implements Tracer {
   private currentTrace: Trace | null = null;
@@ -44,7 +43,7 @@ export class TracerImpl implements Tracer {
       id: Math.random().toString(36).slice(2),
       name,
       startTime: Date.now(),
-      setAttribute: (key: string, value: unknown) => {
+      setAttribute: (_key: string, _value: unknown) => {
         // Attributes would be stored here
       },
       addEvent: (name: string, attributes?: Record<string, unknown>) => {

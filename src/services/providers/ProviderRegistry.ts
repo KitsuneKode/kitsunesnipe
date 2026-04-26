@@ -4,7 +4,7 @@
 // Manages provider registration and resolution.
 // =============================================================================
 
-import type { TitleInfo, ProviderMetadata } from "../../domain/types";
+import type { TitleInfo, ProviderMetadata } from "@/domain/types";
 import type { Provider, ProviderDefinition, ProviderDeps } from "./Provider";
 
 export interface ProviderRegistry {

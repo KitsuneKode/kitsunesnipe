@@ -16,7 +16,7 @@ The target runtime shape is:
 
 - `src/main.ts` becomes the canonical entrypoint
 - `bin/kitsunesnipe.ts` stays a thin executable shim
-- the current root `index.ts` should be reduced to a migration shim and later moved under `legacy/`
+- the current root `index.ts` should be reduced to a migration shim once parity is complete
 
 Current status:
 

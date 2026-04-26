@@ -1,9 +1,9 @@
 import { chromium, type Browser, type Page } from "playwright";
-import { fetchSubtitlesFromWyzie } from "./subtitle";
+import { cacheStream } from "@/cache";
 import type { StreamInfo, SubtitleEvidence } from "@/domain/types";
-import { cacheStream } from "./cache";
-import { dbg, dbgErr } from "./logger";
-import { PLAYER_DOMAINS, type PlaywrightProvider } from "./providers";
+import { dbg, dbgErr } from "@/logger";
+import { PLAYER_DOMAINS, type PlaywrightProvider } from "@/providers";
+import { fetchSubtitlesFromWyzie } from "@/subtitle";
 
 // =============================================================================
 // AD BLOCKLIST — aborted at the network layer via Playwright route().
@@ -151,6 +151,7 @@ export async function scrapeStream(
 
     let directSubUrl: string | null = null;
     let wyzieSearchUrl: string | null = null;
+    let wyzieSearchHeaders: Record<string, string> | undefined;
     let scrapedTitle = "Unknown";
 
     const streamData = await new Promise<StreamData | null>((resolve) => {
@@ -172,7 +173,11 @@ export async function scrapeStream(
         // Wyzie subtitle search — capture the full URL (contains embedded API key)
         if (!wyzieSearchUrl && url.includes("sub.wyzie.io/search")) {
           wyzieSearchUrl = url;
-          dbg("scraper", "wyzie search URL captured", { url });
+          wyzieSearchHeaders = req.headers();
+          dbg("scraper", "wyzie search URL captured", {
+            url,
+            headerKeys: Object.keys(wyzieSearchHeaders),
+          });
         }
 
         // m3u8 stream
@@ -196,7 +201,11 @@ export async function scrapeStream(
               : "not-observed";
 
             if (!subtitle && wyzieSearchUrl) {
-              const result = await fetchSubtitlesFromWyzie(wyzieSearchUrl, subLang);
+              const result = await fetchSubtitlesFromWyzie(
+                wyzieSearchUrl,
+                subLang,
+                wyzieSearchHeaders,
+              );
               subtitle = result.selected;
               subtitleList = result.list;
               subtitleSource = subtitle ? "wyzie" : "none";

@@ -19,6 +19,7 @@ import type { ConfigStore } from "./services/persistence/ConfigStore";
 import type { CacheStore } from "./services/persistence/CacheStore";
 import type { DiagnosticsStore } from "./services/diagnostics/DiagnosticsStore";
 import type { SessionStateManager } from "./domain/session/SessionStateManager";
+import { initLogger } from "@/logger";
 
 // Import implementations
 import { StructuredLogger } from "./infra/logger/StructuredLogger";
@@ -84,6 +85,7 @@ export interface ContainerOptions {
  */
 export async function createContainer(options?: ContainerOptions): Promise<Container> {
   const debug = options?.debug ?? false;
+  initLogger(debug || process.env.KITSUNE_DEBUG === "1");
 
   // Core infrastructure first (no dependencies on other services)
   const logger = new StructuredLogger({ debug });

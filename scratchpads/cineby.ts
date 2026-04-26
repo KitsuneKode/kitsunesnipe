@@ -93,7 +93,7 @@ import { appendFile } from "fs/promises";
       if (streamFound) break;
       await page.waitForTimeout(1000);
     }
-  } catch (error: any) {
+  } catch {
     console.log(`[!] Main page redirected. Keeping script alive for the popup...`);
     for (let i = 0; i < 10; i++) {
       if (streamFound) break;

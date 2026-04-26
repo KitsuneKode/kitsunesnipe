@@ -4,9 +4,9 @@
 // Wraps the legacy searchVideasy() into the new SearchService interface.
 // =============================================================================
 
-import { searchVideasy } from "../../../search";
+import { searchVideasy } from "@/search";
+import type { SearchResult, TitleInfo, SearchMetadata } from "@/domain/types";
 import type { SearchService, SearchDeps } from "../SearchService";
-import type { SearchResult, TitleInfo, SearchMetadata } from "../../../domain/types";
 
 export class TMDBSearchService implements SearchService {
   readonly metadata: SearchMetadata = {
@@ -19,7 +19,7 @@ export class TMDBSearchService implements SearchService {
 
   constructor(private deps: SearchDeps) {}
 
-  async search(query: string, signal?: AbortSignal): Promise<SearchResult[]> {
+  async search(query: string, _signal?: AbortSignal): Promise<SearchResult[]> {
     this.deps.logger.debug("TMDB search", { query });
 
     try {
@@ -32,7 +32,7 @@ export class TMDBSearchService implements SearchService {
     }
   }
 
-  async getTitleDetails(id: string, signal?: AbortSignal): Promise<TitleInfo | null> {
+  async getTitleDetails(_id: string, _signal?: AbortSignal): Promise<TitleInfo | null> {
     // TMDB search results already contain full details
     // For now, return null - could be enhanced later
     return null;

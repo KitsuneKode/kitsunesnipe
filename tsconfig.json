@@ -33,5 +33,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "exclude": ["legacy", "node_modules"]
+  "exclude": ["scratchpads", "node_modules"]
 }

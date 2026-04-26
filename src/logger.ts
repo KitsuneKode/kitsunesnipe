@@ -2,8 +2,8 @@
 //
 // Enabled by:   --debug flag  OR  KITSUNE_DEBUG=1 env var
 // Output goes to stderr so it never pollutes stdout / @clack prompts.
-// Each line is JSON so you can pipe to `jq` for filtering:
-//   bun run index.ts --debug 2>&1 | grep debug | jq .
+// Each line contains a JSON payload after the `[debug]` prefix:
+//   bun run src/main.ts --debug 2> debug.log
 //
 // Usage:
 //   import { dbg } from "./lib/logger";
@@ -23,7 +23,7 @@ export function dbg(module: string, msg: string, data?: Record<string, unknown>)
     msg,
     ...data,
   });
-  process.stderr.write(`\x1b[2m[debug] ${line}\x1b[0m\n`);
+  process.stderr.write(`[debug] ${line}\n`);
 }
 
 export function dbgErr(module: string, msg: string, err: unknown) {

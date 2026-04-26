@@ -11,7 +11,7 @@ import type {
   StreamInfo,
   ProviderMetadata,
   ProviderCapabilities,
-} from "../../domain/types";
+} from "@/domain/types";
 
 export interface StreamRequest {
   title: TitleInfo;
@@ -24,10 +24,10 @@ export interface EpisodeListRequest {
 }
 
 export interface ProviderDeps {
-  logger: import("../../infra/logger/Logger").Logger;
-  tracer: import("../../infra/tracer/Tracer").Tracer;
-  config: import("../persistence/ConfigService").ConfigService;
-  browser: import("../../infra/browser/BrowserService").BrowserService;
+  logger: import("@/infra/logger/Logger").Logger;
+  tracer: import("@/infra/tracer/Tracer").Tracer;
+  config: import("@/services/persistence/ConfigService").ConfigService;
+  browser: import("@/infra/browser/BrowserService").BrowserService;
 }
 
 export interface Provider {

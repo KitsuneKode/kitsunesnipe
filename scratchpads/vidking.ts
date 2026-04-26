@@ -52,6 +52,8 @@ import { appendFile } from "fs/promises";
   };
 
   const checkRequest = (request: any) => {
+    console.log(`[REQ] ${request.method()} ${request.url()}`);
+    console.log("Headers:", request.headers());
     const url = request.url();
     const type = request.resourceType();
 
@@ -89,7 +91,7 @@ import { appendFile } from "fs/promises";
   page.on("request", checkRequest);
 
   try {
-    await page.goto("https://www.vidking.net/embed/tv/289560/1/1", {
+    await page.goto("https://www.vidking.net/embed/tv/127529/1/2", {
       waitUntil: "domcontentloaded",
     });
 
