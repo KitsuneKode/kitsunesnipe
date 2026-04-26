@@ -44,6 +44,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     try {
       // Episode selection (for series)
       let episode: EpisodeInfo | undefined;
+      let pendingStartAt = 0;
       const provider = providerRegistry.get(stateManager.getState().provider);
       const initialAnimeEpisodes = await this.getAnimeEpisodeOptions({
         title,
@@ -106,6 +107,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           season: selection.season,
           episode: selection.episode,
         };
+        pendingStartAt = selection.startAt ?? 0;
       } else {
         episode = { season: 1, episode: 1 };
       }
@@ -183,6 +185,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         });
 
         let stream: StreamInfo | null = null;
+        let resolvedProviderId = currentProvider.metadata.id;
         try {
           stream = await currentProvider.resolveStream({
             title,
@@ -237,25 +240,13 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             });
 
             if (fallbackStream) {
-              const preparedFallback = await this.preparePlaybackStream(
-                fallbackStream,
-                title,
-                currentEpisode,
-                context,
-              );
-              stateManager.dispatch({
-                type: "SET_STREAM",
-                stream: preparedFallback,
-              });
-              stateManager.dispatch({
-                type: "SET_PLAYBACK_STATUS",
-                status: "ready",
-              });
-              await this.playStream(preparedFallback, title, currentEpisode, context);
-              continue;
+              stream = fallbackStream;
+              resolvedProviderId = fallback.metadata.id;
             }
           }
+        }
 
+        if (!stream) {
           return {
             status: "error",
             error: {
@@ -276,8 +267,16 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         stateManager.dispatch({ type: "SET_STREAM", stream: preparedStream });
         stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "ready" });
 
-        // Play in MPV
-        const result = await this.playStream(preparedStream, title, currentEpisode, context);
+        // Play in MPV — consume the pending resume position on the first play only
+        const startAt = pendingStartAt;
+        pendingStartAt = 0;
+        const result = await this.playStream(
+          preparedStream,
+          title,
+          currentEpisode,
+          context,
+          startAt,
+        );
 
         // Save history
         if (shouldPersistHistory(result)) {
@@ -289,7 +288,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             episode: currentEpisode.episode,
             timestamp: historyTimestamp,
             duration: result.duration,
-            provider: stateManager.getState().provider,
+            provider: resolvedProviderId,
             watchedAt: new Date().toISOString(),
           });
         } else {
@@ -546,6 +545,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     title: TitleInfo,
     episode: EpisodeInfo,
     context: PhaseContext,
+    startAt = 0,
   ): Promise<PlaybackResult> {
     const { player, stateManager, config } = context.container;
 
@@ -580,7 +580,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         subtitle: stream.subtitle,
         subtitleStatus,
         displayTitle,
-        startAt: 0,
+        startAt,
         attach: false,
       });
 

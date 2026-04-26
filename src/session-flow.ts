@@ -16,6 +16,7 @@ import { openListShell } from "@/app-shell/ink-shell";
 export type EpisodeSelection = {
   season: number;
   episode: number;
+  startAt?: number;
 };
 
 export type EpisodeSelectionResult = EpisodeSelection | null;
@@ -183,7 +184,14 @@ export async function chooseStartingEpisode(opts: SelectionOpts): Promise<Episod
     return null;
   }
 
-  if (choice === "resume" || choice === "restart") {
+  if (choice === "resume") {
+    return {
+      season: opts.isAnime ? 1 : history.season,
+      episode: history.episode,
+      startAt: history.timestamp,
+    };
+  }
+  if (choice === "restart") {
     return { season: opts.isAnime ? 1 : history.season, episode: history.episode };
   }
   if (choice === "next") {
