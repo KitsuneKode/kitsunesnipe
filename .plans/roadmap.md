@@ -30,6 +30,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Post-playback now exposes a direct fresh-search path so users can keep browsing without quitting the app
 - Post-playback episode selection now stays inside the playback shell instead of opening a separate helper screen
 - Shell screens now share one Ink root host internally, reducing remount churn while the full browse/playback state-machine merge continues
+- Interactive shell handoffs now keep the outgoing screen visible until the next screen replaces it, reducing blank transitions
 - Fullscreen TUI convergence is now an explicit next milestone: viewport-contained layouts, resize blockers, and one dominant shell frame
 
 ### Active Follow-Ups

@@ -556,9 +556,11 @@ function ensureRootShell() {
 function mountShell<TResult>({
   renderShell,
   fallbackValue,
+  clearOnResolve = true,
 }: {
   renderShell: (finish: (value: TResult) => void) => React.ReactElement;
   fallbackValue: TResult;
+  clearOnResolve?: boolean;
 }): MountedShell<TResult> {
   const exitPromise = ensureRootShell();
   const screenId = rootShellNextId++;
@@ -582,7 +584,7 @@ function mountShell<TResult>({
 
   setRootShellScreen({
     id: screenId,
-    element: renderShell((value) => settle(value, true)),
+    element: renderShell((value) => settle(value, clearOnResolve)),
   });
 
   void exitPromise.then(() => {
@@ -719,6 +721,7 @@ function PlaybackShell({
       key: "p",
       label: getCommandLabel(commands, "previous", "previous"),
     }),
+    footerActionFromCommand(commands, "quit", { key: "q", label: "quit" }),
   ];
 
   const location =
@@ -1140,6 +1143,16 @@ function PlaybackShell({
       return;
     }
 
+    if (input.toLowerCase() === "q") {
+      resolvePlaybackAction("quit");
+      return;
+    }
+
+    if (key.escape) {
+      resolvePlaybackAction("search");
+      return;
+    }
+
     if (key.return) {
       resolvePlaybackAction("replay");
     }
@@ -1436,6 +1449,7 @@ export function openShell<TProps>({
   const session = mountShell<ShellAction>({
     renderShell: (finish) => <Component {...props} onResolve={finish} />,
     fallbackValue: "quit",
+    clearOnResolve: false,
   });
 
   return session.result;
@@ -1494,6 +1508,7 @@ export function openPlaybackShell({
       />
     ),
     fallbackValue: "quit",
+    clearOnResolve: false,
   });
 
   return session.result;
@@ -1549,6 +1564,7 @@ export function openSearchShell({
       );
     },
     fallbackValue: null,
+    clearOnResolve: false,
   });
 
   return session.result;
@@ -3225,6 +3241,7 @@ export function openBrowseShell<T>({
       />
     ),
     fallbackValue: { type: "cancelled" },
+    clearOnResolve: false,
   });
 
   return session.result;
@@ -3265,6 +3282,7 @@ export function openListShell<T>({
           />
         ),
         fallbackValue: { type: "cancelled" },
+        clearOnResolve: false,
       });
 
       const result = await session.result;
