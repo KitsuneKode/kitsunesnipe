@@ -1,9 +1,14 @@
-import { chromium, type Browser, type Page } from "playwright";
+import { chromium, type Browser, type Page, type Response } from "playwright";
 import { cacheStream } from "@/cache";
 import type { StreamInfo, SubtitleEvidence } from "@/domain/types";
 import { dbg, dbgErr } from "@/logger";
 import { PLAYER_DOMAINS, type PlaywrightProvider } from "@/providers";
-import { fetchSubtitlesFromWyzie } from "@/subtitle";
+import {
+  fetchSubtitlesFromWyzie,
+  parseWyzieSubtitleList,
+  selectSubtitle,
+  type SubtitleEntry,
+} from "@/subtitle";
 
 // =============================================================================
 // AD BLOCKLIST — aborted at the network layer via Playwright route().
@@ -152,10 +157,61 @@ export async function scrapeStream(
     let directSubUrl: string | null = null;
     let wyzieSearchUrl: string | null = null;
     let wyzieSearchHeaders: Record<string, string> | undefined;
+    let wyzieBrowserList: SubtitleEntry[] | null = null;
+    let wyzieBrowserFailed = false;
+    const wyzieBrowserWaiters: Array<() => void> = [];
     let scrapedTitle = "Unknown";
+
+    const notifyWyzieBrowserWaiters = () => {
+      while (wyzieBrowserWaiters.length > 0) {
+        wyzieBrowserWaiters.shift()?.();
+      }
+    };
+
+    const waitForWyzieBrowserResponse = async (timeoutMs: number) => {
+      if (wyzieBrowserList || wyzieBrowserFailed) return;
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, timeoutMs);
+        wyzieBrowserWaiters.push(() => {
+          clearTimeout(timeout);
+          resolve();
+        });
+      });
+    };
 
     const streamData = await new Promise<StreamData | null>((resolve) => {
       let streamFound = false;
+
+      const onResponse = async (response: Response) => {
+        const url = response.url();
+        if (!url.includes("sub.wyzie.io/search")) return;
+
+        try {
+          const status = response.status();
+          dbg("scraper", "wyzie browser response", {
+            status,
+            ok: response.ok(),
+            contentType: response.headers()["content-type"] ?? null,
+          });
+
+          if (!response.ok()) {
+            wyzieBrowserFailed = true;
+            notifyWyzieBrowserWaiters();
+            return;
+          }
+
+          const payload = JSON.parse(await response.text()) as unknown;
+          wyzieBrowserList = parseWyzieSubtitleList(payload);
+          dbg("scraper", "wyzie browser subtitles parsed", {
+            subtitleCount: wyzieBrowserList.length,
+          });
+        } catch (error) {
+          wyzieBrowserFailed = true;
+          dbgErr("scraper", "wyzie browser response parse failed", error);
+        } finally {
+          notifyWyzieBrowserWaiters();
+        }
+      };
 
       const onRequest = (req: { url(): string; headers(): Record<string, string> }) => {
         const url = req.url();
@@ -188,9 +244,9 @@ export async function scrapeStream(
           dbg("scraper", "m3u8 intercepted", { streamUrl });
 
           setTimeout(async () => {
-            // Give wyzie an extra 1.5 s to fire if it hasn't yet
+            // Give Wyzie a little more time to emit its subtitle search request.
             if (!directSubUrl && !wyzieSearchUrl) {
-              await new Promise((r) => setTimeout(r, 1500));
+              await new Promise((r) => setTimeout(r, 3000));
             }
 
             let subtitle: string | null = directSubUrl;
@@ -201,17 +257,27 @@ export async function scrapeStream(
               : "not-observed";
 
             if (!subtitle && wyzieSearchUrl) {
-              const result = await fetchSubtitlesFromWyzie(
-                wyzieSearchUrl,
-                subLang,
-                wyzieSearchHeaders,
-              );
-              subtitle = result.selected;
-              subtitleList = result.list;
+              await waitForWyzieBrowserResponse(3500);
+              const browserPick = wyzieBrowserList
+                ? selectSubtitle(wyzieBrowserList, subLang)
+                : null;
+              if (browserPick || (wyzieBrowserList && wyzieBrowserList.length > 0)) {
+                subtitle = browserPick?.url ?? null;
+                subtitleList = wyzieBrowserList ?? [];
+              } else {
+                const result = await fetchSubtitlesFromWyzie(
+                  wyzieSearchUrl,
+                  subLang,
+                  wyzieSearchHeaders,
+                );
+                subtitle = result.selected;
+                subtitleList = result.list;
+                wyzieBrowserFailed = wyzieBrowserFailed || result.failed;
+              }
               subtitleSource = subtitle ? "wyzie" : "none";
               subtitleReason = subtitle
                 ? "wyzie-selected"
-                : result.failed
+                : wyzieBrowserFailed
                   ? "wyzie-failed"
                   : "wyzie-empty";
             }
@@ -244,10 +310,12 @@ export async function scrapeStream(
       };
 
       page.on("request", onRequest);
+      page.on("response", onResponse);
 
       // Popup tab handling — allow player tabs, close everything else
       context.on("page", async (newPage) => {
         newPage.on("request", onRequest);
+        newPage.on("response", onResponse);
         newPage.on("dialog", (d) => d.dismiss());
         await newPage.waitForLoadState("domcontentloaded").catch(() => {});
         const pu = newPage.url();

@@ -12,6 +12,28 @@ export type SubtitleEntry = {
   release: string;
 };
 
+export function parseWyzieSubtitleList(payload: unknown): SubtitleEntry[] {
+  const candidates =
+    Array.isArray(payload) || !payload || typeof payload !== "object"
+      ? payload
+      : ((payload as { subtitles?: unknown; tracks?: unknown; results?: unknown }).subtitles ??
+        (payload as { subtitles?: unknown; tracks?: unknown; results?: unknown }).tracks ??
+        (payload as { subtitles?: unknown; tracks?: unknown; results?: unknown }).results);
+
+  if (!Array.isArray(candidates)) return [];
+
+  return candidates.filter(isSubtitleEntry);
+}
+
+export function selectSubtitle(list: SubtitleEntry[], preferredLang: string): SubtitleEntry | null {
+  return (
+    list.find((s) => s.language === preferredLang) ||
+    (preferredLang !== "en" ? list.find((s) => s.language === "en") : null) ||
+    list[0] ||
+    null
+  );
+}
+
 export async function fetchSubtitlesFromWyzie(
   searchUrl: string,
   preferredLang: string,
@@ -39,8 +61,8 @@ export async function fetchSubtitlesFromWyzie(
       return { list: [], selected: null, failed: true };
     }
 
-    const list = (await res.json()) as SubtitleEntry[];
-    if (!Array.isArray(list) || list.length === 0) {
+    const list = parseWyzieSubtitleList(await res.json());
+    if (list.length === 0) {
       dbg("subtitle", "wyzie empty result", {
         preferredLang,
         url: redactWyzieKey(searchUrl),
@@ -48,10 +70,7 @@ export async function fetchSubtitlesFromWyzie(
       return { list: [], selected: null, failed: false };
     }
 
-    const pick =
-      list.find((s) => s.language === preferredLang) ||
-      (preferredLang !== "en" ? list.find((s) => s.language === "en") : null) ||
-      list[0];
+    const pick = selectSubtitle(list, preferredLang);
 
     dbg("subtitle", "wyzie selected subtitle", {
       preferredLang,
@@ -90,4 +109,10 @@ function redactWyzieKey(url: string): string {
   } catch {
     return url.replace(/key=[^&]+/, "key=<redacted>");
   }
+}
+
+function isSubtitleEntry(value: unknown): value is SubtitleEntry {
+  if (!value || typeof value !== "object") return false;
+  const entry = value as Partial<SubtitleEntry>;
+  return typeof entry.url === "string" && entry.url.length > 0;
 }
