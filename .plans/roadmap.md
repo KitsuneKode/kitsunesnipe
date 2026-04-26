@@ -27,6 +27,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 - History browsing and clearing in the new runtime now use the shared `HistoryStore` instead of bypassing it through legacy helper wiring
 - Footer hints are now configurable, and the browse, playback, and picker shells use the calmer task-first footer model
 - Browse and post-playback settings now stay inside the mounted shell and save through the shared runtime config path
+- Post-playback now exposes a direct fresh-search path so users can keep browsing without quitting the app
 
 ### Active Follow-Ups
 

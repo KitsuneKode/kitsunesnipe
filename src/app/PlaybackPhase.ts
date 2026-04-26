@@ -359,6 +359,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             status: { label: "Ready for next action", tone: "success" },
             footerMode: config.getRaw().footerHints,
             commands: resolveCommands(stateManager.getState(), [
+              "search",
               "settings",
               "toggle-mode",
               "provider",
@@ -520,6 +521,8 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             return { status: "quit" };
           }
           continue;
+        } else if (postAction === "search") {
+          return { status: "success", value: "back_to_search" };
         } else {
           // Any other action goes back to search
           return { status: "success", value: "back_to_search" };

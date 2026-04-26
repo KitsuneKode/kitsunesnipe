@@ -123,10 +123,8 @@ function Footer({
   if (commandMode) {
     return (
       <Box flexDirection="column" marginTop={1}>
-        <Box borderStyle="round" borderColor={palette.gray} paddingX={1}>
+        <Box borderStyle="round" borderColor={palette.amber} paddingX={1} flexDirection="column">
           <Text color="white">{taskLabel}</Text>
-        </Box>
-        <Box borderStyle="round" borderColor={palette.amber} paddingX={1} marginTop={1}>
           <Text color={palette.amber}>Command palette</Text>
           <Text color={palette.gray}>
             {" "}
@@ -139,29 +137,23 @@ function Footer({
 
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Box borderStyle="round" borderColor={palette.gray} paddingX={1}>
+      <Box borderStyle="round" borderColor={palette.gray} paddingX={1} flexDirection="column">
         <Text color="white">{taskLabel}</Text>
+        {visibleActions.length > 0 ? (
+          <Box flexWrap="wrap" marginTop={1}>
+            {visibleActions.map((action, index) => (
+              <Box
+                key={`${action.key}-${action.label}`}
+                marginRight={index === visibleActions.length - 1 ? 0 : 2}
+                marginBottom={1}
+              >
+                <Text color={palette.cyan}>{hotkeyLabel(action.key)}</Text>
+                <Text color="white"> {action.label}</Text>
+              </Box>
+            ))}
+          </Box>
+        ) : null}
       </Box>
-      {visibleActions.length > 0 ? (
-        <Box
-          borderStyle="round"
-          borderColor={palette.gray}
-          paddingX={1}
-          flexWrap="wrap"
-          marginTop={1}
-        >
-          {visibleActions.map((action, index) => (
-            <Box
-              key={`${action.key}-${action.label}`}
-              marginRight={index === visibleActions.length - 1 ? 0 : 2}
-              marginBottom={1}
-            >
-              <Text color={palette.cyan}>{hotkeyLabel(action.key)}</Text>
-              <Text color="white"> {action.label}</Text>
-            </Box>
-          ))}
-        </Box>
-      ) : null}
     </Box>
   );
 }
@@ -254,6 +246,18 @@ function CommandPalette({
       </Box>
     </Box>
   );
+}
+
+function shouldUseCompactLayout(columns: number, rows: number): boolean {
+  return columns < 110 || rows < 34;
+}
+
+function shouldUseUltraCompactLayout(columns: number, rows: number): boolean {
+  return columns < 92 || rows < 28;
+}
+
+function shouldUseWideBrowseLayout(columns: number, rows: number): boolean {
+  return columns >= 150 && rows >= 28;
 }
 
 function useShellInput({
@@ -584,6 +588,7 @@ function PlaybackShell({
   const commands =
     state.commands ??
     fallbackCommandState([
+      "search",
       "settings",
       "toggle-mode",
       "provider",
@@ -600,6 +605,7 @@ function PlaybackShell({
   const footerActions: readonly FooterAction[] = [
     { key: "/", label: "commands", action: "replay" },
     footerActionFromCommand(commands, "replay", { key: "r", label: "replay" }),
+    footerActionFromCommand(commands, "search", { key: "f", label: "search" }),
     footerActionFromCommand(commands, "pick-episode", { key: "e", label: "episodes" }),
     footerActionFromCommand(commands, "next", {
       key: "n",
@@ -679,7 +685,11 @@ function PlaybackShell({
     });
   };
 
-  const openSettingsChoiceOverlay = (nextDraft: KitsuneConfig, setting: SettingsChoiceValue) => {
+  const openSettingsChoiceOverlay = (
+    nextDraft: KitsuneConfig,
+    setting: SettingsChoiceValue,
+    parentSelectedIndex = 0,
+  ) => {
     let title = "Choose setting";
     let subtitle = "Select a value";
     let options: readonly ShellPickerOption<string>[] = [];
@@ -747,6 +757,7 @@ function PlaybackShell({
       options,
       filterQuery: "",
       selectedIndex: 0,
+      parentSelectedIndex,
       busy: false,
     });
   };
@@ -950,7 +961,11 @@ function PlaybackShell({
               );
               return;
             }
-            openSettingsChoiceOverlay(draftSettings, action as SettingsChoiceValue);
+            openSettingsChoiceOverlay(
+              draftSettings,
+              action as SettingsChoiceValue,
+              activeOverlay.selectedIndex,
+            );
             return;
           }
 
@@ -969,7 +984,7 @@ function PlaybackShell({
           } else if (activeOverlay.setting === "footerHints") {
             updatedDraft.footerHints = target.value as "detailed" | "minimal";
           }
-          openSettingsOverlay(updatedDraft);
+          openSettingsOverlay(updatedDraft, activeOverlay.parentSelectedIndex ?? 0);
           return;
         }
         if (input && !key.ctrl && !key.meta) {
@@ -1460,6 +1475,20 @@ function deleteLastWord(value: string): string {
   return value.replace(/\s*\S+\s*$/, "");
 }
 
+function normalizeReservedCommandInput(nextValue: string): {
+  value: string;
+  openCommandPalette: boolean;
+} {
+  if (!nextValue.includes("/")) {
+    return { value: nextValue, openCommandPalette: false };
+  }
+
+  return {
+    value: nextValue.replaceAll("/", ""),
+    openCommandPalette: true,
+  };
+}
+
 function getWindowStart(selectedIndex: number, total: number, windowSize: number): number {
   if (total <= windowSize) return 0;
 
@@ -1528,8 +1557,12 @@ function ListShell<T>({
 
   const selectedOption = filteredOptions[index];
 
-  // Leave room for the frame, footer, and selected-item preview.
-  const maxVisible = Math.max(5, stdout.rows - 16);
+  const compactLayout = shouldUseCompactLayout(stdout.columns, stdout.rows);
+  const ultraCompactLayout = shouldUseUltraCompactLayout(stdout.columns, stdout.rows);
+  const minPickerColumns = 84;
+  const minPickerRows = 24;
+  const pickerTooSmall = stdout.columns < minPickerColumns || stdout.rows < minPickerRows;
+  const maxVisible = Math.max(5, stdout.rows - (ultraCompactLayout ? 18 : compactLayout ? 22 : 26));
   const innerWidth = Math.max(24, stdout.columns - 8);
   const rowWidth = Math.max(20, innerWidth - 4);
   const selectedLabel = selectedOption?.label ?? "Nothing selected";
@@ -1546,8 +1579,11 @@ function ListShell<T>({
     normalizedFilter.length > 0
       ? "Refine the filter or confirm the highlighted match"
       : (actionContext?.taskLabel ?? "Filter this list and confirm a selection");
+  const effectiveFooterMode = ultraCompactLayout
+    ? "minimal"
+    : (actionContext?.footerMode ?? "detailed");
   const footerActions: readonly FooterAction[] =
-    actionContext?.footerMode === "minimal"
+    effectiveFooterMode === "minimal"
       ? [
           { key: "/", label: "commands", action: "search" },
           { key: "esc", label: "back", action: "quit" },
@@ -1558,6 +1594,16 @@ function ListShell<T>({
           { key: "esc", label: "back", action: "quit" },
           ...(actionContext ? [{ key: "/", label: "commands", action: "search" as const }] : []),
         ];
+
+  const updateFilterQuery = (nextValue: string) => {
+    const normalized = normalizeReservedCommandInput(nextValue);
+    setFilterQuery(normalized.value);
+    if (normalized.openCommandPalette && actionContext) {
+      setCommandMode(true);
+      setCommandInput("");
+      setHighlightedCommandIndex(0);
+    }
+  };
 
   useInput((input, key) => {
     // Ctrl+C handling
@@ -1685,54 +1731,78 @@ function ListShell<T>({
           <Text color={palette.cyan}>filter › </Text>
           <TextInput
             value={filterQuery}
-            onChange={setFilterQuery}
+            onChange={updateFilterQuery}
             placeholder="Type to narrow this list"
             focus={!commandMode}
             showCursor
           />
         </Box>
-        <Text color={palette.gray}>
-          {`Selected ${filteredOptions.length > 0 ? index + 1 : 0} of ${filteredOptions.length}  ·  Showing ${filteredOptions.length} of ${options.length}`}
-        </Text>
-        <Box flexDirection="column" marginTop={1}>
-          {windowStart > 0 && <Text color={palette.gray}> ▲ ...</Text>}
-          {visibleOptions.map((option, i) => {
-            const optionIndex = windowStart + i;
-            const selected = optionIndex === index;
-            const isConfirmed = confirmed && selected;
-            const itemPrefix = isConfirmed ? "✓" : selected ? "❯" : " ";
-            const itemTone = isConfirmed ? palette.green : selected ? palette.amber : palette.gray;
-            const secondary = option.detail ? `  ${truncateLine(option.detail, rowWidth)}` : "";
-            const rowText = truncateLine(`${option.label}${secondary}`, rowWidth);
-            return (
-              <Box key={optionIndex} marginBottom={i === visibleOptions.length - 1 ? 0 : 0}>
-                <Text
-                  backgroundColor={selected ? palette.cyan : undefined}
-                  color={selected ? "black" : "white"}
-                  bold={selected || isConfirmed}
-                  dimColor={!selected && !isConfirmed}
-                >
-                  <Text color={selected ? "black" : itemTone}>{`${itemPrefix} `}</Text>
-                  {rowText}
+        {pickerTooSmall ? (
+          <Box
+            marginTop={1}
+            flexDirection="column"
+            borderStyle="round"
+            borderColor={palette.red}
+            paddingX={1}
+          >
+            <Text color={palette.red}>Resize terminal to continue</Text>
+            <Text color={palette.muted}>
+              {`Need at least ${minPickerColumns} columns × ${minPickerRows} rows for this picker.`}
+            </Text>
+            <Text color={palette.gray}>Esc goes back. Resize, then reopen this picker.</Text>
+          </Box>
+        ) : (
+          <>
+            <Text color={palette.gray}>
+              {`Selected ${filteredOptions.length > 0 ? index + 1 : 0} of ${filteredOptions.length}  ·  Showing ${filteredOptions.length} of ${options.length}`}
+            </Text>
+            <Box flexDirection="column" marginTop={1}>
+              {windowStart > 0 && <Text color={palette.gray}> ▲ ...</Text>}
+              {visibleOptions.map((option, i) => {
+                const optionIndex = windowStart + i;
+                const selected = optionIndex === index;
+                const isConfirmed = confirmed && selected;
+                const itemPrefix = isConfirmed ? "✓" : selected ? "❯" : " ";
+                const itemTone = isConfirmed
+                  ? palette.green
+                  : selected
+                    ? palette.amber
+                    : palette.gray;
+                const secondary = option.detail ? `  ${truncateLine(option.detail, rowWidth)}` : "";
+                const rowText = truncateLine(`${option.label}${secondary}`, rowWidth);
+                return (
+                  <Box key={optionIndex}>
+                    <Text
+                      backgroundColor={selected ? palette.cyan : undefined}
+                      color={selected ? "black" : "white"}
+                      bold={selected || isConfirmed}
+                      dimColor={!selected && !isConfirmed}
+                    >
+                      <Text color={selected ? "black" : itemTone}>{`${itemPrefix} `}</Text>
+                      {rowText}
+                    </Text>
+                  </Box>
+                );
+              })}
+              {windowEnd < filteredOptions.length && <Text color={palette.gray}> ▼ ...</Text>}
+            </Box>
+            {!ultraCompactLayout ? (
+              <Box
+                marginTop={1}
+                flexDirection="column"
+                borderStyle="round"
+                borderColor={palette.green}
+                paddingX={1}
+              >
+                <Text color={palette.green}>Current Selection</Text>
+                <Text bold color="white">
+                  {truncateLine(selectedLabel, innerWidth)}
                 </Text>
+                <Text color={palette.muted}>{truncateLine(selectedDetail, innerWidth * 2)}</Text>
               </Box>
-            );
-          })}
-          {windowEnd < filteredOptions.length && <Text color={palette.gray}> ▼ ...</Text>}
-        </Box>
-        <Box
-          marginTop={1}
-          flexDirection="column"
-          borderStyle="round"
-          borderColor={palette.cyan}
-          paddingX={1}
-        >
-          <Text color={palette.cyan}>Current Selection</Text>
-          <Text bold color="white">
-            {truncateLine(selectedLabel, innerWidth)}
-          </Text>
-          <Text color={palette.muted}>{truncateLine(selectedDetail, innerWidth * 2)}</Text>
-        </Box>
+            ) : null}
+          </>
+        )}
       </Box>
       {commandMode && actionContext ? (
         <CommandPalette
@@ -1744,7 +1814,7 @@ function ListShell<T>({
       <ShellFooter
         taskLabel={`${footerTask}  ·  ${subtitle}`}
         actions={footerActions}
-        mode={actionContext?.footerMode}
+        mode={effectiveFooterMode}
         commandMode={commandMode}
       />
     </Box>
@@ -1787,6 +1857,7 @@ type BrowseOverlay =
       options: readonly ShellPickerOption<string>[];
       filterQuery: string;
       selectedIndex: number;
+      parentSelectedIndex?: number;
       busy?: boolean;
     };
 
@@ -1930,6 +2001,15 @@ function OverlayPanel({ overlay, width }: { overlay: BrowseOverlay; width: numbe
     overlay.type === "provider" || overlay.type === "settings" || overlay.type === "settings-choice"
       ? 8
       : 10;
+  const optionWindowStart =
+    overlay.type === "provider" || overlay.type === "settings" || overlay.type === "settings-choice"
+      ? getWindowStart(overlay.selectedIndex, overlay.options.length, maxLines)
+      : 0;
+  const optionWindowEnd = optionWindowStart + maxLines;
+  const visibleOptions =
+    overlay.type === "provider" || overlay.type === "settings" || overlay.type === "settings-choice"
+      ? overlay.options.slice(optionWindowStart, optionWindowEnd)
+      : [];
 
   return (
     <Box
@@ -1957,15 +2037,17 @@ function OverlayPanel({ overlay, width }: { overlay: BrowseOverlay; width: numbe
             </Text>
           </Box>
           <Box marginTop={1} flexDirection="column">
-            {overlay.options.slice(0, maxLines).map((option, index) => {
-              const selected = index === overlay.selectedIndex;
+            {optionWindowStart > 0 ? <Text color={palette.gray}> ▲ ...</Text> : null}
+            {visibleOptions.map((option, index) => {
+              const optionIndex = optionWindowStart + index;
+              const selected = optionIndex === overlay.selectedIndex;
               const row = truncateLine(
                 `${option.label}${option.detail ? `  ${option.detail}` : ""}`,
                 contentWidth,
               );
               return (
                 <Text
-                  key={`${option.value}-${index}`}
+                  key={`${option.value}-${optionIndex}`}
                   backgroundColor={selected ? palette.cyan : undefined}
                   color={selected ? "black" : "white"}
                   bold={selected}
@@ -1976,6 +2058,9 @@ function OverlayPanel({ overlay, width }: { overlay: BrowseOverlay; width: numbe
                 </Text>
               );
             })}
+            {optionWindowEnd < overlay.options.length ? (
+              <Text color={palette.gray}> ▼ ...</Text>
+            ) : null}
           </Box>
           <Box marginTop={1}>
             <Text color={overlay.busy ? palette.amber : palette.gray}>
@@ -2072,7 +2157,6 @@ function BrowseShell<T>({
   const spinner = useSpinner();
   const { stdout } = useStdout();
   const [query, setQuery] = useState(initialQuery ?? "");
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const [commandMode, setCommandMode] = useState(false);
   const [commandInput, setCommandInput] = useState("");
   const [highlightedCommandIndex, setHighlightedCommandIndex] = useState(0);
@@ -2111,20 +2195,21 @@ function BrowseShell<T>({
   };
 
   const updateQuery = (nextValue: string) => {
-    setQuery(nextValue);
-    setDetailsOpen(false);
-    if (nextValue.trim().length === 0) {
+    const normalized = normalizeReservedCommandInput(nextValue);
+    setQuery(normalized.value);
+    if (normalized.openCommandPalette) {
+      setCommandMode(true);
+      setCommandInput("");
+      setHighlightedCommandIndex(0);
+    }
+    if (normalized.value.trim().length === 0) {
       clearResults();
     }
   };
 
   const handleQuerySubmit = () => {
     if (!queryDirty && selectedOption && options.length > 0 && searchState === "ready") {
-      if (detailsOpen) {
-        onSubmit(selectedOption.value);
-      } else {
-        setDetailsOpen(true);
-      }
+      onSubmit(selectedOption.value);
       return;
     }
     void runSearch();
@@ -2148,7 +2233,6 @@ function BrowseShell<T>({
       setLastSearchedQuery(trimmed);
       setOptions(response.options);
       setSelectedIndex(0);
-      setDetailsOpen(false);
       setResultSubtitle(response.subtitle);
       setEmptyMessage(response.emptyMessage ?? "No results found.");
       setSearchState("ready");
@@ -2161,7 +2245,6 @@ function BrowseShell<T>({
       setSearchState("error");
       setOptions([]);
       setSelectedIndex(0);
-      setDetailsOpen(false);
       setErrorMessage(String(error));
       setEmptyMessage("Search failed.");
       setSelectedDetail("The search failed. Press Enter to retry or Esc to clear.");
@@ -2250,7 +2333,11 @@ function BrowseShell<T>({
     });
   };
 
-  const openSettingsChoiceOverlay = (nextDraft: KitsuneConfig, setting: SettingsChoiceValue) => {
+  const openSettingsChoiceOverlay = (
+    nextDraft: KitsuneConfig,
+    setting: SettingsChoiceValue,
+    parentSelectedIndex = 0,
+  ) => {
     let title = "Choose setting";
     let subtitle = "Select a value";
     let options: readonly ShellPickerOption<string>[] = [];
@@ -2318,6 +2405,7 @@ function BrowseShell<T>({
       options,
       filterQuery: "",
       selectedIndex: 0,
+      parentSelectedIndex,
       busy: false,
     });
   };
@@ -2373,7 +2461,6 @@ function BrowseShell<T>({
   useEffect(() => {
     const option = options[selectedIndex];
     if (!option) {
-      setDetailsOpen(false);
       return;
     }
     setSelectedDetail(option.detail ?? "Press Enter to select this result.");
@@ -2394,9 +2481,15 @@ function BrowseShell<T>({
 
   const queryDirty = query.trim() !== lastSearchedQuery;
   const selectedOption = options[selectedIndex];
-  const maxVisible = Math.max(5, stdout.rows - 18);
+  const compactLayout = shouldUseCompactLayout(stdout.columns, stdout.rows);
+  const ultraCompactLayout = shouldUseUltraCompactLayout(stdout.columns, stdout.rows);
+  const wideBrowseLayout = shouldUseWideBrowseLayout(stdout.columns, stdout.rows);
+  const effectiveFooterMode = ultraCompactLayout ? "minimal" : (footerMode ?? "detailed");
+  const maxVisible = Math.max(5, stdout.rows - (compactLayout ? 13 : 18));
   const innerWidth = Math.max(24, stdout.columns - 8);
-  const rowWidth = Math.max(20, innerWidth - 4);
+  const previewWidth = wideBrowseLayout ? Math.max(36, Math.floor(innerWidth * 0.4)) : innerWidth;
+  const listWidth = wideBrowseLayout ? Math.max(42, innerWidth - previewWidth - 3) : innerWidth;
+  const rowWidth = Math.max(20, listWidth - 4);
   const windowStart = getWindowStart(selectedIndex, options.length, maxVisible);
   const windowEnd = Math.min(windowStart + maxVisible, options.length);
   const visibleOptions = options.slice(windowStart, windowEnd);
@@ -2414,8 +2507,8 @@ function BrowseShell<T>({
   const previewMeta = selectedOption?.previewMeta ?? [];
   const previewBodyLines = wrapText(
     selectedOption?.previewBody ?? "Type a title and press Enter to search.",
-    Math.max(innerWidth - 2, 24),
-    detailsOpen ? 4 : 2,
+    Math.max(previewWidth - 2, 24),
+    ultraCompactLayout ? 1 : compactLayout ? 2 : 3,
   );
 
   useInput((input, key) => {
@@ -2553,7 +2646,11 @@ function BrowseShell<T>({
               );
               return;
             }
-            openSettingsChoiceOverlay(draftSettings, action as SettingsChoiceValue);
+            openSettingsChoiceOverlay(
+              draftSettings,
+              action as SettingsChoiceValue,
+              activeOverlay.selectedIndex,
+            );
             return;
           }
 
@@ -2572,7 +2669,7 @@ function BrowseShell<T>({
           } else if (activeOverlay.setting === "footerHints") {
             updatedDraft.footerHints = target.value as "detailed" | "minimal";
           }
-          openSettingsOverlay(updatedDraft);
+          openSettingsOverlay(updatedDraft, activeOverlay.parentSelectedIndex ?? 0);
           return;
         }
         if (input && !key.ctrl && !key.meta) {
@@ -2663,10 +2760,6 @@ function BrowseShell<T>({
     }
 
     if (key.escape) {
-      if (detailsOpen) {
-        setDetailsOpen(false);
-        return;
-      }
       if (options.length > 0 || searchState === "error" || searchState === "loading") {
         clearResults();
         return;
@@ -2717,12 +2810,12 @@ function BrowseShell<T>({
                   : "ready"}
           </Text>
         </Box>
-        <Text color={palette.muted}>{resultSubtitle}</Text>
+        {!ultraCompactLayout ? <Text color={palette.muted}>{resultSubtitle}</Text> : null}
         <Box marginTop={1}>
           <Badge label={`provider ${activeProvider}`} tone="info" />
-          <Badge label={mode === "anime" ? "anime mode" : "series mode"} />
-          <Badge label={mode === "anime" ? "search anime by title" : "search by title"} />
-          {detailsOpen ? <Badge label="details open" tone="success" /> : null}
+          {!ultraCompactLayout ? (
+            <Badge label={mode === "anime" ? "anime mode" : "series mode"} />
+          ) : null}
           {activeOverlay ? (
             <Badge label={`${activeOverlay.title.toLowerCase()} panel`} tone="success" />
           ) : null}
@@ -2740,7 +2833,7 @@ function BrowseShell<T>({
           />
         </Box>
 
-        {queryDirty && options.length > 0 ? (
+        {queryDirty && options.length > 0 && !ultraCompactLayout ? (
           <Text color={palette.gray}>Query changed · Press Enter to refresh results</Text>
         ) : null}
 
@@ -2767,78 +2860,91 @@ function BrowseShell<T>({
             width={innerWidth}
           />
         ) : options.length > 0 ? (
-          <Box flexDirection="column" marginTop={1}>
-            {windowStart > 0 ? <Text color={palette.gray}> ▲ ...</Text> : null}
-            {visibleOptions.map((option, index) => {
-              const optionIndex = windowStart + index;
-              const selected = optionIndex === selectedIndex;
-              const secondary = option.detail ? `  ${truncateLine(option.detail, rowWidth)}` : "";
-              const rowText = truncateLine(`${option.label}${secondary}`, rowWidth);
+          <Box
+            flexDirection={wideBrowseLayout ? "row" : "column"}
+            marginTop={1}
+            justifyContent="space-between"
+          >
+            <Box flexDirection="column" width={wideBrowseLayout ? listWidth : undefined}>
+              {windowStart > 0 ? <Text color={palette.gray}> ▲ ...</Text> : null}
+              {visibleOptions.map((option, index) => {
+                const optionIndex = windowStart + index;
+                const selected = optionIndex === selectedIndex;
+                const secondary = option.detail ? `  ${truncateLine(option.detail, rowWidth)}` : "";
+                const rowText = truncateLine(`${option.label}${secondary}`, rowWidth);
 
-              return (
-                <Box key={optionIndex}>
-                  <Text
-                    backgroundColor={selected ? palette.cyan : undefined}
-                    color={selected ? "black" : "white"}
-                    bold={selected}
-                    dimColor={!selected}
-                  >
-                    <Text color={selected ? "black" : palette.gray}>{selected ? "❯ " : "  "}</Text>
-                    {rowText}
+                return (
+                  <Box key={optionIndex}>
+                    <Text
+                      backgroundColor={selected ? palette.cyan : undefined}
+                      color={selected ? "black" : "white"}
+                      bold={selected}
+                      dimColor={!selected}
+                    >
+                      <Text color={selected ? "black" : palette.gray}>
+                        {selected ? "❯ " : "  "}
+                      </Text>
+                      {rowText}
+                    </Text>
+                  </Box>
+                );
+              })}
+              {windowEnd < options.length ? <Text color={palette.gray}> ▼ ...</Text> : null}
+            </Box>
+
+            <Box
+              marginTop={wideBrowseLayout ? 0 : 1}
+              marginLeft={wideBrowseLayout ? 1 : 0}
+              flexDirection="column"
+              borderStyle="round"
+              borderColor={palette.green}
+              paddingX={1}
+              width={wideBrowseLayout ? previewWidth : undefined}
+            >
+              <Text color={palette.green}>Selection Preview</Text>
+              <Text bold color="white">
+                {truncateLine(
+                  selectedOption?.previewTitle ?? selectedOption?.label ?? "No selection yet",
+                  previewWidth,
+                )}
+              </Text>
+              {previewMeta.length > 0 && !ultraCompactLayout ? (
+                <Box marginTop={1}>
+                  {previewMeta
+                    .slice(0, compactLayout ? 2 : previewMeta.length)
+                    .map((item, index) => (
+                      <Badge
+                        key={`${item}-${index}`}
+                        label={item}
+                        tone={index === 0 ? "info" : "neutral"}
+                      />
+                    ))}
+                </Box>
+              ) : null}
+              {previewBodyLines.length > 0 ? (
+                <Box marginTop={1} flexDirection="column">
+                  {previewBodyLines.map((line, index) => (
+                    <Text key={`${line}-${index}`} color={palette.muted}>
+                      {line}
+                    </Text>
+                  ))}
+                </Box>
+              ) : null}
+              {!ultraCompactLayout ? (
+                <Box marginTop={1}>
+                  <Text color={palette.gray}>
+                    {selectedOption?.previewNote ??
+                      truncateLine(selectedDetail, Math.max(previewWidth, 48))}
                   </Text>
                 </Box>
-              );
-            })}
-            {windowEnd < options.length ? <Text color={palette.gray}> ▼ ...</Text> : null}
+              ) : null}
+            </Box>
           </Box>
         ) : (
           <Box marginTop={1}>
             <Text color={palette.gray}>{emptyMessage}</Text>
           </Box>
         )}
-
-        <Box
-          marginTop={1}
-          flexDirection="column"
-          borderStyle="round"
-          borderColor={detailsOpen ? palette.green : palette.cyan}
-          paddingX={1}
-        >
-          <Text color={detailsOpen ? palette.green : palette.cyan}>
-            {detailsOpen ? "Title Details" : "Current Selection"}
-          </Text>
-          <Text bold color="white">
-            {truncateLine(
-              selectedOption?.previewTitle ?? selectedOption?.label ?? "No selection yet",
-              innerWidth,
-            )}
-          </Text>
-          {previewMeta.length > 0 ? (
-            <Box marginTop={1}>
-              {previewMeta.map((item, index) => (
-                <Badge
-                  key={`${item}-${index}`}
-                  label={item}
-                  tone={index === 0 ? "info" : "neutral"}
-                />
-              ))}
-            </Box>
-          ) : null}
-          <Box marginTop={1} flexDirection="column">
-            {previewBodyLines.map((line, index) => (
-              <Text key={`${line}-${index}`} color={palette.muted}>
-                {line}
-              </Text>
-            ))}
-          </Box>
-          <Box marginTop={1}>
-            <Text color={palette.gray}>
-              {detailsOpen
-                ? (selectedOption?.previewNote ?? "Press Enter again to confirm this selection.")
-                : truncateLine(selectedDetail, Math.max(innerWidth, 48))}
-            </Text>
-          </Box>
-        </Box>
       </Box>
 
       {commandMode ? (
@@ -2852,18 +2958,15 @@ function BrowseShell<T>({
       <ShellFooter
         taskLabel={
           options.length > 0 && !queryDirty
-            ? detailsOpen
-              ? "Review title details before opening it"
-              : "Browse results and open details"
+            ? "Browse results and open a title"
             : `Search ${mode === "anime" ? "anime titles" : "movies and series"}`
         }
-        mode={footerMode}
+        mode={effectiveFooterMode}
         commandMode={commandMode}
         actions={[
           {
             key: "enter",
-            label:
-              options.length > 0 && !queryDirty ? (detailsOpen ? "open" : "details") : "search",
+            label: options.length > 0 && !queryDirty ? "open" : "search",
             action: "search",
           },
           { key: "↑↓", label: "navigate", action: "search" },

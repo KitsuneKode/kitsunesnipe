@@ -28,6 +28,7 @@ KitsuneSnipe should behave like a terminal app shell, not a sequence of unrelate
 ### Command philosophy
 
 - `/` is the global entry point for actions
+- post-playback should always expose a direct path back into a fresh search without quitting the app
 - common operations should have short command aliases
 - commands should be discoverable rather than hidden
 - command ownership should live in one global router, not in each component independently

@@ -19,7 +19,7 @@ export function toBrowseResultOption(result: SearchResult): BrowseShellOption<Se
     previewBody: result.overview || "No overview available yet.",
     previewNote:
       result.type === "series"
-        ? "Press Enter once for details, then Enter again to start episode selection."
-        : "Press Enter once for details, then Enter again to open playback.",
+        ? "Press Enter to open this title and continue to episode selection."
+        : "Press Enter to open this title and continue to playback.",
   };
 }
