@@ -151,6 +151,7 @@ Current checkpoint:
 - browse results now open an in-shell details state before committing playback, which gives `Esc` a clearer parent context while the mounted root shell work continues
 - browser/embed scraping now reuses the shared runtime cache instead of bypassing the new persistence layer
 - browse and post-playback now host provider, help, about, history, and diagnostics panels inside the mounted shell instead of ejecting to separate helper shells
+- post-playback episode selection now opens inside the playback shell and returns a selected season/episode without launching a separate helper shell
 
 ## Next Passes
 
@@ -192,6 +193,7 @@ Status:
 - browse-side and post-playback secondary panels are now mounted in-shell
 - playback still remains a separate shell session from browse, so the true root `AppShell` milestone is still open
 - playback navigation now resolves `next`, `previous`, `next season`, and autoplay from actual provider or metadata availability instead of blindly incrementing episode numbers
+- playback-side episode selection now stays inside that playback shell, reducing one more helper-shell handoff before the true root shell lands
 
 ### Pass B1: Fullscreen Layout Convergence
 
@@ -247,7 +249,8 @@ Status:
 - partially done
 - browse and post-playback now host provider, history, diagnostics, help, and about panels in the mounted shell
 - browse and post-playback now host settings in-shell too, using the shared runtime config path instead of always ejecting into a blocking helper shell
-- settings, season, episode, and subtitle flows still rely on blocking shell helpers rather than true mounted overlays
+- post-playback episode selection now stays in-shell
+- settings, season, starting episode, and subtitle flows still rely on blocking shell helpers rather than true mounted overlays
 - diagnostics now show recent runtime events from the new in-memory diagnostics store, which improves developer-mode inspection before the mounted overlay host lands
 - picker states now keep the shared command layer and task-first footer guidance even while standalone list shells remain in the path
 - settings and provider overlays now window around the selected row instead of hiding selected actions off-screen

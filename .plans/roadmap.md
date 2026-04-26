@@ -28,6 +28,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Footer hints are now configurable, and the browse, playback, and picker shells use the calmer task-first footer model
 - Browse and post-playback settings now stay inside the mounted shell and save through the shared runtime config path
 - Post-playback now exposes a direct fresh-search path so users can keep browsing without quitting the app
+- Post-playback episode selection now stays inside the playback shell instead of opening a separate helper screen
 - Fullscreen TUI convergence is now an explicit next milestone: viewport-contained layouts, resize blockers, and one dominant shell frame
 
 ### Active Follow-Ups
@@ -35,7 +36,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Mounted root `AppShell` migration so home, browse, and playback stop remounting as separate shells
 - Fullscreen shell convergence so the UI stops reading like stacked full-width cards and stays inside the viewport
 - Overlay-driven settings, provider, history, diagnostics, season, episode, and subtitle workflows
-- Settings, season, episode, and subtitle overlay migration so those flows stop falling back to helper shells
+- Settings, season, starting episode, and subtitle overlay migration so those flows stop falling back to helper shells
 - `Esc` and back-stack correctness for the remaining shell helpers
 - `mpv` reopen reliability bug investigation
 - `cineby-anime` click handling parity
