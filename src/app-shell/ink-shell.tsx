@@ -488,10 +488,69 @@ type MountedShell<TResult> = {
   result: Promise<TResult>;
 };
 
+type RootShellScreen = {
+  id: number;
+  element: React.ReactElement;
+};
+
+const rootShellSubscribers = new Set<() => void>();
+let rootShellScreen: RootShellScreen | null = null;
+let rootShellInk: ReturnType<typeof render> | null = null;
+let rootShellExitPromise: Promise<unknown> | null = null;
+let rootShellNextId = 1;
+
 function clearShellScreen() {
   if (process.stdout.isTTY) {
     process.stdout.write("\x1b[2J\x1b[H");
   }
+}
+
+function notifyRootShellSubscribers() {
+  for (const subscriber of rootShellSubscribers) {
+    subscriber();
+  }
+}
+
+function setRootShellScreen(screen: RootShellScreen | null) {
+  rootShellScreen = screen;
+  notifyRootShellSubscribers();
+}
+
+function RootShellHost() {
+  const [, setRevision] = useState(0);
+
+  useEffect(() => {
+    const subscriber = () => setRevision((revision) => revision + 1);
+    rootShellSubscribers.add(subscriber);
+    return () => {
+      rootShellSubscribers.delete(subscriber);
+    };
+  }, []);
+
+  return rootShellScreen?.element ?? null;
+}
+
+function ensureRootShell() {
+  if (rootShellInk && rootShellExitPromise) {
+    return rootShellExitPromise;
+  }
+
+  stdinManager.enterShell();
+  clearShellScreen();
+
+  rootShellInk = render(<RootShellHost />, {
+    exitOnCtrlC: false,
+  });
+  rootShellExitPromise = rootShellInk.waitUntilExit();
+
+  void rootShellExitPromise.then(() => {
+    rootShellInk = null;
+    rootShellExitPromise = null;
+    rootShellScreen = null;
+    stdinManager.exitShell();
+  });
+
+  return rootShellExitPromise;
 }
 
 function mountShell<TResult>({
@@ -501,44 +560,34 @@ function mountShell<TResult>({
   renderShell: (finish: (value: TResult) => void) => React.ReactElement;
   fallbackValue: TResult;
 }): MountedShell<TResult> {
-  stdinManager.enterShell();
-  clearShellScreen();
-
+  const exitPromise = ensureRootShell();
+  const screenId = rootShellNextId++;
   let settled = false;
   let resolveResult!: (value: TResult) => void;
-  let ink!: ReturnType<typeof render>;
-  let exitPromise!: Promise<unknown>;
 
   const result = new Promise<TResult>((resolve) => {
     resolveResult = resolve;
   });
 
-  const settle = (value: TResult, shouldUnmount: boolean) => {
+  const settle = (value: TResult, shouldClear: boolean) => {
     if (settled) return;
     settled = true;
 
-    if (shouldUnmount) {
-      ink.unmount();
+    if (shouldClear && rootShellScreen?.id === screenId) {
+      setRootShellScreen(null);
     }
 
-    void exitPromise.then(() => {
-      stdinManager.exitShell();
-      resolveResult(value);
-    });
+    resolveResult(value);
   };
 
-  ink = render(
-    renderShell((value) => settle(value, true)),
-    {
-      exitOnCtrlC: false,
-    },
-  );
-  exitPromise = ink.waitUntilExit();
+  setRootShellScreen({
+    id: screenId,
+    element: renderShell((value) => settle(value, true)),
+  });
 
   void exitPromise.then(() => {
     if (!settled) {
       settled = true;
-      stdinManager.exitShell();
       resolveResult(fallbackValue);
     }
   });
