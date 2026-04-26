@@ -20,6 +20,7 @@ import {
   type BrowseShellOption,
   type BrowseShellResult,
   type BrowseShellSearchResponse,
+  type PlaybackShellResult,
   type ShellPanelLine,
   type ShellPickerOption,
   type ShellAction,
@@ -605,6 +606,8 @@ function HomeShell({
 function PlaybackShell({
   state,
   providerOptions,
+  episodePickerOptions,
+  episodePickerSubtitle,
   settings,
   settingsSeriesProviderOptions,
   settingsAnimeProviderOptions,
@@ -618,6 +621,8 @@ function PlaybackShell({
 }: {
   state: PlaybackShellState;
   providerOptions?: readonly ShellPickerOption<string>[];
+  episodePickerOptions?: readonly ShellPickerOption<string>[];
+  episodePickerSubtitle?: string;
   settings?: KitsuneConfig;
   settingsSeriesProviderOptions?: readonly ShellPickerOption<string>[];
   settingsAnimeProviderOptions?: readonly ShellPickerOption<string>[];
@@ -627,7 +632,7 @@ function PlaybackShell({
   loadHelpPanel?: () => Promise<readonly ShellPanelLine[]>;
   loadAboutPanel?: () => Promise<readonly ShellPanelLine[]>;
   onChangeProvider?: (providerId: string) => Promise<void>;
-  onResolve: (action: ShellAction) => void;
+  onResolve: (result: PlaybackShellResult) => void;
 }) {
   const [activeProvider, setActiveProvider] = useState(state.provider);
   const [activeOverlay, setActiveOverlay] = useState<BrowseOverlay | null>(null);
@@ -829,6 +834,18 @@ function PlaybackShell({
       });
       return true;
     }
+    if (action === "pick-episode" && episodePickerOptions && episodePickerOptions.length > 0) {
+      setActiveOverlay({
+        type: "episode-picker",
+        title: "Choose episode",
+        subtitle: episodePickerSubtitle ?? `${episodePickerOptions.length} episodes available`,
+        options: episodePickerOptions,
+        filterQuery: "",
+        selectedIndex: 0,
+        busy: false,
+      });
+      return true;
+    }
     if (action === "history" && loadHistoryPanel) {
       void openInfoOverlay({
         type: "history",
@@ -872,7 +889,8 @@ function PlaybackShell({
     activeOverlay &&
     (activeOverlay.type === "provider" ||
       activeOverlay.type === "settings" ||
-      activeOverlay.type === "settings-choice")
+      activeOverlay.type === "settings-choice" ||
+      activeOverlay.type === "episode-picker")
       ? activeOverlay.options.filter((option) => {
           const filter = activeOverlay.filterQuery.trim().toLowerCase();
           if (filter.length === 0) return true;
@@ -904,7 +922,8 @@ function PlaybackShell({
       if (
         activeOverlay.type === "provider" ||
         activeOverlay.type === "settings" ||
-        activeOverlay.type === "settings-choice"
+        activeOverlay.type === "settings-choice" ||
+        activeOverlay.type === "episode-picker"
       ) {
         if (key.ctrl && input.toLowerCase() === "w") {
           setActiveOverlay({
@@ -957,6 +976,17 @@ function PlaybackShell({
                   subtitle: `Failed to switch provider: ${String(error)}`,
                 });
               });
+            return;
+          }
+
+          if (activeOverlay.type === "episode-picker") {
+            const selection = decodeEpisodeSelectionValue(target.value);
+            if (!selection) return;
+            onResolve({
+              type: "episode-selection",
+              season: selection.season,
+              episode: selection.episode,
+            });
             return;
           }
 
@@ -1369,6 +1399,8 @@ export function openHomeShell(state: HomeShellState): Promise<ShellAction> {
 export function openPlaybackShell({
   state,
   providerOptions,
+  episodePickerOptions,
+  episodePickerSubtitle,
   settings,
   settingsSeriesProviderOptions,
   settingsAnimeProviderOptions,
@@ -1381,6 +1413,8 @@ export function openPlaybackShell({
 }: {
   state: PlaybackShellState;
   providerOptions?: readonly ShellPickerOption<string>[];
+  episodePickerOptions?: readonly ShellPickerOption<string>[];
+  episodePickerSubtitle?: string;
   settings?: KitsuneConfig;
   settingsSeriesProviderOptions?: readonly ShellPickerOption<string>[];
   settingsAnimeProviderOptions?: readonly ShellPickerOption<string>[];
@@ -1390,23 +1424,30 @@ export function openPlaybackShell({
   loadHelpPanel?: () => Promise<readonly ShellPanelLine[]>;
   loadAboutPanel?: () => Promise<readonly ShellPanelLine[]>;
   onChangeProvider?: (providerId: string) => Promise<void>;
-}): Promise<ShellAction> {
-  return openShell({
-    Component: PlaybackShell,
-    props: {
-      state,
-      providerOptions,
-      settings,
-      settingsSeriesProviderOptions,
-      settingsAnimeProviderOptions,
-      onSaveSettings,
-      loadHistoryPanel,
-      loadDiagnosticsPanel,
-      loadHelpPanel,
-      loadAboutPanel,
-      onChangeProvider,
-    },
+}): Promise<PlaybackShellResult> {
+  const session = mountShell<PlaybackShellResult>({
+    renderShell: (finish) => (
+      <PlaybackShell
+        state={state}
+        providerOptions={providerOptions}
+        episodePickerOptions={episodePickerOptions}
+        episodePickerSubtitle={episodePickerSubtitle}
+        settings={settings}
+        settingsSeriesProviderOptions={settingsSeriesProviderOptions}
+        settingsAnimeProviderOptions={settingsAnimeProviderOptions}
+        onSaveSettings={onSaveSettings}
+        loadHistoryPanel={loadHistoryPanel}
+        loadDiagnosticsPanel={loadDiagnosticsPanel}
+        loadHelpPanel={loadHelpPanel}
+        loadAboutPanel={loadAboutPanel}
+        onChangeProvider={onChangeProvider}
+        onResolve={finish}
+      />
+    ),
+    fallbackValue: "quit",
   });
+
+  return session.result;
 }
 
 export function openLoadingShell({
@@ -1547,6 +1588,16 @@ function normalizeReservedCommandInput(nextValue: string): {
     value: nextValue.replaceAll("/", ""),
     openCommandPalette: true,
   };
+}
+
+function decodeEpisodeSelectionValue(value: string): { season: number; episode: number } | null {
+  const [seasonText, episodeText] = value.split(":");
+  const season = Number.parseInt(seasonText ?? "", 10);
+  const episode = Number.parseInt(episodeText ?? "", 10);
+  if (!Number.isFinite(season) || !Number.isFinite(episode)) {
+    return null;
+  }
+  return { season, episode };
 }
 
 function getWindowStart(selectedIndex: number, total: number, windowSize: number): number {
@@ -1888,6 +1939,15 @@ type BrowseOverlay =
       selectedIndex: number;
       parentSelectedIndex?: number;
       busy?: boolean;
+    }
+  | {
+      type: "episode-picker";
+      title: string;
+      subtitle: string;
+      options: readonly ShellPickerOption<string>[];
+      filterQuery: string;
+      selectedIndex: number;
+      busy?: boolean;
     };
 
 type SettingsAction =
@@ -2024,19 +2084,37 @@ function resolvePanelTone(tone: ShellPanelLine["tone"]): string {
   }
 }
 
-function OverlayPanel({ overlay, width }: { overlay: BrowseOverlay; width: number }) {
+function OverlayPanel({
+  overlay,
+  width,
+  maxLinesOverride,
+}: {
+  overlay: BrowseOverlay;
+  width: number;
+  maxLinesOverride?: number;
+}) {
   const contentWidth = Math.max(24, width - 4);
   const maxLines =
-    overlay.type === "provider" || overlay.type === "settings" || overlay.type === "settings-choice"
+    maxLinesOverride ??
+    (overlay.type === "provider" ||
+    overlay.type === "settings" ||
+    overlay.type === "settings-choice" ||
+    overlay.type === "episode-picker"
       ? 8
-      : 10;
+      : 10);
   const optionWindowStart =
-    overlay.type === "provider" || overlay.type === "settings" || overlay.type === "settings-choice"
+    overlay.type === "provider" ||
+    overlay.type === "settings" ||
+    overlay.type === "settings-choice" ||
+    overlay.type === "episode-picker"
       ? getWindowStart(overlay.selectedIndex, overlay.options.length, maxLines)
       : 0;
   const optionWindowEnd = optionWindowStart + maxLines;
   const visibleOptions =
-    overlay.type === "provider" || overlay.type === "settings" || overlay.type === "settings-choice"
+    overlay.type === "provider" ||
+    overlay.type === "settings" ||
+    overlay.type === "settings-choice" ||
+    overlay.type === "episode-picker"
       ? overlay.options.slice(optionWindowStart, optionWindowEnd)
       : [];
 
@@ -2054,7 +2132,8 @@ function OverlayPanel({ overlay, width }: { overlay: BrowseOverlay; width: numbe
       <Text color={palette.gray}>{overlay.subtitle}</Text>
       {overlay.type === "provider" ||
       overlay.type === "settings" ||
-      overlay.type === "settings-choice" ? (
+      overlay.type === "settings-choice" ||
+      overlay.type === "episode-picker" ? (
         <>
           <Box marginTop={1}>
             <Text color={palette.gray}>
@@ -2062,7 +2141,9 @@ function OverlayPanel({ overlay, width }: { overlay: BrowseOverlay; width: numbe
                 ? `Filter: ${overlay.filterQuery}`
                 : overlay.type === "provider"
                   ? "Type to narrow providers"
-                  : "Type to narrow this list"}
+                  : overlay.type === "episode-picker"
+                    ? "Type to narrow episodes"
+                    : "Type to narrow this list"}
             </Text>
           </Box>
           <Box marginTop={1} flexDirection="column">
@@ -2099,9 +2180,11 @@ function OverlayPanel({ overlay, width }: { overlay: BrowseOverlay; width: numbe
                   : "Saving settings…"
                 : overlay.type === "provider"
                   ? "Type to filter, ↑↓ to choose, Enter to switch, Esc to close"
-                  : overlay.type === "settings"
-                    ? "Type to filter, ↑↓ to choose, Enter to edit, Esc to discard or close"
-                    : "Type to filter, ↑↓ to choose, Enter to apply, Esc to go back"}
+                  : overlay.type === "episode-picker"
+                    ? "Type to filter, ↑↓ to choose, Enter to jump, Esc to close"
+                    : overlay.type === "settings"
+                      ? "Type to filter, ↑↓ to choose, Enter to edit, Esc to discard or close"
+                      : "Type to filter, ↑↓ to choose, Enter to apply, Esc to go back"}
             </Text>
           </Box>
         </>
@@ -2714,6 +2797,10 @@ function BrowseShell<T>({
             selectedIndex: 0,
           });
         }
+        return;
+      }
+
+      if (activeOverlay.type === "episode-picker") {
         return;
       }
 
