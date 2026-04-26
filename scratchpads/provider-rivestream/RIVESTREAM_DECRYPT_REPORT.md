@@ -1,6 +1,7 @@
 # Rivestream Headless Scraper Report
 
 ## Overview
+
 This report details the successful reverse-engineering and implementation of a 0-RAM, purely headless scraper for **Rivestream** (`rivestream.app`).
 
 Unlike Vidking, Rivestream relies entirely on Client-Side Rendering (CSR) and does not embed any video data in its raw HTML. However, it also does not encrypt its network traffic or use hostile WebAssembly anti-bot traps.
@@ -8,9 +9,11 @@ Unlike Vidking, Rivestream relies entirely on Client-Side Rendering (CSR) and do
 ---
 
 ## 1. The Discovery
+
 By sniffing the network traffic with Playwright (bypassing their "DevTools Disabled" blocker), we identified that Rivestream's React application fetches video sources by talking directly to its backend API.
 
 We found two main API calls:
+
 1. **Providers Check:** `GET /api/backendfetch?requestID=EmbedProviderServices&secretKey=rive`
    Returns an array of available servers (e.g., `["self", "prime"]`).
 2. **Sources Fetch:** `GET /api/backendfetch?requestID=movieEmbedProvider&id=533535&service=self&secretKey=NTU2ZjdhYTc=`
@@ -19,6 +22,7 @@ We found two main API calls:
 ---
 
 ## 2. Reverse Engineering the `secretKey` Authentication
+
 The only hurdle to hitting this API headlessly was the `secretKey` parameter (`NTU2ZjdhYTc=`), which changed dynamically for every movie/show ID.
 
 1. **Base64 Decoding:** The key was clearly Base64 encoded. `NTU2ZjdhYTc=` decoded to `556f7aa7`.
@@ -29,9 +33,11 @@ The only hurdle to hitting this API headlessly was the `secretKey` parameter (`N
 ---
 
 ## 3. The Multi-Mode Headless Scraper
+
 With the `secretKey` algorithm cracked, we wrote `scratchpads/provider-rivestream/rivestream-headless.ts`.
 
 It runs with 0 RAM, asks the user for the TMDB ID, supports both **Movies and TV Shows**, and can query multiple endpoints natively:
+
 - **Embeds:** `movieEmbedProvider`, `tvEmbedProvider`
 - **Torrents:** `movieTorrentProvider`, `tvTorrentProvider`
 

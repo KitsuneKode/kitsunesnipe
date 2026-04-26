@@ -155,6 +155,7 @@ During interactive sniffing, we confirmed that the subtitle button triggers a re
 `GET https://sub.wyzie.io/search?id={tmdbId}&key=wyzie-9bafe78d95b0ae85e716d772b4d63ec4&season={season}&episode={episode}`
 
 **Response Payload Example:**
+
 ```json
 [
   {
