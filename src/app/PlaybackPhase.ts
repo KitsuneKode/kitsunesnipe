@@ -14,19 +14,12 @@ import type {
   PlaybackResult,
 } from "@/domain/types";
 import {
-  applySettingsToRuntime,
   buildPickerActionContext,
   handleShellAction,
   openSubtitlePicker,
 } from "@/app-shell/workflows";
 import { resolveCommands } from "@/app-shell/commands";
-import {
-  buildAboutPanelLines,
-  buildDiagnosticsPanelLines,
-  buildHelpPanelLines,
-  buildHistoryPanelLines,
-  buildProviderPickerOptions,
-} from "@/app-shell/panel-data";
+import { buildShellRuntimeBindings } from "@/app-shell/runtime-bindings";
 import {
   getAutoAdvanceEpisode,
   resolveEpisodeAvailability,
@@ -354,6 +347,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         // Show post-playback menu
         const { openPlaybackShell } = await import("../app-shell/ink-shell");
 
+        const shellRuntime = buildShellRuntimeBindings(container);
         const postAction = await openPlaybackShell({
           state: {
             type: title.type,
@@ -383,64 +377,18 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               "quit",
             ]),
           },
-          providerOptions: buildProviderPickerOptions({
-            providers: providerRegistry
-              .getAll()
-              .map((candidate) => candidate.metadata)
-              .filter(
-                (metadata) =>
-                  metadata.isAnimeProvider === (stateManager.getState().mode === "anime"),
-              ),
-            currentProvider: stateManager.getState().provider,
-          }),
+          providerOptions: shellRuntime.providerOptions,
           episodePickerOptions: shellEpisodePicker.options,
           episodePickerSubtitle: shellEpisodePicker.subtitle,
-          onChangeProvider: async (providerId) => {
-            stateManager.dispatch({ type: "SET_PROVIDER", provider: providerId });
-            diagnosticsStore.record({
-              category: "ui",
-              message: "Playback provider switched in-shell",
-              context: {
-                mode: stateManager.getState().mode,
-                provider: providerId,
-              },
-            });
-          },
-          settings: config.getRaw(),
-          settingsSeriesProviderOptions: buildProviderPickerOptions({
-            providers: providerRegistry
-              .getAll()
-              .map((candidate) => candidate.metadata)
-              .filter((metadata) => !metadata.isAnimeProvider),
-            currentProvider: config.getRaw().provider,
-          }),
-          settingsAnimeProviderOptions: buildProviderPickerOptions({
-            providers: providerRegistry
-              .getAll()
-              .map((candidate) => candidate.metadata)
-              .filter((metadata) => metadata.isAnimeProvider),
-            currentProvider: config.getRaw().animeProvider,
-          }),
-          onSaveSettings: async (next) => {
-            await applySettingsToRuntime({
-              container,
-              next,
-              previous: config.getRaw(),
-            });
-          },
-          loadHelpPanel: async () => buildHelpPanelLines(),
-          loadAboutPanel: async () =>
-            buildAboutPanelLines({
-              config: config.getRaw(),
-              state: stateManager.getState(),
-            }),
-          loadDiagnosticsPanel: async () =>
-            buildDiagnosticsPanelLines({
-              state: stateManager.getState(),
-              recentEvents: diagnosticsStore.getRecent(10),
-            }),
-          loadHistoryPanel: async () =>
-            buildHistoryPanelLines(Object.entries(await historyStore.getAll())),
+          settings: shellRuntime.settings,
+          settingsSeriesProviderOptions: shellRuntime.settingsSeriesProviderOptions,
+          settingsAnimeProviderOptions: shellRuntime.settingsAnimeProviderOptions,
+          onChangeProvider: shellRuntime.onChangeProvider,
+          onSaveSettings: shellRuntime.onSaveSettings,
+          loadHelpPanel: shellRuntime.loadHelpPanel,
+          loadAboutPanel: shellRuntime.loadAboutPanel,
+          loadDiagnosticsPanel: shellRuntime.loadDiagnosticsPanel,
+          loadHistoryPanel: shellRuntime.loadHistoryPanel,
         });
 
         if (typeof postAction !== "string") {
