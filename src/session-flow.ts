@@ -1,4 +1,8 @@
-import { type HistoryEntry, formatTimestamp, isFinished } from "@/history";
+import {
+  type HistoryEntry,
+  formatTimestamp,
+  isFinished,
+} from "@/services/persistence/HistoryStore";
 import type { Container } from "@/container";
 import { cyan, dim, yellow } from "@/menu";
 import { fetchEpisodes, fetchSeriesData } from "@/tmdb";

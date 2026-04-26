@@ -1,17 +1,15 @@
-import {
-  clearAllHistory,
-  clearEntry,
-  formatTimestamp,
-  getAllHistory,
-  isFinished,
-  saveHistory,
-} from "@/history";
+import { clearAllHistory, clearEntry, getAllHistory, saveHistory } from "@/history";
 import type { KitsuneConfig } from "@/config";
 import { ANIME_PROVIDERS, PLAYWRIGHT_PROVIDERS } from "@/providers";
 import { fetchEpisodes, fetchSeasons, type EpisodeInfo } from "@/tmdb";
 import type { EpisodePickerOption } from "@/domain/types";
 import type { Container } from "@/container";
-import type { HistoryEntry, HistoryStore } from "@/services/persistence/HistoryStore";
+import {
+  formatTimestamp,
+  isFinished,
+  type HistoryEntry,
+  type HistoryStore,
+} from "@/services/persistence/HistoryStore";
 import type { ShellAction } from "./types";
 import { resolveCommands } from "./commands";
 

@@ -340,130 +340,129 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           continue;
         }
 
-        // Show post-playback menu
+        // Post-playback menu — inner loop so unavailable navigation
+        // actions stay in the menu instead of re-resolving the stream.
         const { openPlaybackShell } = await import("../app-shell/ink-shell");
-
         const shellRuntime = buildShellRuntimeBindings(container);
-        const postAction = await openPlaybackShell({
-          state: {
-            type: title.type,
-            title: title.name,
-            season: currentEpisode.season,
-            episode: currentEpisode.episode,
-            provider: stateManager.getState().provider,
-            subtitleStatus: describeSubtitleStatus(preparedStream, stateManager.getState().subLang),
-            showMemory: config.showMemory,
-            mode: stateManager.getState().mode,
-            status: { label: "Ready for next action", tone: "success" },
-            footerMode: config.getRaw().footerHints,
-            commands: resolveCommands(stateManager.getState(), [
-              "search",
-              "settings",
-              "toggle-mode",
-              "provider",
-              "history",
-              "replay",
-              "pick-episode",
-              "next",
-              "previous",
-              "next-season",
-              "diagnostics",
-              "help",
-              "about",
-              "quit",
-            ]),
-          },
-          providerOptions: shellRuntime.providerOptions,
-          episodePickerOptions: shellEpisodePicker.options,
-          episodePickerSubtitle: shellEpisodePicker.subtitle,
-          settings: shellRuntime.settings,
-          settingsSeriesProviderOptions: shellRuntime.settingsSeriesProviderOptions,
-          settingsAnimeProviderOptions: shellRuntime.settingsAnimeProviderOptions,
-          onChangeProvider: shellRuntime.onChangeProvider,
-          onSaveSettings: shellRuntime.onSaveSettings,
-          loadHelpPanel: shellRuntime.loadHelpPanel,
-          loadAboutPanel: shellRuntime.loadAboutPanel,
-          loadDiagnosticsPanel: shellRuntime.loadDiagnosticsPanel,
-          loadHistoryPanel: shellRuntime.loadHistoryPanel,
-        });
 
-        if (typeof postAction !== "string") {
-          stateManager.dispatch({
-            type: "SELECT_EPISODE",
-            episode: {
-              season: postAction.season,
-              episode: postAction.episode,
-            },
-          });
-          continue;
-        }
-
-        if (postAction === "quit") {
-          return { status: "quit" };
-        } else if (postAction === "toggle-mode") {
-          switchSessionMode(stateManager);
-          return { status: "success", value: "back_to_search" };
-        } else if (postAction === "replay") {
-          // Loop continues - same episode
-          continue;
-        } else if (postAction === "pick-episode" && title.type === "series") {
-          const { chooseEpisodeFromMetadata } = await import("@/session-flow");
-          const selection = await chooseEpisodeFromMetadata({
-            currentId: title.id,
-            isAnime: stateManager.getState().mode === "anime",
-            currentSeason: currentEpisode.season,
-            currentEpisode: currentEpisode.episode,
-            animeEpisodeCount: title.episodeCount,
-            animeEpisodes: currentAnimeEpisodes,
-            container,
-          });
-          // Cancel keeps the user in the post-playback menu instead of mutating
-          // the current episode or restarting playback implicitly.
-          if (!selection) {
-            logger.info("Episode picker cancelled", {
-              titleId: title.id,
+        postPlayback: while (true) {
+          const postAction = await openPlaybackShell({
+            state: {
+              type: title.type,
+              title: title.name,
               season: currentEpisode.season,
               episode: currentEpisode.episode,
-            });
-            continue;
-          }
-          stateManager.dispatch({
-            type: "SELECT_EPISODE",
-            episode: {
-              season: selection.season,
-              episode: selection.episode,
+              provider: resolvedProviderId,
+              subtitleStatus: describeSubtitleStatus(
+                preparedStream,
+                stateManager.getState().subLang,
+              ),
+              showMemory: config.showMemory,
+              mode: stateManager.getState().mode,
+              status: { label: "Ready for next action", tone: "success" },
+              footerMode: config.getRaw().footerHints,
+              commands: resolveCommands(stateManager.getState(), [
+                "search",
+                "settings",
+                "toggle-mode",
+                "provider",
+                "history",
+                "replay",
+                "pick-episode",
+                "next",
+                "previous",
+                "next-season",
+                "diagnostics",
+                "help",
+                "about",
+                "quit",
+              ]),
             },
+            providerOptions: shellRuntime.providerOptions,
+            episodePickerOptions: shellEpisodePicker.options,
+            episodePickerSubtitle: shellEpisodePicker.subtitle,
+            settings: shellRuntime.settings,
+            settingsSeriesProviderOptions: shellRuntime.settingsSeriesProviderOptions,
+            settingsAnimeProviderOptions: shellRuntime.settingsAnimeProviderOptions,
+            onChangeProvider: shellRuntime.onChangeProvider,
+            onSaveSettings: shellRuntime.onSaveSettings,
+            loadHelpPanel: shellRuntime.loadHelpPanel,
+            loadAboutPanel: shellRuntime.loadAboutPanel,
+            loadDiagnosticsPanel: shellRuntime.loadDiagnosticsPanel,
+            loadHistoryPanel: shellRuntime.loadHistoryPanel,
           });
-          continue;
-        } else if (postAction === "next" && title.type === "series") {
-          if (episodeAvailability.nextEpisode) {
+
+          if (typeof postAction !== "string") {
             stateManager.dispatch({
               type: "SELECT_EPISODE",
-              episode: episodeAvailability.nextEpisode,
+              episode: { season: postAction.season, episode: postAction.episode },
             });
+            break postPlayback;
           }
-          continue;
-        } else if (postAction === "previous" && title.type === "series") {
-          if (episodeAvailability.previousEpisode) {
+
+          if (postAction === "quit") {
+            return { status: "quit" };
+          } else if (postAction === "toggle-mode") {
+            switchSessionMode(stateManager);
+            return { status: "success", value: "back_to_search" };
+          } else if (postAction === "replay") {
+            break postPlayback;
+          } else if (postAction === "pick-episode" && title.type === "series") {
+            const { chooseEpisodeFromMetadata } = await import("@/session-flow");
+            const selection = await chooseEpisodeFromMetadata({
+              currentId: title.id,
+              isAnime: stateManager.getState().mode === "anime",
+              currentSeason: currentEpisode.season,
+              currentEpisode: currentEpisode.episode,
+              animeEpisodeCount: title.episodeCount,
+              animeEpisodes: currentAnimeEpisodes,
+              container,
+            });
+            if (!selection) {
+              logger.info("Episode picker cancelled", {
+                titleId: title.id,
+                season: currentEpisode.season,
+                episode: currentEpisode.episode,
+              });
+              continue postPlayback;
+            }
             stateManager.dispatch({
               type: "SELECT_EPISODE",
-              episode: episodeAvailability.previousEpisode,
+              episode: { season: selection.season, episode: selection.episode },
             });
+            break postPlayback;
+          } else if (postAction === "next" && title.type === "series") {
+            if (episodeAvailability.nextEpisode) {
+              stateManager.dispatch({
+                type: "SELECT_EPISODE",
+                episode: episodeAvailability.nextEpisode,
+              });
+              break postPlayback;
+            }
+            continue postPlayback;
+          } else if (postAction === "previous" && title.type === "series") {
+            if (episodeAvailability.previousEpisode) {
+              stateManager.dispatch({
+                type: "SELECT_EPISODE",
+                episode: episodeAvailability.previousEpisode,
+              });
+              break postPlayback;
+            }
+            continue postPlayback;
+          } else if (postAction === "next-season" && title.type === "series") {
+            if (episodeAvailability.nextSeasonEpisode) {
+              stateManager.dispatch({
+                type: "SELECT_EPISODE",
+                episode: episodeAvailability.nextSeasonEpisode,
+              });
+              break postPlayback;
+            }
+            continue postPlayback;
+          } else if (postAction === "search") {
+            return { status: "success", value: "back_to_search" };
+          } else {
+            return { status: "success", value: "back_to_search" };
           }
-          continue;
-        } else if (postAction === "next-season" && title.type === "series") {
-          if (episodeAvailability.nextSeasonEpisode) {
-            stateManager.dispatch({
-              type: "SELECT_EPISODE",
-              episode: episodeAvailability.nextSeasonEpisode,
-            });
-          }
-          continue;
-        } else if (postAction === "search") {
-          return { status: "success", value: "back_to_search" };
-        } else {
-          // Any other action goes back to search
-          return { status: "success", value: "back_to_search" };
         }
       }
     } catch (e) {
@@ -566,7 +565,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         subtitle: "mpv is open; KitsuneSnipe is waiting for playback to finish",
         operation: "playing",
         details: `Provider: ${stateManager.getState().provider}`,
-        trace: `Stream resolved  ·  headers ${Object.keys(stream.headers ?? {}).length}`,
+        trace: `Stream resolved  ·  headers ${Object.keys(stream.headers ?? {}).length} keys`,
         subtitleStatus,
         showMemory: config.showMemory,
       },
@@ -588,7 +587,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       return result;
     } finally {
       playing.close();
-      await playing.result;
+      await playing.result.catch(() => {});
     }
   }
 

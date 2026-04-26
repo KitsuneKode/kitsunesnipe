@@ -76,6 +76,9 @@ export class SessionController {
           if (playbackResult.status === "cancelled") continue;
           if (playbackResult.status === "error") {
             logger.error("Playback phase failed", { error: playbackResult.error });
+            console.error(
+              `\n⚠ Playback failed: ${playbackResult.error.message}${playbackResult.error.retryable ? " (try a different provider)" : ""}`,
+            );
             continue;
           }
 
