@@ -147,4 +147,35 @@ if (request.url().includes("sub.wyzie.io")) {
 
 ---
 
+## 8. Interactive Sniffing Findings (Wyzie Subtitle API)
+
+During interactive sniffing, we confirmed that the subtitle button triggers a request to the `sub.wyzie.io` API. We discovered the exact endpoint and payload structure:
+
+**Endpoint:**
+`GET https://sub.wyzie.io/search?id={tmdbId}&key=wyzie-9bafe78d95b0ae85e716d772b4d63ec4&season={season}&episode={episode}`
+
+**Response Payload Example:**
+```json
+[
+  {
+    "id": "1958162982",
+    "url": "https://sub.wyzie.io/c/19d70c5c/id/1958162982?format=srt&encoding=UTF-8",
+    "flagUrl": "https://flagsapi.com/US/flat/24.png",
+    "format": "srt",
+    "encoding": "UTF-8",
+    "display": "English",
+    "language": "en",
+    "media": "\"Bloodhounds\" Episode #1.2",
+    "isHearingImpaired": true,
+    "source": "opensubtitles",
+    "release": "Bloodhounds.S01E02.1080p.NF.WEB-DL.DUAL.DDP5.1.Atmos.H.264-WDYM"
+  }
+]
+```
+
+**Key Takeaway:**
+We can directly fetch this JSON endpoint. The `key` (`wyzie-9bafe78d95b0ae85e716d772b4d63ec4`) appears static/reusable for this API. The response gives us a clean array of subtitle objects. We can iterate over this array, filter by `language` (e.g., `"en"`), and extract the direct `url`. This gives us the `.srt`/`.vtt` link entirely via standard HTTP requests without needing a headless browser to interact with the subtitle UI!
+
+---
+
 _End of report._

@@ -29,6 +29,10 @@ const stream = await provider.resolveStream({
   subLang: container.config.subLang,
 });
 
+console.log(`[TEST] VidKing stream resolution result: ${stream?.url ? "SUCCESS" : "FAILURE"}`);
+
+console.log("\n[TEST] full stream response", stream);
+
 const payload = {
   ok: Boolean(stream?.url),
   title: title.name,
