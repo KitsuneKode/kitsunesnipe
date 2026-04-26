@@ -124,8 +124,8 @@ function Footer({
   if (commandMode) {
     return (
       <Box flexDirection="column" marginTop={1}>
-        <Box borderStyle="round" borderColor={palette.amber} paddingX={1} flexDirection="column">
-          <Text color="white">{taskLabel}</Text>
+        <Text color="white">{taskLabel}</Text>
+        <Box marginTop={1} flexDirection="column">
           <Text color={palette.amber}>Command palette</Text>
           <Text color={palette.gray}>
             {" "}
@@ -138,23 +138,21 @@ function Footer({
 
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Box borderStyle="round" borderColor={palette.gray} paddingX={1} flexDirection="column">
-        <Text color="white">{taskLabel}</Text>
-        {visibleActions.length > 0 ? (
-          <Box flexWrap="wrap" marginTop={1}>
-            {visibleActions.map((action, index) => (
-              <Box
-                key={`${action.key}-${action.label}`}
-                marginRight={index === visibleActions.length - 1 ? 0 : 2}
-                marginBottom={1}
-              >
-                <Text color={palette.cyan}>{hotkeyLabel(action.key)}</Text>
-                <Text color="white"> {action.label}</Text>
-              </Box>
-            ))}
-          </Box>
-        ) : null}
-      </Box>
+      <Text color="white">{taskLabel}</Text>
+      {visibleActions.length > 0 ? (
+        <Box flexWrap="wrap" marginTop={1}>
+          {visibleActions.map((action, index) => (
+            <Box
+              key={`${action.key}-${action.label}`}
+              marginRight={index === visibleActions.length - 1 ? 0 : 2}
+              marginBottom={1}
+            >
+              <Text color={palette.cyan}>{hotkeyLabel(action.key)}</Text>
+              <Text color="white"> {action.label}</Text>
+            </Box>
+          ))}
+        </Box>
+      ) : null}
     </Box>
   );
 }
@@ -445,6 +443,41 @@ function ResizeBlocker({
         {`Need at least ${minColumns} columns × ${minRows} rows for this view.`}
       </Text>
       <Text color={palette.gray}>Resize the terminal, then continue.</Text>
+    </Box>
+  );
+}
+
+function LocalSection({
+  title,
+  tone = "neutral",
+  children,
+  marginTop = 1,
+}: {
+  title: string;
+  tone?: "neutral" | "info" | "success" | "warning" | "error";
+  children: React.ReactNode;
+  marginTop?: number;
+}) {
+  return (
+    <Box marginTop={marginTop} flexDirection="column">
+      <Text
+        color={
+          tone === "info"
+            ? palette.cyan
+            : tone === "success"
+              ? palette.green
+              : tone === "warning"
+                ? palette.amber
+                : tone === "error"
+                  ? palette.red
+                  : palette.muted
+        }
+      >
+        {title}
+      </Text>
+      <Box marginTop={1} flexDirection="column">
+        {children}
+      </Box>
     </Box>
   );
 }
@@ -1219,14 +1252,14 @@ function SearchShell({
     <Box flexDirection="column" paddingX={1}>
       <Box borderStyle="round" borderColor={palette.gray} flexDirection="column" paddingX={1}>
         <Text color={palette.amber}>{APP_LABEL}</Text>
-        <Box marginTop={1}>
+        <Box marginTop={1} flexDirection="column">
           <Text bold color="white">
             {mode === "anime" ? "Search anime" : "Search titles"}
           </Text>
+          <Text
+            color={palette.muted}
+          >{`Provider ${provider}  ·  Enter submits  ·  Esc cancels`}</Text>
         </Box>
-        <Text
-          color={palette.muted}
-        >{`Provider ${provider}  ·  Enter submits  ·  Esc cancels`}</Text>
         <Box marginTop={1}>
           <Text color={palette.cyan}>› </Text>
           <TextInput value={value} onChange={setValue} placeholder={placeholder} />
@@ -1736,13 +1769,7 @@ function ListShell<T>({
         paddingY={0}
       >
         <Text color={palette.amber}>{APP_LABEL}</Text>
-        <Box
-          marginTop={1}
-          flexDirection="column"
-          borderStyle="round"
-          borderColor={confirmed ? palette.green : palette.cyan}
-          paddingX={1}
-        >
+        <Box marginTop={1} flexDirection="column">
           <Text color={confirmed ? palette.green : palette.cyan}>
             {confirmed ? "Selected" : title}
           </Text>
@@ -1796,19 +1823,12 @@ function ListShell<T>({
               {windowEnd < filteredOptions.length && <Text color={palette.gray}> ▼ ...</Text>}
             </Box>
             {!ultraCompact ? (
-              <Box
-                marginTop={1}
-                flexDirection="column"
-                borderStyle="round"
-                borderColor={palette.green}
-                paddingX={1}
-              >
-                <Text color={palette.green}>Current Selection</Text>
+              <LocalSection title="Current Selection" tone="success">
                 <Text bold color="white">
                   {truncateLine(selectedLabel, innerWidth)}
                 </Text>
                 <Text color={palette.muted}>{truncateLine(selectedDetail, innerWidth * 2)}</Text>
-              </Box>
+              </LocalSection>
             ) : null}
           </>
         )}
@@ -2915,9 +2935,6 @@ function BrowseShell<T>({
               marginTop={wideBrowse ? 0 : 1}
               marginLeft={wideBrowse ? 1 : 0}
               flexDirection="column"
-              borderStyle="round"
-              borderColor={palette.green}
-              paddingX={1}
               width={wideBrowse ? previewWidth : undefined}
             >
               <Text color={palette.green}>Selection Preview</Text>
