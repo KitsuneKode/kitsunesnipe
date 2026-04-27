@@ -174,6 +174,10 @@ async function main() {
 
   rl.close();
 
+  if (!m3u8Url.includes('.m3u8') && !m3u8Url.includes('.mp4')) {
+      console.log(`    [!] This is an embed link. 'mpv' will automatically use 'yt-dlp' to extract the raw video.`);
+  }
+
   const mpv = spawn("mpv", mpvArgs, { stdio: "inherit" });
   mpv.on("close", () => {
     console.log("\n[+] Playback finished.");

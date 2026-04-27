@@ -293,6 +293,10 @@ async function main() {
     ];
     if (selectedSubUrl) mpvArgs.push(`--sub-file=${selectedSubUrl}`);
 
+    if (!selectedSource.url.includes('.m3u8') && !selectedSource.url.includes('.mp4')) {
+        console.log(`    [!] This is an embed link. 'mpv' will automatically use 'yt-dlp' to extract the raw video.`);
+    }
+
     spawn("mpv", mpvArgs, { stdio: "inherit" }).on("close", () => process.exit(0));
   } catch (e) {
     console.error("\n[!] Error:", e.message);

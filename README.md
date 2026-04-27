@@ -28,19 +28,20 @@ KitsuneSnipe does not host, store, upload, mirror, or distribute any video files
 | ------------------------ | -------- | --------------------------- |
 | [Bun](https://bun.sh/)   | ✅       | Runtime and package manager |
 | [mpv](https://mpv.io/)   | ✅       | Media player                |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | ✅ | Extracts embed URLs |
 | Kitty / Ghostty terminal | Optional | Poster image preview        |
 
-Install mpv:
+Install mpv and yt-dlp:
 
 ```bash
 # Arch
-sudo pacman -S mpv
+sudo pacman -S mpv yt-dlp
 
 # Debian/Ubuntu
-sudo apt install mpv
+sudo apt install mpv yt-dlp
 
 # macOS
-brew install mpv
+brew install mpv yt-dlp
 ```
 
 ## 📦 Installation
