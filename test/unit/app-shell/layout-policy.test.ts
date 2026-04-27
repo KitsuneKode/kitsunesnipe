@@ -12,8 +12,8 @@ describe("getShellViewportPolicy", () => {
   });
 
   test("enables wide browse layout only on sufficiently large terminals", () => {
-    expect(getShellViewportPolicy("browse", 150, 30).wideBrowse).toBe(true);
-    expect(getShellViewportPolicy("browse", 149, 30).wideBrowse).toBe(false);
+    expect(getShellViewportPolicy("browse", 164, 30).wideBrowse).toBe(true);
+    expect(getShellViewportPolicy("browse", 163, 30).wideBrowse).toBe(false);
   });
 
   test("keeps playback policy separate from browse wide layout rules", () => {

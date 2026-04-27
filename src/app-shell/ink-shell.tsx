@@ -422,8 +422,8 @@ function ShellFrame({
   const sepWidth = Math.max(24, (stdout.columns ?? 80) - 4);
 
   return (
-    <Box flexDirection="column">
-      <Box flexDirection="column" paddingX={1}>
+    <Box flexDirection="column" flexGrow={1} justifyContent="space-between">
+      <Box flexDirection="column" flexGrow={1} paddingX={1}>
         <Box justifyContent="space-between">
           <Text bold color="white">
             {title}
@@ -431,31 +431,33 @@ function ShellFrame({
           {status ? <Text color={statusColor(status.tone)}>{status.label}</Text> : null}
         </Box>
         <Text color={palette.muted}>{subtitle}</Text>
-        <Box marginTop={1} flexDirection="column">
+        <Box marginTop={1} flexDirection="column" flexGrow={1}>
           {children}
         </Box>
       </Box>
 
-      {commandMode ? (
-        <CommandPalette
-          input={commandInput}
-          commands={commands}
-          highlightedIndex={highlightedIndex}
+      <Box flexDirection="column">
+        {commandMode ? (
+          <CommandPalette
+            input={commandInput}
+            commands={commands}
+            highlightedIndex={highlightedIndex}
+          />
+        ) : null}
+
+        <Box marginTop={1}>
+          <Text color={palette.gray} dimColor>
+            {"─".repeat(sepWidth)}
+          </Text>
+        </Box>
+
+        <ShellFooter
+          taskLabel={footerTask}
+          actions={footerActions}
+          mode={footerMode}
+          commandMode={commandMode && !inputLocked}
         />
-      ) : null}
-
-      <Box marginTop={1}>
-        <Text color={palette.gray} dimColor>
-          {"─".repeat(sepWidth)}
-        </Text>
       </Box>
-
-      <ShellFooter
-        taskLabel={footerTask}
-        actions={footerActions}
-        mode={footerMode}
-        commandMode={commandMode && !inputLocked}
-      />
     </Box>
   );
 }
@@ -538,16 +540,26 @@ function InputField({
   focus?: boolean;
   hint?: string;
 }) {
+  const { stdout } = useStdout();
+  const wideField = (stdout.columns ?? 0) >= 112;
+
   return (
     <Box marginTop={1} flexDirection="column">
-      <Text color={palette.muted}>{label}</Text>
+      <Box justifyContent="space-between">
+        <Text color={palette.muted}>{label}</Text>
+        {hint && wideField ? (
+          <Text color={palette.gray} dimColor>
+            {hint}
+          </Text>
+        ) : null}
+      </Box>
       <Box
         marginTop={1}
         borderStyle="round"
         borderColor={focus ? palette.cyan : palette.gray}
         paddingX={1}
       >
-        <Text color={focus ? palette.cyan : palette.gray}>› </Text>
+        <Text color={focus ? palette.cyan : palette.gray}>{focus ? "⌕ " : "› "}</Text>
         <TextInput
           value={value}
           onChange={onChange}
@@ -557,7 +569,7 @@ function InputField({
           showCursor
         />
       </Box>
-      {hint ? (
+      {hint && !wideField ? (
         <Box marginTop={1}>
           <Text color={palette.gray} dimColor>
             {hint}
@@ -739,6 +751,7 @@ export function useSessionState(stateManager: SessionStateManager) {
 function AppRoot({ stateManager }: { stateManager: SessionStateManager }) {
   const state = useSessionState(stateManager);
   const screen = useRootShellScreen();
+  const { stdout } = useStdout();
   const rootContext = `Mode ${state.mode}  ·  Provider ${state.provider}`;
   const rootStatus =
     state.playbackStatus === "playing"
@@ -763,13 +776,17 @@ function AppRoot({ stateManager }: { stateManager: SessionStateManager }) {
         : state.stream?.subtitleList?.length
           ? `${state.stream.subtitleList.length} subtitle tracks available`
           : "subtitles not found";
+  const shellWidth = Math.max(80, (stdout.columns ?? 80) - 2);
+  const shellHeight = Math.max(24, (stdout.rows ?? 24) - 1);
 
   return (
-    <Box flexDirection="column" paddingX={1} paddingY={0}>
+    <Box flexDirection="column" width={shellWidth} height={shellHeight} paddingX={1} paddingY={0}>
       <Box
         flexDirection="column"
         borderStyle="round"
         borderColor={palette.gray}
+        width="100%"
+        height="100%"
         paddingX={1}
         paddingY={0}
       >
@@ -780,7 +797,7 @@ function AppRoot({ stateManager }: { stateManager: SessionStateManager }) {
         <Text color={palette.gray} dimColor>
           {rootContext}
         </Text>
-        <Box marginTop={1} flexDirection="column">
+        <Box marginTop={1} flexDirection="column" flexGrow={1}>
           {state.playbackStatus === "error" ? (
             <ErrorShell
               message={state.playbackError || "An unknown error occurred"}
@@ -967,6 +984,8 @@ function PlaybackShell({
   const [poster, setPoster] = useState<PosterResult>({ kind: "none" });
   const { stdout } = useStdout();
   const playbackViewport = getShellViewportPolicy("playback", stdout.columns, stdout.rows);
+  const playbackWide = (stdout.columns ?? 0) >= 150;
+  const showPosterCompanion = playbackWide && poster.kind !== "none";
 
   useEffect(() => {
     const url = state.posterUrl;
@@ -977,7 +996,7 @@ function PlaybackShell({
       });
       return;
     }
-    fetchPoster(url, { rows: 10, cols: 22 })
+    fetchPoster(url, { rows: 8, cols: 18 })
       .then((next) => {
         setPoster((prev) => {
           if (prev.kind === "kitty" && (next.kind !== "kitty" || prev.imageId !== next.imageId)) {
@@ -1479,60 +1498,79 @@ function PlaybackShell({
         />
       ) : (
         <>
-          {/* Episode identity card */}
-          <Box flexDirection="column" marginBottom={1}>
-            {state.type === "series" ? (
-              <>
-                <Text bold color="white">
-                  {`S${String(state.season).padStart(2, "0")}E${String(state.episode).padStart(2, "0")}`}
-                </Text>
-                <Text color={palette.muted}>Episode complete</Text>
-              </>
-            ) : (
-              <Text color={palette.muted}>Playback complete</Text>
-            )}
-          </Box>
-
-          {/* Inline poster when available */}
-          {poster.kind !== "none" ? (
-            <Box marginBottom={1} flexDirection="column">
-              {poster.kind === "kitty" ? (
-                <Text>{poster.placeholder}</Text>
-              ) : (
-                poster.art
-                  .split("\n")
-                  .slice(0, poster.rows)
-                  .map((line, i) => <Text key={i}>{line}</Text>)
-              )}
-            </Box>
-          ) : null}
-
-          <Box>
-            <Badge label={`provider ${activeProvider}`} tone="info" />
-            <Badge label={state.mode === "anime" ? "anime mode" : "series mode"} />
+          <Box justifyContent="space-between">
+            <Text color={palette.gray} dimColor>
+              {`Provider ${activeProvider}  ·  ${state.mode === "anime" ? "anime mode" : "series mode"}`}
+            </Text>
             {activeOverlay ? (
-              <Badge label={`${activeOverlay.title.toLowerCase()} panel`} tone="success" />
+              <Text color={palette.green}>{`${activeOverlay.title.toLowerCase()} panel`}</Text>
             ) : null}
           </Box>
-          {state.subtitleStatus ? (
-            <Box marginTop={1}>
-              <Text
-                color={
-                  state.subtitleStatus.toLowerCase().includes("not found")
-                    ? palette.amber
-                    : palette.green
-                }
-              >
-                {"● "}
-                {state.subtitleStatus}
-              </Text>
+          <Box marginTop={1}>
+            <Text color={palette.gray} dimColor>
+              {"─".repeat(Math.max(24, (stdout.columns ?? 80) - 8))}
+            </Text>
+          </Box>
+          <Box flexDirection={showPosterCompanion ? "row" : "column"} marginTop={1} flexGrow={1}>
+            <Box
+              flexDirection="column"
+              width={showPosterCompanion ? Math.max(56, (stdout.columns ?? 80) - 38) : undefined}
+            >
+              {state.type === "series" ? (
+                <>
+                  <Text bold color="white">
+                    {`S${String(state.season).padStart(2, "0")}E${String(state.episode).padStart(2, "0")}`}
+                  </Text>
+                  <Text color={palette.muted}>Episode complete</Text>
+                </>
+              ) : (
+                <Text color={palette.muted}>Playback complete</Text>
+              )}
+
+              {state.subtitleStatus ? (
+                <Box marginTop={1}>
+                  <Text
+                    color={
+                      state.subtitleStatus.toLowerCase().includes("not found")
+                        ? palette.amber
+                        : palette.green
+                    }
+                  >
+                    {"● "}
+                    {state.subtitleStatus}
+                  </Text>
+                </Box>
+              ) : null}
+
+              {state.showMemory && state.memoryUsage ? (
+                <Box marginTop={1}>
+                  <Text color={palette.gray}>{state.memoryUsage}</Text>
+                </Box>
+              ) : null}
             </Box>
-          ) : null}
-          {state.showMemory && state.memoryUsage ? (
-            <Box marginTop={1}>
-              <Text color={palette.gray}>{state.memoryUsage}</Text>
-            </Box>
-          ) : null}
+
+            {showPosterCompanion ? (
+              <Box marginLeft={2} flexDirection="column" width={26}>
+                <Text color={palette.gray} dimColor>
+                  Episode art
+                </Text>
+                <Box marginTop={1}>
+                  {poster.kind === "kitty" ? (
+                    <Text>{poster.placeholder}</Text>
+                  ) : (
+                    <Box flexDirection="column">
+                      {poster.art
+                        .split("\n")
+                        .slice(0, poster.rows)
+                        .map((line, i) => (
+                          <Text key={i}>{line}</Text>
+                        ))}
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            ) : null}
+          </Box>
           {activeOverlay ? (
             <OverlayPanel
               overlay={
@@ -1680,12 +1718,13 @@ function SearchShell({
         label="Search"
         value={value}
         onChange={setValue}
+        onSubmit={(next) => {
+          const trimmed = next.trim();
+          if (trimmed.length > 0) onSubmit(trimmed);
+        }}
         placeholder={placeholder}
-        hint="Enter submits · / opens commands"
+        hint="Enter submits · / opens commands · Ctrl+W deletes a word"
       />
-      <Box marginTop={1}>
-        <Text color={palette.gray}>Start with a title, then refine from inside the shell.</Text>
-      </Box>
     </Box>
   );
 }
@@ -1764,7 +1803,7 @@ function LoadingShell({ state, onCancel }: { state: LoadingShellState; onCancel?
   };
 
   return (
-    <Box flexDirection="column" paddingX={2} paddingY={1}>
+    <Box flexDirection="column" flexGrow={1} justifyContent="center" paddingX={2} paddingY={1}>
       {/* Content title */}
       <Box>
         <Text color={accentColor}>{leadIcon} </Text>
@@ -2833,7 +2872,7 @@ function BrowseShell<T>({
   const [poster, setPoster] = useState<PosterResult>({ kind: "none" });
   const requestIdRef = useRef(0);
 
-  // Debounced poster fetch: fires 120 ms after selection URL changes
+  // Debounced poster fetch so result navigation stays responsive while posters swap.
   useEffect(() => {
     const isWide = getShellViewportPolicy("browse", stdout.columns, stdout.rows).wideBrowse;
     const url = options[selectedIndex]?.previewImageUrl;
@@ -2846,7 +2885,7 @@ function BrowseShell<T>({
     }
     let cancelled = false;
     const timer = setTimeout(() => {
-      fetchPoster(url, { rows: 10, cols: 20 })
+      fetchPoster(url, { rows: 8, cols: 18 })
         .then((r) => {
           if (!cancelled) {
             setPoster((prev) => {
@@ -3228,8 +3267,8 @@ function BrowseShell<T>({
   } = viewport;
   const effectiveFooterMode = ultraCompact ? "minimal" : (footerMode ?? "detailed");
   const innerWidth = Math.max(24, stdout.columns - 8);
-  const previewWidth = wideBrowse ? Math.max(30, Math.floor(innerWidth * 0.34)) : innerWidth;
-  const listWidth = wideBrowse ? Math.max(42, innerWidth - previewWidth - 3) : innerWidth;
+  const previewWidth = wideBrowse ? Math.max(28, Math.floor(innerWidth * 0.3)) : innerWidth;
+  const listWidth = wideBrowse ? Math.max(48, innerWidth - previewWidth - 4) : innerWidth;
   const rowWidth = Math.max(20, listWidth - 4);
   const windowStart = getWindowStart(selectedIndex, options.length, maxVisible);
   const windowEnd = Math.min(windowStart + maxVisible, options.length);
@@ -3256,6 +3295,7 @@ function BrowseShell<T>({
   );
   const showCompanion =
     wideBrowse &&
+    !compact &&
     Boolean(
       poster.kind !== "none" ||
       selectedOption?.previewTitle ||
@@ -3521,8 +3561,8 @@ function BrowseShell<T>({
   });
 
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Box flexDirection="column">
+    <Box flexDirection="column" flexGrow={1} paddingX={1}>
+      <Box flexDirection="column" flexGrow={1}>
         <Box justifyContent="space-between">
           <BrowseTitle mode={mode} />
           <Text color={searchState === "error" ? palette.red : palette.cyan}>
@@ -3600,11 +3640,12 @@ function BrowseShell<T>({
             flexDirection={showCompanion ? "row" : "column"}
             marginTop={1}
             justifyContent="space-between"
+            flexGrow={1}
           >
             {/* Result list */}
             <Box flexDirection="column" width={showCompanion ? listWidth : undefined}>
               <Text color={palette.gray} dimColor>
-                {`Results  ·  ${options.length} available`}
+                {`Results  ·  ${options.length} available${resultSubtitle ? `  ·  ${resultSubtitle}` : ""}`}
               </Text>
               {windowStart > 0 ? <Text color={palette.gray}> ▲ ...</Text> : null}
               {visibleOptions.map((option, index) => {
@@ -3650,7 +3691,7 @@ function BrowseShell<T>({
 
             {/* Companion pane */}
             {showCompanion ? (
-              <Box marginLeft={1} flexDirection="column" width={previewWidth}>
+              <Box marginLeft={2} flexDirection="column" width={previewWidth}>
                 <Text color={palette.gray} dimColor>
                   Selection preview
                 </Text>

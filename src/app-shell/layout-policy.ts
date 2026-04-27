@@ -17,7 +17,7 @@ export function getShellViewportPolicy(
 ): ShellViewportPolicy {
   const compact = columns < 110 || rows < 34;
   const ultraCompact = columns < 92 || rows < 28;
-  const wideBrowse = kind === "browse" && columns >= 150 && rows >= 28;
+  const wideBrowse = kind === "browse" && columns >= 164 && rows >= 30;
 
   if (kind === "picker") {
     const minColumns = 84;
