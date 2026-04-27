@@ -1,162 +1,203 @@
-import { spawnSync } from 'child_process';
+import { chromium } from "playwright";
 import * as cheerio from 'cheerio';
 import * as readline from 'readline';
 import { spawn } from 'child_process';
 
 const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+
 function ask(query: string): Promise<string> {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
     return new Promise(resolve => rl.question(query, (ans) => {
-        rl.close();
         resolve(ans.trim());
     }));
 }
 
-// True Headless Fetch using system curl to bypass TLS Fingerprinting/JA3
-function curlFetch(url: string, headers: Record<string, string> = {}): string {
-    const args = ['-s', '--compressed', '-L', url];
-    args.push('-H', `User-Agent: ${userAgent}`);
-    for (const [k, v] of Object.entries(headers)) {
-        args.push('-H', `${k}: ${v}`);
-    }
-    const res = spawnSync('curl', args);
-    return res.stdout.toString();
-}
-
 async function main() {
-    process.title = "anikai-true-headless";
+    process.title = "anikai-hybrid";
     console.log("=========================================");
-    console.log(" ANIKAI.TO TRUE 0-RAM HEADLESS SCRAPER");
-    console.log(" (Pure Curl + Cheerio - No Playwright)");
+    console.log(" ANIKAI.TO HYBRID HEADLESS SCRAPER");
+    console.log(" (Stable Full-Session Persistence - DOM Clicker)");
     console.log("=========================================\n");
 
     const query = process.argv[2] || await ask("Enter anime to search: ");
 
-    // 1. Search Anikai (SSR Results)
-    console.log(`\n[*] Searching Anikai for "${query}"...`);
-    const searchHtml = curlFetch(`https://anikai.to/browser?keyword=${encodeURIComponent(query)}`, {
-        "Accept": "text/html",
-        "Referer": "https://anikai.to/"
-    });
+    console.log(`\n[*] Initializing browser session for "${query}"...`);
+    const browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({ userAgent });
+    const page = await context.newPage();
     
-    const $ = cheerio.load(searchHtml);
-    const results: any[] = [];
-    $('.aitem').each((i, el) => {
-        const title = $(el).find('.title').text().trim();
-        const href = $(el).find('a.poster').attr('href');
-        const aniId = $(el).find('button.ttip-btn').attr('data-tip');
-        if (href && aniId) results.push({ title, slug: href.split('/').pop(), aniId });
+    // We navigate to home to establish session/cookies
+    try {
+        await page.goto("https://anikai.to/home", { waitUntil: "commit" });
+    } catch (e) {
+        console.log("[!] Initial navigation failed, but continuing...");
+    }
+
+    console.log(`[*] Executing search...`);
+    try {
+        await page.goto(`https://anikai.to/browser?keyword=${encodeURIComponent(query)}`, { waitUntil: "commit" });
+        await page.waitForTimeout(5000); // Wait for CF Challenge
+        try { await page.waitForSelector('.aitem', { timeout: 15000 }); } catch (e) {}
+    } catch (e) {
+        console.error("[!] Search navigation or selector failed.");
+    }
+
+    const results = await page.evaluate(() => {
+        const items = Array.from(document.querySelectorAll('.aitem'));
+        return items.map(el => {
+            const title = el.querySelector('.title')?.textContent?.trim() || "";
+            const href = el.querySelector('a.poster')?.getAttribute('href') || "";
+            const aniId = el.querySelector('button.ttip-btn')?.getAttribute('data-tip') || "";
+            return { title, slug: href.split('/').pop(), aniId };
+        }).filter(r => r.slug && r.aniId);
     });
 
-    if (results.length === 0) {
-        console.error("[!] No results found. This might be a Cloudflare block.");
+    if (!results || results.length === 0) {
+        console.error("[!] No results found.");
+        rl.close();
+        await browser.close();
         process.exit(1);
     }
 
-    results.slice(0, 10).forEach((r, i) => console.log(`  [${i + 1}] ${r.title}`));
-    const pickStr = await ask("\nPick anime [1]: ");
+    results.slice(0, 10).forEach((r: any, i: number) => console.log(`  [${i + 1}] ${r.title}`));
+    
+    const pickStr = process.argv[3] || await ask("\nPick anime [1]: ");
     const selected = results[parseInt(pickStr || "1") - 1] || results[0];
 
-    // 2. Resolve Session Token from Watch Page
-    console.log(`\n[*] Sniffing session token from watch page...`);
-    const watchHtml = curlFetch(`https://anikai.to/watch/${selected.slug}`, {
-        "Accept": "text/html",
-        "Referer": "https://anikai.to/browser"
-    });
-    
-    // We need to extract the session token from the JavaScript in the watch page.
-    // Anikai usually loads its AJAX calls with a dynamic token.
-    // Let's search the HTML for the AJAX URL pattern.
-    const tokenMatch = watchHtml.match(/ajax\/episodes\/list\?ani_id=[^&]+&_=(xQm9tJfLwGhz[^"']+)/);
-    let sessionToken = tokenMatch ? tokenMatch[1] : "";
-    
-    if (!sessionToken) {
-        // Fallback: Use the One Piece master token prefix
-        sessionToken = "xQm9tJfLwGhz_0Eq8S_YAHYkwp-qQPLfm50W5dNnyd3MnMopTjXwyAEUk82vLeyG5vhVstnd";
-        console.warn("[!] Token not found in HTML. Using fallback master token.");
-    } else {
-        console.log(`[+] Captured Session Token from HTML.`);
+    console.log(`\n[*] Navigating to ${selected.title}...`);
+    try {
+        await page.goto(`https://anikai.to/watch/${selected.slug}`, { waitUntil: "domcontentloaded" });
+        // Wait for the episode list to load. Anikai loads episodes via ajax into .ep-item
+        await page.waitForSelector('a[token]', { timeout: 30000 });
+    } catch (e) {
+        console.error("[!] Failed to load watch page or episode list.");
+        rl.close();
+        await browser.close();
+        process.exit(1);
     }
 
-    const ajaxHeaders = {
-        "X-Requested-With": "XMLHttpRequest",
-        "Referer": `https://anikai.to/watch/${selected.slug}`,
-        "Accept": "application/json, text/javascript, */*; q=0.01"
-    };
-
-    // 3. Fetch Episode List
     console.log(`[*] Fetching episode list...`);
-    const epRaw = curlFetch(`https://anikai.to/ajax/episodes/list?ani_id=${selected.aniId}&_=${sessionToken}`, ajaxHeaders);
-    if (!epRaw || epRaw.trim() === "") {
-        console.error("[!] Episode list response was empty.");
-        process.exit(1);
-    }
-    const epData = JSON.parse(epRaw);
-    
-    if (!epData.result) {
-        console.error("[!] No result in episode data JSON.");
-        process.exit(1);
-    }
-
-    const $ep = cheerio.load(epData.result);
-    const episodes: any[] = [];
-    $ep('a[token]').each((i, el) => {
-        const epNum = $ep(el).attr('num');
-        const token = $ep(el).attr('token');
-        if (token) episodes.push({ epNum, token });
+    const episodes = await page.evaluate(() => {
+        const items = Array.from(document.querySelectorAll('a[token]'));
+        return items.map(el => {
+            const epNum = el.getAttribute('num') || el.getAttribute('data-num') || el.getAttribute('data-number');
+            const title = el.querySelector('span')?.textContent?.trim() || "";
+            return { epNum, title, elementIndex: items.indexOf(el) };
+        }).filter(ep => ep.epNum);
     });
+
+    if (episodes.length === 0) {
+        console.error("[!] No episodes found in the DOM.");
+        rl.close();
+        await browser.close();
+        process.exit(1);
+    }
 
     console.log(`[+] Found ${episodes.length} episodes.`);
-    const epPickStr = await ask(`\nPick episode [${episodes.length}]: `);
-    const selectedEp = episodes[parseInt(epPickStr || String(episodes.length)) - 1] || episodes[episodes.length - 1];
+    const epPickStr = process.argv[4] || await ask(`\nPick episode (1-${episodes.length}) [${episodes.length}]: `);
+    const selectedEpNum = parseInt(epPickStr || String(episodes.length));
+    const selectedEp = episodes.find(e => parseInt(e.epNum!) === selectedEpNum) || episodes[episodes.length - 1];
 
-    // 4. Fetch Server List
-    console.log(`[*] Fetching server list for episode ${selectedEp.epNum}...`);
-    const serverRaw = curlFetch(`https://anikai.to/ajax/links/list?token=${selectedEp.token}&_=${sessionToken}`, ajaxHeaders);
-    const serverData = JSON.parse(serverRaw);
+    console.log(`[*] Clicking episode ${selectedEp.epNum}...`);
     
-    const $srv = cheerio.load(serverData.result);
-    const servers: any[] = [];
-    $srv('.server').each((i, el) => {
-        const name = $srv(el).text().trim();
-        const sid = $srv(el).attr('data-sid');
-        const eid = $srv(el).attr('data-eid');
-        const lid = $srv(el).attr('data-lid');
-        const group = $srv(el).closest('.server-items').attr('data-id');
-        if (sid && eid && lid) servers.push({ name, sid, eid, lid, group });
+    // We will intercept the final stream URL by watching network requests after we click the server
+    let finalStreamUrl = "";
+    page.on('response', async res => {
+        const url = res.url();
+        if (url.includes('ajax/sources/extract')) {
+            try {
+                const json = await res.json();
+                if (json.status === "ok" && json.result?.url) {
+                    finalStreamUrl = json.result.url;
+                }
+            } catch(e) {}
+        }
+    });
+
+    try {
+        // Click the episode
+        await page.evaluate((idx) => {
+            const items = Array.from(document.querySelectorAll('a[token]'));
+            const btn = items[idx] as HTMLElement;
+            if (btn) btn.click();
+        }, selectedEp.elementIndex);
+        
+        // Wait for servers to appear
+        await page.waitForSelector('.server', { timeout: 30000 });
+    } catch (e) {
+        console.error("[!] Failed to click episode or load servers.");
+        rl.close();
+        await browser.close();
+        process.exit(1);
+    }
+
+    const servers = await page.evaluate(() => {
+        const items = Array.from(document.querySelectorAll('.server'));
+        return items.map(el => {
+            const name = el.textContent?.trim() || "";
+            const group = el.closest('.server-items')?.getAttribute('data-id') || "";
+            return { name, group, elementIndex: items.indexOf(el) };
+        });
     });
 
     console.log("\nAvailable Servers:");
-    servers.forEach((s, i) => console.log(`  [${i + 1}] [${s.group.toUpperCase()}] ${s.name}`));
-    const srvPickStr = await ask("\nPick server [1]: ");
+    servers.forEach((s, i) => console.log(`  [${i + 1}] [${s.group?.toUpperCase()}] ${s.name}`));
+    const srvPickStr = process.argv[5] || await ask("\nPick server [1]: ");
     const selectedSrv = servers[parseInt(srvPickStr || "1") - 1] || servers[0];
 
-    // 5. Extract Final Link
-    console.log(`[*] Extracting final stream link from ${selectedSrv.name}...`);
-    const finalRaw = curlFetch(`https://anikai.to/ajax/sources/extract?eid=${selectedSrv.eid}&lid=${selectedSrv.lid}&sid=${selectedSrv.sid}&_=${sessionToken}`, ajaxHeaders);
-    const finalData = JSON.parse(finalRaw);
+    console.log(`[*] Clicking server ${selectedSrv.name}...`);
+    try {
+        await page.evaluate((idx) => {
+            const items = Array.from(document.querySelectorAll('.server'));
+            const btn = items[idx] as HTMLElement;
+            if (btn) btn.click();
+        }, selectedSrv.elementIndex);
+        
+        // Wait for the intercepted response to populate finalStreamUrl
+        let retries = 0;
+        while (!finalStreamUrl && retries < 20) {
+            await new Promise(r => setTimeout(r, 500));
+            retries++;
+        }
 
-    if (finalData.status !== "ok" || !finalData.result?.url) {
-        console.error("[!] Failed to extract final stream URL.");
+        // Fallback: Check if an iframe was loaded
+        if (!finalStreamUrl) {
+            try {
+                const iframe = await page.waitForSelector('iframe', { timeout: 15000 });
+                if (iframe) {
+                    finalStreamUrl = await iframe.getAttribute('src') || "";
+                }
+            } catch (e) {}
+        }
+    } catch (e) {
+        console.error("[!] Failed to click server or extract stream.");
+    }
+
+    if (!finalStreamUrl) {
+        console.error("[!] Failed to extract final stream URL from network interception.");
+        rl.close();
+        await browser.close();
         process.exit(1);
     }
 
-    const m3u8Url = finalData.result.url;
     console.log(`\n[+] SUCCESS! Stream URL extracted:`);
-    console.log(`    -> ${m3u8Url}`);
+    console.log(`    -> ${finalStreamUrl}`);
 
-    if (!m3u8Url.includes('.m3u8') && !m3u8Url.includes('.mp4')) {
+    if (!finalStreamUrl.includes('.m3u8') && !finalStreamUrl.includes('.mp4')) {
         console.log(`    [!] This is an embed link. 'mpv' will automatically use 'yt-dlp' to extract the raw video.`);
     }
 
-    spawn("mpv", [m3u8Url, `--referrer=https://anikai.to/`, `--user-agent=${userAgent}`], { stdio: "inherit" }).on("close", () => process.exit(0));
+    rl.close();
+    await browser.close();
+    spawn("mpv", [finalStreamUrl, `--referrer=https://anikai.to/`, `--user-agent=${userAgent}`], { stdio: "inherit" }).on("close", () => process.exit(0));
 }
 
 main().catch(e => {
     console.error("Fatal error:", e);
+    rl.close();
     process.exit(1);
 });
