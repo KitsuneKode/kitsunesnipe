@@ -202,5 +202,13 @@ export async function getAutoAdvanceEpisode(
     return null;
   }
 
+  if (
+    availability.nextEpisode &&
+    availability.nextEpisode.season === currentEpisode.season &&
+    availability.nextEpisode.episode === currentEpisode.episode
+  ) {
+    return null;
+  }
+
   return availability.nextEpisode;
 }

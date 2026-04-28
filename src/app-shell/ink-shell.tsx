@@ -999,7 +999,14 @@ function PlaybackShell({
   const { stdout } = useStdout();
   const playbackViewport = getShellViewportPolicy("playback", stdout.columns, stdout.rows);
   const playbackWide = (stdout.columns ?? 0) >= 150;
-  const showPosterCompanion = playbackWide && poster.kind !== "none";
+  const showPosterCompanion =
+    playbackWide &&
+    Boolean(
+      state.posterUrl ||
+      poster.kind !== "none" ||
+      posterState === "loading" ||
+      posterState === "unavailable",
+    );
 
   useEffect(() => {
     const url = state.posterUrl;
@@ -1623,9 +1630,19 @@ function PlaybackShell({
                         ))}
                     </Box>
                   ) : (
-                    <Text color={posterState === "loading" ? palette.cyan : palette.gray} dimColor>
-                      {posterState === "loading" ? "Loading poster…" : "Poster unavailable"}
-                    </Text>
+                    <Box flexDirection="column">
+                      <Text
+                        color={posterState === "loading" ? palette.cyan : palette.gray}
+                        dimColor
+                      >
+                        {posterState === "loading" ? "Loading poster…" : "Poster unavailable"}
+                      </Text>
+                      {posterState === "unavailable" ? (
+                        <Text color={palette.gray} dimColor>
+                          The current title did not expose usable artwork for this terminal pass.
+                        </Text>
+                      ) : null}
+                    </Box>
                   )}
                 </Box>
               </Box>

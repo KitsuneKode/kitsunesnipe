@@ -193,6 +193,16 @@ describe("getAutoAdvanceEpisode", () => {
       ),
     ).resolves.toEqual({ season: 1, episode: 8 });
   });
+
+  test("does not auto-advance when provider navigation points back to the current episode", async () => {
+    await expect(
+      getAutoAdvanceEpisode(EOF_RESULT, SERIES_TITLE, CURRENT_EPISODE, true, {
+        previousEpisode: { season: 1, episode: 6 },
+        nextEpisode: { season: 1, episode: 7 },
+        nextSeasonEpisode: null,
+      }),
+    ).resolves.toBeNull();
+  });
 });
 
 describe("toEpisodeNavigationState", () => {
