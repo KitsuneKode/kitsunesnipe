@@ -1,12 +1,16 @@
 #!/usr/bin/env bun
 // =============================================================================
-// KitsuneSnipe - New Architecture Entry Point
+// KitsuneSnipe - Canonical Runtime Entry Point
 //
 // Usage:
 //   bun run src/main.ts                    # Interactive mode
 //   bun run src/main.ts -S "Breaking Bad"  # Search directly
 //   bun run src/main.ts -i 438631 -t movie # By ID
 //   bun run src/main.ts -a                 # Anime mode
+//
+// This file owns the current fullscreen session runtime.
+// Keep new architecture work here and treat index.ts as the legacy parity path
+// until the remaining migration residue is fully retired.
 // =============================================================================
 
 import { createContainer } from "@/container";

@@ -1,4 +1,12 @@
 #!/usr/bin/env bun
+// =============================================================================
+// KitsuneSnipe - Legacy Runtime Parity Path
+//
+// This file is kept temporarily while src/main.ts absorbs the remaining
+// session-flow and fullscreen-shell behavior. Do not add new product behavior
+// here unless it is strictly needed to preserve migration parity.
+// =============================================================================
+
 import { intro, outro, spinner, log } from "@clack/prompts";
 import { parseArgs } from "util";
 

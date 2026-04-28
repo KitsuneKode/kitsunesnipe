@@ -4,6 +4,7 @@ import TextInput from "ink-text-input";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 import { getShellViewportPolicy } from "@/app-shell/layout-policy";
 import type { SessionStateManager } from "@/domain/session/SessionStateManager";
+import type { SessionState } from "@/domain/session/SessionState";
 
 import { buildBrowseDetailsPanel } from "./details-panel";
 import {
@@ -97,6 +98,7 @@ const palette = {
 };
 
 const APP_LABEL = "🦊 KitsuneSnipe beta";
+const SCREEN_CLEAR_GRACE_MS = 140;
 
 function statusColor(tone: ShellStatus["tone"] = "neutral"): string {
   switch (tone) {
@@ -113,6 +115,31 @@ function statusColor(tone: ShellStatus["tone"] = "neutral"): string {
 
 function hotkeyLabel(key: string): string {
   return `[${key}]`;
+}
+
+function InlineBadge({
+  label,
+  tone = "neutral",
+}: {
+  label: string;
+  tone?: "neutral" | "info" | "success" | "warning" | "error";
+}) {
+  const color =
+    tone === "info"
+      ? palette.cyan
+      : tone === "success"
+        ? palette.green
+        : tone === "warning"
+          ? palette.amber
+          : tone === "error"
+            ? palette.red
+            : palette.muted;
+
+  return (
+    <Box marginRight={1}>
+      <Text color={color}>{label}</Text>
+    </Box>
+  );
 }
 
 function Footer({
@@ -695,7 +722,11 @@ function mountShell<TResult>({
     settled = true;
 
     if (shouldClear && rootShellScreen?.id === screenId) {
-      setRootShellScreen(null);
+      setTimeout(() => {
+        if (rootShellScreen?.id === screenId) {
+          setRootShellScreen(null);
+        }
+      }, SCREEN_CLEAR_GRACE_MS);
     }
 
     resolveResult(value);
@@ -779,6 +810,10 @@ function AppRoot({ stateManager }: { stateManager: SessionStateManager }) {
           : "subtitles not found";
   const shellWidth = Math.max(80, (stdout.columns ?? 80) - 2);
   const shellHeight = Math.max(24, (stdout.rows ?? 24) - 1);
+  const currentViewLabel =
+    state.playbackStatus === "loading" || state.playbackStatus === "playing"
+      ? "playback"
+      : state.view;
 
   return (
     <Box flexDirection="column" width={shellWidth} height={shellHeight} paddingX={1} paddingY={0}>
@@ -794,6 +829,12 @@ function AppRoot({ stateManager }: { stateManager: SessionStateManager }) {
         <Box justifyContent="space-between">
           <Text color={palette.amber}>{APP_LABEL}</Text>
           <Text color={rootStatus === "error" ? palette.red : palette.cyan}>{rootStatus}</Text>
+        </Box>
+        <Box marginTop={0} flexWrap="wrap">
+          <InlineBadge label={`mode ${state.mode}`} tone="info" />
+          <InlineBadge label={`provider ${state.provider}`} tone="neutral" />
+          <InlineBadge label={`view ${currentViewLabel}`} tone="success" />
+          {playbackSubtitle ? <InlineBadge label={playbackSubtitle} tone="neutral" /> : null}
         </Box>
         <Box marginTop={1} flexDirection="column" flexGrow={1}>
           {state.playbackStatus === "error" ? (
@@ -823,13 +864,64 @@ function AppRoot({ stateManager }: { stateManager: SessionStateManager }) {
           ) : screen ? (
             <Box key={screen.id}>{screen.element}</Box>
           ) : (
-            <Box paddingY={1}>
-              <Text color={palette.gray} dimColor italic>
-                Waiting for session...
-              </Text>
-            </Box>
+            <RootIdleShell state={state} />
           )}
         </Box>
+      </Box>
+    </Box>
+  );
+}
+
+function RootIdleShell({ state }: { state: SessionState }) {
+  const currentTitle = state.currentTitle?.name ?? "No title selected yet";
+  const currentEpisode = state.currentEpisode
+    ? `S${String(state.currentEpisode.season).padStart(2, "0")}E${String(
+        state.currentEpisode.episode,
+      ).padStart(2, "0")}`
+    : null;
+  const hasSearchResults = state.searchResults.length > 0;
+
+  return (
+    <Box flexDirection="column" flexGrow={1} justifyContent="space-between">
+      <Box flexDirection="column">
+        <Text bold color="white">
+          {state.mode === "anime"
+            ? "Browse anime and keep playback command-ready"
+            : "Browse your favorite movies and series"}
+        </Text>
+        <Text color={palette.muted}>
+          {hasSearchResults
+            ? `${state.searchResults.length} results are still loaded. Keep browsing or continue playback.`
+            : "The fullscreen shell is ready. Search, review details, and continue without dropping back to the terminal."}
+        </Text>
+
+        <LocalSection title="Current session" tone="info" marginTop={2}>
+          <Text color="white">{currentTitle}</Text>
+          <Text color={palette.muted}>
+            {currentEpisode
+              ? `${currentEpisode}  ·  Ready to resume episode flow`
+              : hasSearchResults
+                ? "Search results are available and ready to reopen"
+                : "Start with a title search or switch modes"}
+          </Text>
+        </LocalSection>
+
+        {state.searchQuery.trim().length > 0 ? (
+          <LocalSection title="Search context" tone="success">
+            <Text color="white">{state.searchQuery}</Text>
+            <Text color={palette.muted}>
+              {hasSearchResults
+                ? `${state.searchResults.length} results cached in this session`
+                : "Query is loaded and ready for the next browse pass"}
+            </Text>
+          </LocalSection>
+        ) : null}
+      </Box>
+
+      <Box marginTop={2}>
+        <Text color={palette.gray} dimColor italic>
+          Preparing the next fullscreen panel…
+        </Text>
       </Box>
     </Box>
   );
