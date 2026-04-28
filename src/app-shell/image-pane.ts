@@ -181,6 +181,8 @@ export async function fetchPoster(
     const first = posterCache.keys().next().value;
     if (first) posterCache.delete(first);
   }
-  posterCache.set(key, result);
+  if (result.kind !== "none") {
+    posterCache.set(key, result);
+  }
   return result;
 }
