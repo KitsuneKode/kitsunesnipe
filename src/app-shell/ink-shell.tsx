@@ -3828,9 +3828,29 @@ function BrowseShell<T>({
             {/* Companion pane */}
             {showCompanion ? (
               <Box marginLeft={2} flexDirection="column" width={previewWidth}>
-                <Text color={palette.gray} dimColor>
-                  Selection preview
-                </Text>
+                <Box>
+                  <Badge label="selection preview" />
+                  {selectedOption?.previewImageUrl ? (
+                    <Badge
+                      label={
+                        posterState === "loading"
+                          ? "poster loading"
+                          : poster.kind === "none"
+                            ? "poster unavailable"
+                            : "poster ready"
+                      }
+                      tone={
+                        posterState === "loading"
+                          ? "info"
+                          : poster.kind === "none"
+                            ? "warning"
+                            : "success"
+                      }
+                    />
+                  ) : (
+                    <Badge label="no poster source" tone="warning" />
+                  )}
+                </Box>
                 {poster.kind !== "none" ? (
                   <Box flexDirection="column" marginTop={1} marginBottom={1}>
                     {poster.kind === "kitty" ? (
