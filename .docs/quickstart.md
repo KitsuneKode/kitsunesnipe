@@ -1,4 +1,4 @@
-# KitsuneSnipe — Quickstart
+# Kunai — Quickstart
 
 Use this doc for setup, local execution, and common environment issues. Architecture and file ownership live elsewhere.
 
@@ -12,7 +12,7 @@ Use this doc for setup, local execution, and common environment issues. Architec
 
 ```sh
 git clone <repo>
-cd kitsunesnipe
+cd kunai
 bun install
 bunx playwright install chromium
 bun run link:global   # optional: installs local CLI command
@@ -27,7 +27,7 @@ bun run src/main.ts -i 1429 -t series
 bun run src/main.ts -i 438631 -t movie
 bun run src/main.ts -a
 bun run src/main.ts --debug
-kitsune-snipe -S "Dune"   # after bun run link:global
+kunai -S "Dune"   # after bun run link:global
 ```
 
 ## Dev Checks
@@ -35,7 +35,7 @@ kitsune-snipe -S "Dune"   # after bun run link:global
 ```sh
 bun run typecheck
 bun run lint
-bun run format
+bun run fmt
 bun run test
 ```
 

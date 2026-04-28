@@ -1,12 +1,12 @@
-# KitsuneSnipe Beta 🦊🎯
+# Kunai Beta 🥷
 
 A terminal-first Bun CLI for finding playable streams, capturing `.m3u8` URLs with Playwright, and launching them in `mpv`.
 
 Supports movie, series, and anime flows through a unified Ink shell. No API keys required.
 
-KitsuneSnipe is currently in beta: usable, but still actively being hardened across UI flow, provider support, subtitles, and diagnostics.
+Kunai is currently in beta: usable, but still actively being hardened across UI flow, provider support, subtitles, and diagnostics.
 
-KitsuneSnipe does not host, store, upload, mirror, or distribute any video files on its own servers. All playable media, manifests, subtitles, posters, and related assets are provided by non-affiliated third-party services and infrastructure.
+Kunai does not host, store, upload, mirror, or distribute any video files on its own servers. All playable media, manifests, subtitles, posters, and related assets are provided by non-affiliated third-party services and infrastructure.
 
 ## ✨ Features
 
@@ -47,8 +47,8 @@ brew install mpv yt-dlp
 ## 📦 Installation
 
 ```bash
-git clone https://github.com/kitsunekode/kitsunesnipe.git
-cd kitsunesnipe
+git clone https://github.com/kitsunekode/kunai.git
+cd kunai
 bun install
 bunx playwright install chromium
 bun run link:global
@@ -60,7 +60,7 @@ bun run link:global
 
 ```bash
 bun run src/main.ts
-kitsune-snipe
+kunai
 ```
 
 You'll be guided through:
@@ -108,7 +108,7 @@ The main flow stays inside the same shell:
 
 ## 📼 Watch History
 
-History is stored at `~/.local/share/kitsunesnipe/history.json`, keyed by TMDB ID.
+History is stored at `~/.local/share/kunai/history.json`, keyed by TMDB ID.
 
 - **Unfinished episode** → prompted to resume from exact timestamp or restart
 - **Finished episode** (>85% watched) → prompted to jump to next episode
@@ -159,7 +159,7 @@ bun run relink:global
 
 ## ⚠️ Disclaimer
 
-KitsuneSnipe is a client-side tool for research, automation, and playback handoff.
+Kunai is a client-side tool for research, automation, and playback handoff.
 
 - This app does not store any video files on its server.
 - This project does not host, store, upload, mirror, or distribute video content itself.

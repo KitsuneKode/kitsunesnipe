@@ -1,6 +1,6 @@
-# KitsuneSnipe — Agent Entry Point
+# Kunai — Agent Entry Point
 
-KitsuneSnipe is a terminal-first Bun CLI that finds playable video streams by intercepting `.m3u8` requests from embed players with Playwright and handing them off to `mpv`.
+Kunai is a terminal-first Bun CLI that finds playable video streams by intercepting `.m3u8` requests from embed players with Playwright and handing them off to `mpv`.
 
 ## Documentation Philosophy
 
@@ -80,7 +80,7 @@ Before finishing work:
 ```sh
 bun run typecheck
 bun run lint
-bun run format
+bun run fmt
 ```
 
 Use `bun run test` if tests are relevant and available. Do not use `bun test` directly.
@@ -99,15 +99,18 @@ Unit tests live under `test/unit/`, integration tests under `test/integration/`,
 
 ## User Data
 
-- Config: `~/.config/kitsunesnipe/config.json`
-- Provider overrides: `~/.config/kitsunesnipe/providers.json`
-- History: `~/.local/share/kitsunesnipe/history.json`
+- Config: `~/.config/kunai/config.json`
+- Provider overrides: `~/.config/kunai/providers.json`
+- History: `~/.local/share/kunai/history.json`
 - Stream cache: `./stream_cache.json`
 - Logs: `./logs.txt`
 
 ## Active Planning Docs
 
 - [.plans/roadmap.md](.plans/roadmap.md): current status and what is next
+- [.plans/kunai-principal-grill-qa.md](.plans/kunai-principal-grill-qa.md): current product and architecture decision pressure-test
+- [.plans/kunai-architecture-and-cache-hardening.md](.plans/kunai-architecture-and-cache-hardening.md): web, daemon, cache, relay, and paid compute architecture
+- [.plans/kunai-experience-and-growth-moat.md](.plans/kunai-experience-and-growth-moat.md): CLI-first product moat, web experience, premium model, and growth strategy
 - [.plans/persistent-shell-implementation.md](.plans/persistent-shell-implementation.md): migration order for the persistent shell and canonical runtime
 - [.plans/ink-migration.md](.plans/ink-migration.md): terminal UI rewrite plan
 - [.plans/search-service.md](.plans/search-service.md): deferred search/provider decoupling
