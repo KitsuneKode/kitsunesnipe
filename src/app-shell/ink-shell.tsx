@@ -87,16 +87,16 @@ const stdinManager = {
 stdinManager.setup();
 
 const palette = {
-  amber: "#e63946", // Replacing amber with a sharp Kunai red
-  cyan: "#f1faee", // Pure white/off-white for text
-  green: "#2a9d8f", // Keeping a muted green for success
-  rose: "#f29ac2",
-  red: "#e63946", // Deep red for errors/accents
-  gray: "#4a4e69", // Stealthy dark gray
-  muted: "#6c757d", // Muted text
+  amber: "#f2c066",
+  cyan: "#7dd3fc",
+  green: "#8dd58a",
+  rose: "#f3a6c8",
+  red: "#ff7a7a",
+  gray: "#7f8696",
+  muted: "#a4a9b6",
 };
 
-const APP_LABEL = "🥷 Kunai beta";
+const APP_LABEL = "🦊 KitsuneSnipe beta";
 
 function statusColor(tone: ShellStatus["tone"] = "neutral"): string {
   switch (tone) {
@@ -754,7 +754,6 @@ function AppRoot({ stateManager }: { stateManager: SessionStateManager }) {
   const state = useSessionState(stateManager);
   const screen = useRootShellScreen();
   const { stdout } = useStdout();
-  const rootContext = `Mode ${state.mode}  ·  Provider ${state.provider}`;
   const rootStatus =
     state.playbackStatus === "playing"
       ? "playing"
@@ -796,9 +795,6 @@ function AppRoot({ stateManager }: { stateManager: SessionStateManager }) {
           <Text color={palette.amber}>{APP_LABEL}</Text>
           <Text color={rootStatus === "error" ? palette.red : palette.cyan}>{rootStatus}</Text>
         </Box>
-        <Text color={palette.gray} dimColor>
-          {rootContext}
-        </Text>
         <Box marginTop={1} flexDirection="column" flexGrow={1}>
           {state.playbackStatus === "error" ? (
             <ErrorShell
@@ -818,7 +814,7 @@ function AppRoot({ stateManager }: { stateManager: SessionStateManager }) {
                   state.playbackStatus === "playing" ? playbackSubtitleStatus : undefined,
                 trace:
                   state.playbackStatus === "playing"
-                    ? "mpv is open; Kunai is waiting for playback to finish"
+                    ? "mpv is open; KitsuneSnipe is waiting for playback to finish"
                     : undefined,
                 showMemory: state.playbackStatus === "playing",
               }}
@@ -902,8 +898,10 @@ export async function shutdownSessionApp(): Promise<void> {
 
   setRootShellScreen(null);
   const exitPromise = rootShellExitPromise;
-  rootShellInk.unmount();
+  const ink = rootShellInk;
+  ink.cleanup();
   await exitPromise.catch(() => {});
+  deleteAllKittyImages();
 }
 
 function HomeShell({
@@ -1298,7 +1296,7 @@ function PlaybackShell({
       void openInfoOverlay({
         type: "about",
         title: "About",
-        subtitle: "Kunai beta",
+        subtitle: "KitsuneSnipe beta",
         loader: loadAboutPanel,
       });
       return true;
@@ -1699,7 +1697,9 @@ function Badge({
 
   return (
     <Box borderStyle="round" borderColor={color} paddingX={1} marginRight={1}>
-      <Text color={color}>{label}</Text>
+      <Text color={color} bold={tone !== "neutral"}>
+        {label}
+      </Text>
     </Box>
   );
 }
@@ -1833,8 +1833,8 @@ function LoadingShell({ state, onCancel }: { state: LoadingShellState; onCancel?
   const isPlaying = state.operation === "playing";
   const leadIcon = isPlaying ? "▶" : spinner;
   const accentColor = isPlaying ? palette.green : pulse ? palette.cyan : "white";
-  const separatorWidth = Math.min(44, (stdout.columns ?? 80) - 4);
-  const infoWidth = Math.min(72, Math.max(36, (stdout.columns ?? 80) - 12));
+  const separatorWidth = Math.min(52, Math.max(24, (stdout.columns ?? 80) - 22));
+  const infoWidth = Math.min(76, Math.max(40, (stdout.columns ?? 80) - 12));
 
   const operationLabels: Record<LoadingShellState["operation"], string> = {
     searching: "Searching",
@@ -1852,6 +1852,7 @@ function LoadingShell({ state, onCancel }: { state: LoadingShellState; onCancel?
             label={operationLabels[state.operation].toLowerCase()}
             tone={isPlaying ? "success" : "info"}
           />
+          {state.details ? <Badge label={state.details.toLowerCase()} tone="neutral" /> : null}
           {state.subtitleStatus ? (
             <Badge
               label={state.subtitleStatus}
@@ -1859,7 +1860,6 @@ function LoadingShell({ state, onCancel }: { state: LoadingShellState; onCancel?
             />
           ) : null}
         </Box>
-        {/* Content title */}
         <Box marginTop={1}>
           <Text color={accentColor}>{leadIcon} </Text>
           <Text bold color="white">
@@ -1872,25 +1872,20 @@ function LoadingShell({ state, onCancel }: { state: LoadingShellState; onCancel?
           </Box>
         )}
 
-        {/* Separator */}
         <Box marginY={1}>
           <Text color={palette.muted} dimColor>
             {"─".repeat(separatorWidth)}
           </Text>
         </Box>
 
-        {/* Operation status */}
         <Box>
           <Text color={accentColor}>{operationLabels[state.operation]}</Text>
-          {state.details && (
-            <Text color={palette.gray} dimColor>
-              {"  "}
-              {state.details}
-            </Text>
-          )}
+          <Text color={palette.gray} dimColor>
+            {"  "}
+            {isPlaying ? "Playback shell stays alive in the background" : "Gathering stream data"}
+          </Text>
         </Box>
 
-        {/* Subtitle status */}
         {state.subtitleStatus && (
           <Box marginTop={1}>
             <Text color={state.subtitleStatus.includes("attached") ? palette.green : palette.amber}>
@@ -1899,7 +1894,6 @@ function LoadingShell({ state, onCancel }: { state: LoadingShellState; onCancel?
           </Box>
         )}
 
-        {/* Trace */}
         {state.trace && (
           <Box marginTop={1}>
             <Text color={palette.gray} dimColor>
@@ -1908,7 +1902,6 @@ function LoadingShell({ state, onCancel }: { state: LoadingShellState; onCancel?
           </Box>
         )}
 
-        {/* Elapsed — only while actively resolving, after 2s */}
         {!isPlaying && elapsed >= 2 && (
           <Box marginTop={1}>
             <Text color={palette.gray} dimColor>
@@ -1917,7 +1910,6 @@ function LoadingShell({ state, onCancel }: { state: LoadingShellState; onCancel?
           </Box>
         )}
 
-        {/* Memory */}
         {state.showMemory && (
           <Box marginTop={1}>
             <Text color={palette.gray} dimColor>
@@ -1944,7 +1936,6 @@ function LoadingShell({ state, onCancel }: { state: LoadingShellState; onCancel?
           </Box>
         )}
 
-        {/* Cancel hint */}
         {state.cancellable && (
           <Box marginTop={1}>
             <Text color={palette.gray} dimColor>
@@ -3327,7 +3318,7 @@ function BrowseShell<T>({
       void openInfoOverlay({
         type: "about",
         title: "About",
-        subtitle: "Kunai beta",
+        subtitle: "KitsuneSnipe beta",
         loader: loadAboutPanel,
       });
       return true;

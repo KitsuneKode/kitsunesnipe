@@ -55,7 +55,7 @@ export const COMMANDS: readonly AppCommand[] = [
     id: "quit",
     label: "Quit",
     aliases: ["quit", "exit", "q"],
-    description: "Exit Kunai",
+    description: "Exit KitsuneSnipe",
   },
   {
     id: "provider",

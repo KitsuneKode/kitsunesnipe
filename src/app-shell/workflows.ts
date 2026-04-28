@@ -368,7 +368,7 @@ export async function handleShellAction({
     await withOverlay({ type: "about" }, () =>
       openStaticInfoShell({
         title: "About",
-        subtitle: "Kunai beta",
+        subtitle: "KitsuneSnipe beta",
         lines: [
           {
             label: "Version",

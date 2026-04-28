@@ -1,4 +1,5 @@
 import { isKittyCompatible } from "../image";
+import { unlink } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 
@@ -142,7 +143,7 @@ async function fetchChafa(url: string, rows: number, cols: number): Promise<Post
     return { kind: "none" };
   } finally {
     try {
-      Bun.file(tmpPath);
+      await unlink(tmpPath);
     } catch {
       // cleanup best-effort
     }
@@ -164,6 +165,9 @@ export async function fetchPoster(
   try {
     if (isKittyCompatible()) {
       result = await fetchKitty(resolved, rows, cols);
+      if (result.kind === "none" && (await isChafaAvailable())) {
+        result = await fetchChafa(resolved, rows, cols);
+      }
     } else if (await isChafaAvailable()) {
       result = await fetchChafa(resolved, rows, cols);
     } else {

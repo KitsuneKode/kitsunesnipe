@@ -1,8 +1,8 @@
 // =============================================================================
-// Kunai — Terminal Design System
+// KitsuneSnipe — Terminal Design System
 //
-// Aesthetic: refined utilitarian with a stealthy, sharp edge.
-// Kunai-red primary accent, clean box drawing, dense-but-clear layout.
+// Aesthetic: refined utilitarian with a cinematic terminal edge.
+// Fox-amber primary accent, clean box drawing, dense-but-clear layout.
 // Everything visible at once — no hidden menus, no modal blocking.
 // =============================================================================
 
@@ -12,8 +12,8 @@ const ESC = "\x1b[";
 
 // Colors
 export const clr = {
-  // Kunai red — brand primary
-  fox: (s: string) => `\x1b[38;5;196m${s}\x1b[0m`,
+  // Fox amber — brand primary
+  fox: (s: string) => `\x1b[38;5;222m${s}\x1b[0m`,
   // Accents
   cyan: (s: string) => `${ESC}36m${s}${ESC}0m`,
   green: (s: string) => `${ESC}32m${s}${ESC}0m`,
@@ -81,10 +81,10 @@ export function headerLine(label: string): string {
 // ── Status icons ──────────────────────────────────────────────────────────────
 
 export const icon = {
-  fox: "🥷", // Renamed 'fox' to Ninja/Kunai emoji
+  fox: "🦊",
   movie: "🎬",
   series: "📺",
-  anime: "🗡️", // Changed anime to dagger/sword to fit the ninja theme
+  anime: "🌸",
   play: "▶",
   next: "⏭",
   prev: "⏮",
@@ -100,7 +100,7 @@ export const icon = {
 // ── Keyboard shortcut renderer ─────────────────────────────────────────────────
 //
 // Renders a shortcut list as: [n] next  [p] prev  [c] settings
-// Keys are Kunai red, labels are dim.
+// Keys are fox amber, labels are dim.
 
 export function shortcuts(map: Array<[key: string, label: string]>, separator = "  "): string {
   return map.map(([k, label]) => `${clr.fox(`[${k}]`)} ${clr.dim(label)}`).join(separator);
@@ -118,7 +118,7 @@ export function progressBar(watched: number, total: number, width = 20): string 
 
 // ── Spinner frames ────────────────────────────────────────────────────────────
 
-// A sharp, aggressive spinner suitable for Kunai
+// A compact spinner that still reads clearly in a busy terminal.
 export const SPINNER_FRAMES = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
 
 // Lightweight inline spinner — returns a cleanup function.

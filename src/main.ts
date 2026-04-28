@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // =============================================================================
-// Kunai - New Architecture Entry Point
+// KitsuneSnipe - New Architecture Entry Point
 //
 // Usage:
 //   bun run src/main.ts                    # Interactive mode
@@ -65,7 +65,7 @@ async function main(): Promise<void> {
 
   if (args.debug) {
     const initialMode = args.anime ? "anime" : config.defaultMode;
-    logger.info("Kunai started", {
+    logger.info("KitsuneSnipe started", {
       version: "2.0.0-beta",
       mode: initialMode,
       provider: initialMode === "anime" ? config.animeProvider : config.provider,
@@ -125,12 +125,12 @@ async function main(): Promise<void> {
       initialTitle: bootstrapTitle,
     });
 
-    logger.info("Kunai exited normally");
+    logger.info("KitsuneSnipe exited normally");
     await shutdownShell();
     if (process.stdin.isTTY) process.stdin.unref();
     process.exit(0);
   } catch (e) {
-    logger.error("Kunai crashed", { error: String(e) });
+    logger.error("KitsuneSnipe crashed", { error: String(e) });
     await shutdownShell();
     console.error("Fatal error:", e);
     process.exit(1);
