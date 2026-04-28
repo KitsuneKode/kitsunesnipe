@@ -8,6 +8,16 @@ out
 dist
 *.tgz
 
+# monorepo & frameworks
+.turbo
+.next
+target/
+
+# databases
+*.db
+*.sqlite
+*.sqlite3
+
 # code coverage
 coverage
 *.lcov
