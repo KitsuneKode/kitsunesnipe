@@ -12,6 +12,7 @@ import {
   buildAboutPanelLines,
   buildDiagnosticsPanelLines,
   buildHelpPanelLines,
+  buildProviderPickerOptions,
 } from "./panel-data";
 import {
   fetchPoster,
@@ -794,14 +795,18 @@ function RootOverlayShell({
   state,
   container,
 }: {
-  overlay: { type: "help" | "about" | "diagnostics" };
+  overlay:
+    | { type: "help" | "about" | "diagnostics" }
+    | { type: "provider_picker"; currentProvider: string; isAnime: boolean };
   state: SessionState;
   container: Container;
 }) {
   const { stdout } = useStdout();
   const maxLines = Math.max(6, Math.min(12, (stdout.rows ?? 24) - 18));
   const [scrollIndex, setScrollIndex] = useState(0);
-  const commands = resolveCommands(state, ["help", "about", "diagnostics"]);
+  const [filterQuery, setFilterQuery] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const commands = resolveCommands(state, ["provider", "help", "about", "diagnostics"]);
   const lines =
     overlay.type === "help"
       ? buildHelpPanelLines()
@@ -810,18 +815,43 @@ function RootOverlayShell({
             config: container.config.getRaw(),
             state,
           })
-        : buildDiagnosticsPanelLines({
-            state,
-            recentEvents: container.diagnosticsStore.getRecent(10),
-          });
+        : overlay.type === "diagnostics"
+          ? buildDiagnosticsPanelLines({
+              state,
+              recentEvents: container.diagnosticsStore.getRecent(10),
+            })
+          : [];
+  const providerOptions =
+    overlay.type === "provider_picker"
+      ? buildProviderPickerOptions({
+          providers: container.providerRegistry
+            .getAll()
+            .map((provider) => provider.metadata)
+            .filter((metadata) => metadata.isAnimeProvider === overlay.isAnime),
+          currentProvider: overlay.currentProvider,
+        })
+      : [];
+  const filteredProviderOptions = providerOptions.filter((option) => {
+    const filter = filterQuery.trim().toLowerCase();
+    if (filter.length === 0) return true;
+    return `${option.label} ${option.detail ?? ""}`.toLowerCase().includes(filter);
+  });
   const title =
-    overlay.type === "help" ? "Help" : overlay.type === "about" ? "About" : "Diagnostics";
+    overlay.type === "help"
+      ? "Help"
+      : overlay.type === "about"
+        ? "About"
+        : overlay.type === "diagnostics"
+          ? "Diagnostics"
+          : "Provider";
   const subtitle =
     overlay.type === "help"
       ? "Global commands, editing, filtering, and shell behavior"
       : overlay.type === "about"
         ? "Kunai beta"
-        : "Current runtime snapshot and recent events";
+        : overlay.type === "diagnostics"
+          ? "Current runtime snapshot and recent events"
+          : `Current provider ${state.provider}`;
   const footerActions: readonly FooterAction[] = [
     { key: "/", label: "commands", action: "command-mode" },
     { key: "esc", label: "close", action: "quit" },
@@ -831,51 +861,123 @@ function RootOverlayShell({
     commands,
     escapeAction: null,
     onResolve: (action) => {
-      if (action === "help" || action === "about" || action === "diagnostics") {
+      if (
+        action === "help" ||
+        action === "about" ||
+        action === "diagnostics" ||
+        action === "provider"
+      ) {
         container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
-        container.stateManager.dispatch({ type: "OPEN_OVERLAY", overlay: { type: action } });
+        container.stateManager.dispatch({
+          type: "OPEN_OVERLAY",
+          overlay:
+            action === "provider"
+              ? {
+                  type: "provider_picker",
+                  currentProvider: state.provider,
+                  isAnime: state.mode === "anime",
+                }
+              : { type: action },
+        });
       }
     },
   });
 
   useEffect(() => {
     setScrollIndex(0);
+    setFilterQuery("");
+    setSelectedIndex(0);
   }, [overlay.type]);
 
-  useInput((_input, key) => {
+  useInput((input, key) => {
     if (commandMode) {
       return;
     }
-    if (key.escape || key.return) {
+    if (key.escape) {
+      container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
+      return;
+    }
+    if (key.return) {
+      if (overlay.type === "provider_picker") {
+        const picked = filteredProviderOptions[selectedIndex]?.value;
+        if (picked && picked !== state.provider) {
+          container.stateManager.dispatch({ type: "SET_PROVIDER", provider: picked });
+        }
+      }
       container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
       return;
     }
     if (key.upArrow) {
-      setScrollIndex((current) => Math.max(0, current - 1));
+      if (overlay.type === "provider_picker") {
+        setSelectedIndex((current) => Math.max(0, current - 1));
+      } else {
+        setScrollIndex((current) => Math.max(0, current - 1));
+      }
       return;
     }
     if (key.downArrow) {
-      setScrollIndex((current) => Math.min(Math.max(lines.length - maxLines, 0), current + 1));
+      if (overlay.type === "provider_picker") {
+        setSelectedIndex((current) =>
+          Math.min(Math.max(filteredProviderOptions.length - 1, 0), current + 1),
+        );
+      } else {
+        setScrollIndex((current) => Math.min(Math.max(lines.length - maxLines, 0), current + 1));
+      }
+      return;
+    }
+    if (overlay.type === "provider_picker") {
+      if (key.backspace || key.delete) {
+        setFilterQuery((current) => current.slice(0, -1));
+        setSelectedIndex(0);
+        return;
+      }
+      if (key.ctrl && input === "w") {
+        setFilterQuery((current) => current.replace(/\s*\S+\s*$/, ""));
+        setSelectedIndex(0);
+        return;
+      }
+      if (input && !key.ctrl && !key.meta) {
+        setFilterQuery((current) => current + input);
+        setSelectedIndex(0);
+      }
     }
   });
 
-  const overlayPanel: BrowseOverlay = {
-    type: overlay.type,
-    title,
-    subtitle,
-    lines,
-    scrollIndex,
-  };
+  const overlayPanel: BrowseOverlay =
+    overlay.type === "provider_picker"
+      ? {
+          type: "provider",
+          title,
+          subtitle,
+          options: filteredProviderOptions,
+          filterQuery,
+          selectedIndex: Math.min(selectedIndex, Math.max(filteredProviderOptions.length - 1, 0)),
+          busy: false,
+        }
+      : {
+          type: overlay.type,
+          title,
+          subtitle,
+          lines,
+          scrollIndex,
+        };
 
   return (
     <Box flexDirection="column" flexGrow={1} justifyContent="space-between">
       <Box flexDirection="column" flexGrow={1}>
         <Box>
-          <InlineBadge label={`panel ${overlay.type}`} tone="success" />
           <InlineBadge
-            label={`${Math.min(scrollIndex + maxLines, lines.length)}/${lines.length} lines`}
-            tone="neutral"
+            label={`panel ${overlay.type === "provider_picker" ? "provider" : overlay.type}`}
+            tone="success"
           />
+          {overlay.type === "provider_picker" ? (
+            <InlineBadge label={`${filteredProviderOptions.length} options`} tone="neutral" />
+          ) : (
+            <InlineBadge
+              label={`${Math.min(scrollIndex + maxLines, lines.length)}/${lines.length} lines`}
+              tone="neutral"
+            />
+          )}
         </Box>
         <OverlayPanel
           overlay={overlayPanel}
@@ -893,7 +995,11 @@ function RootOverlayShell({
           />
         ) : null}
         <ShellFooter
-          taskLabel={`${title}  ·  Esc closes and returns to the previous shell state`}
+          taskLabel={
+            overlay.type === "provider_picker"
+              ? "Provider picker  ·  Type to filter, Enter to switch, Esc closes"
+              : `${title}  ·  Esc closes and returns to the previous shell state`
+          }
           actions={footerActions}
           mode="detailed"
           commandMode={commandMode}

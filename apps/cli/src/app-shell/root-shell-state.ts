@@ -1,13 +1,21 @@
 import type { OverlayState, SessionState, StateTransition } from "@/domain/session/SessionState";
 
-export type RootOwnedOverlay = Extract<OverlayState, { type: "help" | "about" | "diagnostics" }>;
+export type RootOwnedOverlay = Extract<
+  OverlayState,
+  { type: "help" | "about" | "diagnostics" | "provider_picker" }
+>;
 
 export type RootShellSurface = "error" | "playback" | "root-overlay" | "mounted-screen" | "idle";
 
 export function isRootOwnedOverlay(
   overlay: OverlayState | null | undefined,
 ): overlay is RootOwnedOverlay {
-  return overlay?.type === "help" || overlay?.type === "about" || overlay?.type === "diagnostics";
+  return (
+    overlay?.type === "help" ||
+    overlay?.type === "about" ||
+    overlay?.type === "diagnostics" ||
+    overlay?.type === "provider_picker"
+  );
 }
 
 export function getTopOverlay(state: SessionState): OverlayState | null {

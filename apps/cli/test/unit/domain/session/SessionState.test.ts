@@ -183,4 +183,20 @@ describe("root shell surface selection", () => {
 
     expect(resolveRootShellSurface(state, true)).toBe("root-overlay");
   });
+
+  test("treats provider picker as a root-owned overlay surface too", () => {
+    let state = createInitialState("vidking", "allanime");
+
+    state = reduceState(state, {
+      type: "OPEN_OVERLAY",
+      overlay: {
+        type: "provider_picker",
+        currentProvider: "vidking",
+        isAnime: false,
+      },
+    });
+
+    expect(resolveRootShellSurface(state, true)).toBe("root-overlay");
+    expect(resolveEscTransition(state)).toEqual({ type: "CLOSE_TOP_OVERLAY" });
+  });
 });

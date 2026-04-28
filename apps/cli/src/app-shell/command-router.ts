@@ -17,7 +17,7 @@ async function openRootOwnedOverlay(
   container: Container,
   overlay: Extract<
     import("@/domain/session/SessionState").OverlayState,
-    { type: "help" | "about" | "diagnostics" }
+    { type: "help" | "about" | "diagnostics" | "provider_picker" }
   >,
 ): Promise<void> {
   const { stateManager } = container;
@@ -62,6 +62,15 @@ export async function routeSearchShellAction({
     await openRootOwnedOverlay(container, { type: "diagnostics" });
     return "handled";
   }
+  if (action === "provider") {
+    const state = stateManager.getState();
+    await openRootOwnedOverlay(container, {
+      type: "provider_picker",
+      currentProvider: state.provider,
+      isAnime: state.mode === "anime",
+    });
+    return "handled";
+  }
 
   const result = await handleShellAction({ action, container });
   return result === "quit" ? "quit" : result;
@@ -94,6 +103,15 @@ export async function routePlaybackShellAction({
   }
   if (action === "diagnostics") {
     await openRootOwnedOverlay(container, { type: "diagnostics" });
+    return "handled";
+  }
+  if (action === "provider") {
+    const state = stateManager.getState();
+    await openRootOwnedOverlay(container, {
+      type: "provider_picker",
+      currentProvider: state.provider,
+      isAnime: state.mode === "anime",
+    });
     return "handled";
   }
 
