@@ -2,6 +2,8 @@
 
 This document is the absolute source of truth for the Kunai ecosystem. It synthesizes the "Stremio Killer" distribution model, the "Everything Engine" performance mandate, and the "Priceless UX" product vision into a single, uncompromised master plan.
 
+> Status note: this document is the high-level vision, but several security and scaling details have been superseded by [.plans/kunai-architecture-and-cache-hardening.md](../.plans/kunai-architecture-and-cache-hardening.md), [.plans/kunai-experience-and-growth-moat.md](../.plans/kunai-experience-and-growth-moat.md), and [.plans/kunai-principal-grill-qa.md](../.plans/kunai-principal-grill-qa.md). In particular: use a provider RPC relay instead of a generic CORS proxy, use explicit daemon pairing instead of raw `localhost:8080` detection, treat WASM signatures as clone friction rather than auth, and use provider-scoped Playwright leases instead of assuming pure kill-after-every-resolve JIT.
+
 ---
 
 ## 1. The Core Philosophy: "Zero-Cost, Zero-Leak, Zero-Trust"

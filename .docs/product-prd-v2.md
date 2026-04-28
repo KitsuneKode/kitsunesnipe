@@ -2,6 +2,8 @@
 
 This document serves as the absolute source of truth for the Kunai ecosystem, defined through exhaustive user grilling to ensure a $100M "Priceless" feel across the TUI and Web App.
 
+> Status note: this PRD defines the product feel, but newer planning docs refine the implementation path. See [.plans/kunai-experience-and-growth-moat.md](../.plans/kunai-experience-and-growth-moat.md) and [.plans/kunai-principal-grill-qa.md](../.plans/kunai-principal-grill-qa.md). The current product decision is CLI-first as the flagship wedge, then frictionless `kunai.app` as the mainstream entry point. Web must not require local pairing for first play; pairing is an optional power unlock.
+
 ## 1. Product Vision & Tone
 
 Kunai is the elite, stealthy, and blazing-fast streaming ecosystem. It is the anti-thesis of ad-riddled, clunky iframe websites.
