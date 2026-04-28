@@ -37,21 +37,27 @@ Target package split:
 
 ```text
 packages/types
+  Future package name: `@kunai/types`.
   Pure TypeScript contracts and shared enums.
 
 packages/schemas
+  Future package name: `@kunai/schemas`.
   Zod schemas for config, cache rows, IPC payloads, relay payloads, sync events, and imported mapping data.
 
 packages/scraper-core
+  Future package name: `@kunai/core` or `@kunai/scraper-core`; prefer `@kunai/core` once it owns more than scraper contracts.
   Provider contracts, capability manifests, cache-key policy, resolver orchestration, source ranking, and resolve tracing.
 
 packages/cache
+  Future package name: `@kunai/cache`.
   OS path resolution, JSON compatibility stores, SQLite repositories, TTL classes, pruning, and migrations.
 
 packages/config
+  Future package name: `@kunai/config`.
   User config defaults, validation, migration from old paths, and typed config helpers.
 
 packages/ui-cli
+  Future package name: `@kunai/ui-cli`.
   Ink primitives, theme tokens, command surfaces, badges, panels, and reusable TUI components.
 
 packages/legacy

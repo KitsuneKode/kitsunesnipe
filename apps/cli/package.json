@@ -1,5 +1,5 @@
 {
-  "name": "kunai",
+  "name": "kunai-cli",
   "version": "0.1.0-beta.0",
   "description": "Elite terminal-first streaming engine. Intercepts playable streams with Playwright and launches mpv.",
   "keywords": [

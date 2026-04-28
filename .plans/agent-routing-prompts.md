@@ -151,7 +151,7 @@ Use this for principal architecture work. This is a good task to give to Codex w
 You are working in Kunai after Phase 1 and Phase 1.5 are committed.
 
 Goal:
-Create `packages/types` and `packages/schemas` with the first shared contracts, without changing provider behavior.
+Create `packages/types` and `packages/schemas` with package names `@kunai/types` and `@kunai/schemas`, without changing provider behavior.
 
 Read:
 1. `AGENTS.md`
@@ -238,7 +238,7 @@ Use this for cache/storage architecture.
 You are working in Kunai after shared contracts exist.
 
 Goal:
-Create `packages/cache` and begin moving storage policy into shared code.
+Create `packages/cache` with package name `@kunai/cache` and begin moving storage policy into shared code.
 
 Read:
 1. `AGENTS.md`
@@ -316,7 +316,7 @@ Use this after contracts and cache policy exist.
 You are working in Kunai after contracts and cache helpers exist.
 
 Goal:
-Create `packages/scraper-core` and extract one low-risk provider path or provider contract first.
+Create the first core provider package, preferably `packages/core` as `@kunai/core` unless the current plan still requires `packages/scraper-core`, and extract one low-risk provider path or provider contract first.
 
 Read:
 1. `AGENTS.md`
@@ -334,7 +334,7 @@ Hard boundaries:
 - Do not touch web/desktop.
 
 Tasks:
-1. Create `packages/scraper-core`.
+1. Create `packages/core` as `@kunai/core`, or use `packages/scraper-core` only if the team intentionally keeps the narrower name for this phase.
 2. Define provider interface using shared types.
 3. Move capability declaration/cache policy for one low-risk provider.
 4. Return `StreamCandidate[]` plus `ResolveTrace` shape where practical.

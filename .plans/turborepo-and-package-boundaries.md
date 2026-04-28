@@ -49,21 +49,27 @@ apps/
 
 packages/
   types/
+    Future package name: `@kunai/types`.
     Pure TypeScript contracts.
 
   schemas/
+    Future package name: `@kunai/schemas`.
     Zod schemas for untrusted or serialized data.
 
   scraper-core/
+    Future package name: `@kunai/core` or `@kunai/scraper-core`; prefer `@kunai/core` once it owns provider orchestration beyond raw scraping.
     Provider contracts, capabilities, resolver orchestration, cache-key policy, source ranking, and tracing.
 
   cache/
+    Future package name: `@kunai/cache`.
     OS path resolver, cache repositories, SQLite stores, JSON compatibility migration, TTL classes.
 
   config/
+    Future package name: `@kunai/config`.
     Config defaults, validation, migrations, and platform-aware paths.
 
   ui-cli/
+    Future package name: `@kunai/ui-cli`.
     Ink primitives, tokens, badges, panels, shell components, and CLI design-system code.
 
   legacy/
