@@ -896,7 +896,6 @@ export async function shutdownSessionApp(): Promise<void> {
     return;
   }
 
-  setRootShellScreen(null);
   const exitPromise = rootShellExitPromise;
   const ink = rootShellInk;
   ink.cleanup();
