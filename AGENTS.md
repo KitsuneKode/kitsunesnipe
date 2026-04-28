@@ -31,6 +31,7 @@ Kunai is a terminal-first Bun CLI that finds playable video streams by intercept
 
 - Start here for commands, routing, and repo-wide invariants
 - Read [.docs/architecture.md](.docs/architecture.md) before changing loops, playback flow, scraping, caching, history, or data ownership
+- Read [.docs/architecture-v2.md](.docs/architecture-v2.md) before changing target monorepo, daemon, web, desktop, package, or cache boundaries
 - Read [.docs/experience-overview.md](.docs/experience-overview.md) before changing user-facing scope, disclaimers, supported/unsupported behavior, or broad product messaging
 - Read [.docs/product-prd.md](.docs/product-prd.md) before broad UX or product-shape changes
 - Read [.docs/engineering-guide.md](.docs/engineering-guide.md) before broad refactors, service extraction, caching changes, or implementation-structure work
@@ -102,7 +103,7 @@ Unit tests live under `test/unit/`, integration tests under `test/integration/`,
 - Config: `~/.config/kunai/config.json`
 - Provider overrides: `~/.config/kunai/providers.json`
 - History: `~/.local/share/kunai/history.json`
-- Stream cache: `./stream_cache.json`
+- Stream cache: `./stream_cache.json` currently; target default is the OS cache dir in [.plans/storage-hardening.md](.plans/storage-hardening.md)
 - Logs: `./logs.txt`
 
 ## Active Planning Docs
@@ -111,6 +112,7 @@ Unit tests live under `test/unit/`, integration tests under `test/integration/`,
 - [.plans/kunai-principal-grill-qa.md](.plans/kunai-principal-grill-qa.md): current product and architecture decision pressure-test
 - [.plans/kunai-architecture-and-cache-hardening.md](.plans/kunai-architecture-and-cache-hardening.md): web, daemon, cache, relay, and paid compute architecture
 - [.plans/kunai-experience-and-growth-moat.md](.plans/kunai-experience-and-growth-moat.md): CLI-first product moat, web experience, premium model, and growth strategy
+- [.plans/turborepo-and-package-boundaries.md](.plans/turborepo-and-package-boundaries.md): monorepo migration order, package ownership, legacy quarantine, Zod, SQLite, and tsgo decisions
 - [.plans/persistent-shell-implementation.md](.plans/persistent-shell-implementation.md): migration order for the persistent shell and canonical runtime
 - [.plans/ink-migration.md](.plans/ink-migration.md): terminal UI rewrite plan
 - [.plans/search-service.md](.plans/search-service.md): deferred search/provider decoupling

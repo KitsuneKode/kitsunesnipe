@@ -1,4 +1,4 @@
-# KitsuneSnipe — Runtime Architecture
+# Kunai — Runtime Architecture
 
 Use this doc first when changing flow control, playback lifecycle, provider orchestration, persistence, or any code that affects recovery behavior.
 
@@ -17,7 +17,7 @@ Read next:
 
 ## System Shape
 
-KitsuneSnipe is a terminal CLI that:
+Kunai is a terminal CLI that:
 
 1. Searches titles
 2. Lets the user pick a title, season, episode, and provider
@@ -183,13 +183,13 @@ Observability matters here too: failures around stream resolution, cache reuse, 
 
 | Data               | Path                                       | Owner            |
 | ------------------ | ------------------------------------------ | ---------------- |
-| Config             | `~/.config/kitsunesnipe/config.json`       | `src/config.ts`  |
-| Provider overrides | `~/.config/kitsunesnipe/providers.json`    | `src/config.ts`  |
-| Watch history      | `~/.local/share/kitsunesnipe/history.json` | `src/history.ts` |
-| Stream cache       | `./stream_cache.json`                      | `src/cache.ts`   |
+| Config             | `~/.config/kunai/config.json`              | `src/config.ts`  |
+| Provider overrides | `~/.config/kunai/providers.json`           | `src/config.ts`  |
+| Watch history      | `~/.local/share/kunai/history.json`        | `src/history.ts` |
+| Stream cache       | `./stream_cache.json` legacy default       | `src/cache.ts`   |
 | Debug logs         | `./logs.txt`                               | `src/logger.ts`  |
 
-Known caveat: the stream cache TTL is longer than some upstream token lifetimes, especially AllAnime-backed URLs.
+Known caveat: the repo-local stream cache is a migration liability. The target path is the OS cache directory described in [.plans/storage-hardening.md](../.plans/storage-hardening.md).
 
 Migration note:
 

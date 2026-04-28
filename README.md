@@ -128,7 +128,7 @@ src/image.ts            Kitty/Ghostty poster preview
 src/subtitle.ts         wyzie subtitle API
 src/tmdb.ts             season/episode metadata
 src/session-flow.ts     start-episode and provider/session helpers
-stream_cache.json       1-hour stream URL cache
+stream_cache.json       legacy 1-hour stream URL cache during storage migration
 logs.txt                scrape log
 ```
 

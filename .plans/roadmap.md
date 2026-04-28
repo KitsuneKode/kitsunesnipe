@@ -1,4 +1,4 @@
-# KitsuneSnipe — Roadmap
+# Kunai — Roadmap
 
 Last updated: 2026-04-28
 
@@ -15,7 +15,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 - New runtime subtitle policy is restored: `none`, interactive picker, and provider-default flows all work again
 - New runtime now preserves the previous browse/result state when episode selection is cancelled before playback starts
 - Default startup mode is now configurable and honored by `src/main.ts`
-- Autoplay is now app-driven: mpv exits cleanly at EOF, then KitsuneSnipe launches the next actually available released episode when enabled
+- Autoplay is now app-driven: mpv exits cleanly at EOF, then Kunai launches the next actually available released episode when enabled
 - The repo now has a dedicated `test/` tree for integration, live smoke, provider templates, and VHS tapes
 - Browser/embed scraping in the new runtime now reads and writes the shared stream cache
 - AllAnime family parity code is explicitly named `allanime-family.ts`
@@ -47,7 +47,8 @@ Use this file as the planning index. It should stay short. Put implementation de
 - `Esc` and back-stack correctness for the remaining shell helpers
 - `mpv` reopen reliability bug investigation
 - `cineby-anime` click handling parity
-- Final legacy runtime drain from `index.ts` into `src/main.ts`
+- Final legacy runtime cleanup after `index.ts` wrapper shrink
+- Turborepo migration baseline: resolve active runtime diffs, then move the CLI into `apps/cli` without behavior changes
 - First-run dependency guardrails for `mpv` and Playwright
 - Developer-mode diagnostics surface for stream, subtitle, and provider resolution stages
 - Metadata-store and preview-service migration beyond the current in-memory caches
@@ -66,6 +67,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 | Kunai architecture hardening     | Planned     | [.plans/kunai-architecture-and-cache-hardening.md](.plans/kunai-architecture-and-cache-hardening.md) |
 | Kunai experience and growth moat | Planned     | [.plans/kunai-experience-and-growth-moat.md](.plans/kunai-experience-and-growth-moat.md)             |
 | Kunai principal grill Q&A        | Planned     | [.plans/kunai-principal-grill-qa.md](.plans/kunai-principal-grill-qa.md)                             |
+| Turborepo and package boundaries | Planned     | [.plans/turborepo-and-package-boundaries.md](.plans/turborepo-and-package-boundaries.md)             |
 | Kunai V2 ecosystem and Debrid    | Planned     | [.plans/v2-ecosystem-and-debrid.md](.plans/v2-ecosystem-and-debrid.md)                               |
 | Kunai V3 metadata and sync       | Planned     | [.plans/v3-metadata-and-sync.md](.plans/v3-metadata-and-sync.md)                                     |
 | CLI UX overhaul                  | Planned     | [.plans/cli-ux-overhaul.md](.plans/cli-ux-overhaul.md)                                               |

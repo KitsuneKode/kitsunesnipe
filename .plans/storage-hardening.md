@@ -41,6 +41,27 @@ For a modern CPU, parsing a 300KB JSON file takes less than **1 millisecond**.
 
 The new runtime `FileStorage` already implements temp-file writes, atomic rename, corrupt backup, and an in-process write queue. The remaining risks are legacy storage paths, repo-local `stream_cache.json`, missing size limits, missing schema/version markers, and lack of cross-process locking.
 
+### Decision 1.5: SQLite Access Pattern
+
+**Decision:** Use `bun:sqlite` with small typed repository classes first. Do not introduce a heavy ORM for the CLI/daemon cache layer yet.
+
+Why:
+
+- SQLite is the right persistence engine for high-churn local cache, provider health, source inventory, resolve traces, and sync events.
+- A heavy ORM adds packaging, migration, startup, and binary complexity before the schema proves it needs that abstraction.
+- Repository classes keep queries explicit and easier to optimize for a CLI/Desktop binary.
+
+Allowed later:
+
+- Consider Drizzle if schema breadth and query composition become painful.
+- Avoid Prisma for the local CLI/Desktop runtime unless the packaging and generated-client tradeoffs are explicitly accepted.
+
+Validation rule:
+
+- TypeScript owns internal contracts.
+- Zod validates data crossing trust or serialization boundaries: config files, JSON cache migration, SQLite rows, daemon IPC, relay payloads, sync events, provider responses, and imported mapping datasets.
+- Do not parse every hot-path internal object with Zod.
+
 ### Decision 2: Storage Locations (Cross-Platform)
 
 We will implement an OS-aware path resolver so files land exactly where they belong natively.
@@ -237,11 +258,15 @@ This is the point where SQLite becomes a practical simplification, not premature
 ### Phase D: SQLite Cache Store
 
 1. Add `StorageService` support for SQLite-backed high-churn stores.
-2. Create tables for stream cache, provider health, source inventory, and resolve trace ring buffer.
-3. Use WAL mode.
-4. Add indexes on cache key, provider ID, expiry, and last accessed time.
-5. Prune expired rows on startup and opportunistically after writes.
-6. Keep config in JSON unless there is a strong reason to move it.
+2. Split durable data from disposable cache data:
+   - `kunai-data.sqlite`: watch events, materialized progress, paired devices, sync metadata.
+   - `kunai-cache.sqlite`: stream cache, provider health, source inventory, resolve traces, metadata cache when safe.
+3. Create tables for stream cache, provider health, source inventory, and resolve trace ring buffer.
+4. Use WAL mode.
+5. Add indexes on cache key, provider ID, expiry, and last accessed time.
+6. Prune expired rows on startup and opportunistically after writes.
+7. Keep config in JSON unless there is a strong reason to move it.
+8. Wrap all access in typed repository classes so app code never writes raw SQL inline.
 
 ### Phase E: Sync Event Store
 

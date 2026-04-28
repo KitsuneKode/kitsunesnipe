@@ -781,7 +781,16 @@ Do not chase mass growth until:
 
 Recommended answer:
 
-Kunai for the future product. Finish current shell/runtime stabilization before renaming all code paths. A rushed rename creates noise.
+Kunai wins. The repository, docs, user-facing copy, install commands, and future packages should use Kunai.
+
+Keep old KitsuneSnipe references only when they describe:
+
+- legacy data migration
+- old release compatibility
+- historical notes in brainstorms
+- temporary code paths that have not moved yet
+
+Do not rename every runtime symbol in the same commit as the Turborepo migration. Treat code-path renames as a separate cleanup pass so behavior changes stay reviewable.
 
 ### Q: Which catalog identity is canonical?
 
@@ -800,6 +809,10 @@ Pick one and optimize deeply. ArtPlayer is a reasonable starting point, but the 
 Recommended answer:
 
 SQLite for CLI/Desktop/daemon, IndexedDB for web. Keep JSON migration compatibility for existing users.
+
+Use `bun:sqlite` plus typed repositories first. Do not add a heavy ORM until schema and query complexity prove it is worth the packaging cost.
+
+Use Zod at storage, IPC, relay, provider-response, sync, and imported-dataset boundaries. Use TypeScript for internal contracts.
 
 ### Q: Which backend for paid sync?
 
