@@ -211,4 +211,54 @@ describe("root shell surface selection", () => {
     expect(resolveRootShellSurface(state, true)).toBe("root-overlay");
     expect(resolveEscTransition(state)).toEqual({ type: "CLOSE_TOP_OVERLAY" });
   });
+
+  test("treats season picker as a root-owned overlay surface too", () => {
+    let state = createInitialState("vidking", "allanime");
+
+    state = reduceState(state, {
+      type: "OPEN_OVERLAY",
+      overlay: {
+        type: "season_picker",
+        currentSeason: 2,
+        options: [
+          { value: "1", label: "Season 1" },
+          { value: "2", label: "Season 2  ·  current" },
+        ],
+      },
+    });
+
+    expect(resolveRootShellSurface(state, true)).toBe("root-overlay");
+    expect(resolveEscTransition(state)).toEqual({ type: "CLOSE_TOP_OVERLAY" });
+  });
+
+  test("treats subtitle picker as a root-owned overlay surface too", () => {
+    let state = createInitialState("vidking", "allanime");
+
+    state = reduceState(state, {
+      type: "OPEN_OVERLAY",
+      overlay: {
+        type: "subtitle_picker",
+        options: [{ value: "https://example.com/sub.srt", label: "English" }],
+      },
+    });
+
+    expect(resolveRootShellSurface(state, true)).toBe("root-overlay");
+    expect(resolveEscTransition(state)).toEqual({ type: "CLOSE_TOP_OVERLAY" });
+  });
+
+  test("treats episode picker as a root-owned overlay surface too", () => {
+    let state = createInitialState("vidking", "allanime");
+
+    state = reduceState(state, {
+      type: "OPEN_OVERLAY",
+      overlay: {
+        type: "episode_picker",
+        season: 1,
+        options: [{ value: "2", label: "Episode 2  ·  Grilled" }],
+      },
+    });
+
+    expect(resolveRootShellSurface(state, true)).toBe("root-overlay");
+    expect(resolveEscTransition(state)).toEqual({ type: "CLOSE_TOP_OVERLAY" });
+  });
 });

@@ -51,7 +51,7 @@ async function pickAnimeEpisode(
 ): Promise<number | null> {
   const actionContext = createPickerActionContext(container, "Choose episode");
   if (episodes && episodes.length > 0) {
-    return await openAnimeEpisodeListPicker(episodes, initialEpisode, actionContext);
+    return await openAnimeEpisodeListPicker(episodes, initialEpisode, actionContext, container);
   }
   if (!episodeCount || episodeCount < 1) {
     const action = await openListShell({
@@ -75,7 +75,7 @@ async function pickAnimeEpisode(
 
     return action === "start" ? initialEpisode : null;
   }
-  return await openAnimeEpisodePicker(episodeCount, initialEpisode, actionContext);
+  return await openAnimeEpisodePicker(episodeCount, initialEpisode, actionContext, container);
 }
 
 async function pickEpisodeSelection(
@@ -95,6 +95,7 @@ async function pickEpisodeSelection(
       seasons,
       initSeason,
       createPickerActionContext(opts.container, "Choose season"),
+      opts.container,
     );
     if (!season) return null;
     const episodes =
@@ -104,6 +105,7 @@ async function pickEpisodeSelection(
       season,
       initEpisode,
       createPickerActionContext(opts.container, "Choose episode"),
+      opts.container,
     );
     if (!episode) return null;
     return { season, episode: episode.number };

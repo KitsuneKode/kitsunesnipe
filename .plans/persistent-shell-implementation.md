@@ -201,7 +201,7 @@ Status:
 - browse and playback now share one runtime shell binding helper for provider options, settings persistence, and info-panel loaders
 - post-playback no longer falls back to helper shells for provider, settings, history, diagnostics, help, or about because the playback shell handles those locally
 - browse-side and post-playback secondary panels are now mounted in-shell
-- help, about, diagnostics, provider, history, and settings now have a root-owned overlay path in the canonical runtime, which proves the shared overlay host before the picker rewrites finish
+- help, about, diagnostics, provider, history, settings, season, episode, and subtitle pickers now have a root-owned overlay path in the canonical runtime
 - playback still remains a separate shell session from browse, so the true root `AppShell` milestone is still open
 - playback navigation now resolves `next`, `previous`, `next season`, and autoplay from actual provider or metadata availability instead of blindly incrementing episode numbers
 - playback-side episode selection now stays inside that playback shell, reducing one more helper-shell handoff before the true root shell lands
@@ -209,7 +209,6 @@ Status:
 Transitional gaps still expected after Phase 1.5:
 
 - browse and post-playback still mount through helper-shell adapters, even though the root frame owns more status and overlay behavior
-- season, episode, and subtitle pickers still rely on mounted helper flows instead of a single root back-stack
 - playback completion and browse selection still re-enter content through phase loops rather than one always-mounted content state tree
 
 ### Pass B1: Fullscreen Layout Convergence
@@ -265,10 +264,10 @@ Status:
 
 - partially done
 - browse and post-playback now route provider, history, diagnostics, help, about, and settings through the root-owned overlay host
+- season, starting episode, episode, and subtitle flows now route through the same root-owned picker host when the canonical runtime container is available
 - post-playback episode selection now stays in-shell
-- season, starting episode, and subtitle flows still rely on blocking shell helpers rather than true mounted overlays
 - diagnostics now show recent runtime events from the new in-memory diagnostics store, which improves developer-mode inspection before the mounted overlay host lands
-- picker states now keep the shared command layer and task-first footer guidance even while standalone list shells remain in the path
+- picker states now keep the shared command layer and task-first footer guidance, with the old standalone list shells kept only as fallback for non-container contexts
 - root-owned settings and provider overlays now window around the selected row instead of hiding selected actions off-screen
 
 ### Pass C1: Command-Consistent Picker States

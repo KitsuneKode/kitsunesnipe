@@ -22,6 +22,7 @@ import {
   deleteKittyImage,
   type PosterResult,
 } from "./image-pane";
+import { hasPendingRootPicker, resolveRootPicker } from "./root-picker-bridge";
 import { getRootOwnedOverlay, resolveRootShellSurface } from "./root-shell-state";
 import {
   COMMANDS,
@@ -801,6 +802,9 @@ function RootOverlayShell({
     | { type: "help" | "about" | "diagnostics" }
     | { type: "history" }
     | { type: "settings" }
+    | { type: "season_picker"; currentSeason: number; options: readonly import("@/domain/session/SessionState").OverlayPickerOption[] }
+    | { type: "episode_picker"; season: number; options: readonly import("@/domain/session/SessionState").OverlayPickerOption[] }
+    | { type: "subtitle_picker"; options: readonly import("@/domain/session/SessionState").OverlayPickerOption[] }
     | { type: "provider_picker"; currentProvider: string; isAnime: boolean };
   state: SessionState;
   container: Container;
@@ -864,7 +868,22 @@ function RootOverlayShell({
           currentProvider: overlay.currentProvider,
         })
       : [];
+  const genericPickerOptions =
+    overlay.type === "season_picker" ||
+    overlay.type === "episode_picker" ||
+    overlay.type === "subtitle_picker"
+      ? overlay.options.map((option) => ({
+          value: option.value,
+          label: option.label,
+          detail: option.detail,
+        }))
+      : [];
   const filteredProviderOptions = providerOptions.filter((option) => {
+    const filter = filterQuery.trim().toLowerCase();
+    if (filter.length === 0) return true;
+    return `${option.label} ${option.detail ?? ""}`.toLowerCase().includes(filter);
+  });
+  const filteredGenericPickerOptions = genericPickerOptions.filter((option) => {
     const filter = filterQuery.trim().toLowerCase();
     if (filter.length === 0) return true;
     return `${option.label} ${option.detail ?? ""}`.toLowerCase().includes(filter);
@@ -907,6 +926,12 @@ function RootOverlayShell({
             ? "History"
           : overlay.type === "settings"
             ? "Settings"
+          : overlay.type === "season_picker"
+            ? "Choose season"
+          : overlay.type === "episode_picker"
+            ? "Choose episode"
+          : overlay.type === "subtitle_picker"
+            ? "Choose subtitles"
           : "Provider";
   const subtitle =
     overlay.type === "help"
@@ -919,6 +944,12 @@ function RootOverlayShell({
           ? "Recent playback positions without leaving the shell"
           : overlay.type === "settings"
             ? settingsError ?? buildSettingsSummary(settingsDraft ?? container.config.getRaw())
+          : overlay.type === "season_picker"
+            ? `Current season ${overlay.currentSeason}`
+          : overlay.type === "episode_picker"
+            ? `Season ${overlay.season}  ·  Choose an episode`
+          : overlay.type === "subtitle_picker"
+            ? `${overlay.options.length} tracks available`
           : `Current provider ${state.provider}`;
   const footerActions: readonly FooterAction[] = [
     { key: "/", label: "commands", action: "command-mode" },
@@ -937,6 +968,14 @@ function RootOverlayShell({
         action === "history" ||
         action === "provider"
       ) {
+        if (
+          hasPendingRootPicker() &&
+          (overlay.type === "season_picker" ||
+            overlay.type === "episode_picker" ||
+            overlay.type === "subtitle_picker")
+        ) {
+          resolveRootPicker(null);
+        }
         container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
         container.stateManager.dispatch({
           type: "OPEN_OVERLAY",
@@ -1006,6 +1045,14 @@ function RootOverlayShell({
         setSelectedIndex(settingsParentIndex);
         return;
       }
+      if (
+        hasPendingRootPicker() &&
+        (overlay.type === "season_picker" ||
+          overlay.type === "episode_picker" ||
+          overlay.type === "subtitle_picker")
+      ) {
+        resolveRootPicker(null);
+      }
       container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
       return;
     }
@@ -1072,12 +1119,25 @@ function RootOverlayShell({
         if (picked && picked !== state.provider) {
           container.stateManager.dispatch({ type: "SET_PROVIDER", provider: picked });
         }
+      } else if (
+        overlay.type === "season_picker" ||
+        overlay.type === "episode_picker" ||
+        overlay.type === "subtitle_picker"
+      ) {
+        const picked = filteredGenericPickerOptions[selectedIndex]?.value ?? null;
+        resolveRootPicker(picked);
       }
       container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
       return;
     }
     if (key.upArrow) {
-      if (overlay.type === "provider_picker" || overlay.type === "settings") {
+      if (
+        overlay.type === "provider_picker" ||
+        overlay.type === "settings" ||
+        overlay.type === "season_picker" ||
+        overlay.type === "episode_picker" ||
+        overlay.type === "subtitle_picker"
+      ) {
         setSelectedIndex((current) => Math.max(0, current - 1));
       } else {
         setScrollIndex((current) => Math.max(0, current - 1));
@@ -1085,18 +1145,32 @@ function RootOverlayShell({
       return;
     }
     if (key.downArrow) {
-      if (overlay.type === "provider_picker" || overlay.type === "settings") {
+      if (
+        overlay.type === "provider_picker" ||
+        overlay.type === "settings" ||
+        overlay.type === "season_picker" ||
+        overlay.type === "episode_picker" ||
+        overlay.type === "subtitle_picker"
+      ) {
         const optionCount =
           overlay.type === "provider_picker"
             ? filteredProviderOptions.length
-            : filteredSettingsOptions.length;
+            : overlay.type === "settings"
+              ? filteredSettingsOptions.length
+              : filteredGenericPickerOptions.length;
         setSelectedIndex((current) => Math.min(Math.max(optionCount - 1, 0), current + 1));
       } else {
         setScrollIndex((current) => Math.min(Math.max(lines.length - maxLines, 0), current + 1));
       }
       return;
     }
-    if (overlay.type === "provider_picker" || overlay.type === "settings") {
+    if (
+      overlay.type === "provider_picker" ||
+      overlay.type === "settings" ||
+      overlay.type === "season_picker" ||
+      overlay.type === "episode_picker" ||
+      overlay.type === "subtitle_picker"
+    ) {
       if (overlay.type === "settings" && input.toLowerCase() === "s") {
         if (!settingsDraft || settingsBusy || settingsEqual(settingsDraft, container.config.getRaw())) {
           return;
@@ -1154,6 +1228,21 @@ function RootOverlayShell({
             selectedIndex: Math.min(selectedIndex, Math.max(filteredSettingsOptions.length - 1, 0)),
             busy: settingsBusy,
           }
+      : overlay.type === "season_picker" ||
+          overlay.type === "episode_picker" ||
+          overlay.type === "subtitle_picker"
+        ? {
+            type: "episode-picker",
+            title,
+            subtitle,
+            options: filteredGenericPickerOptions,
+            filterQuery,
+            selectedIndex: Math.min(
+              selectedIndex,
+              Math.max(filteredGenericPickerOptions.length - 1, 0),
+            ),
+            busy: false,
+          }
       : overlay.type === "help" ||
           overlay.type === "about" ||
           overlay.type === "diagnostics" ||
@@ -1191,6 +1280,10 @@ function RootOverlayShell({
               } options`}
               tone="neutral"
             />
+          ) : overlay.type === "season_picker" ||
+              overlay.type === "episode_picker" ||
+              overlay.type === "subtitle_picker" ? (
+            <InlineBadge label={`${filteredGenericPickerOptions.length} options`} tone="neutral" />
           ) : (
             <InlineBadge
               label={`${Math.min(scrollIndex + maxLines, lines.length)}/${lines.length} lines`}
@@ -1221,6 +1314,10 @@ function RootOverlayShell({
                 ? settingsChoice
                   ? "Settings choice  ·  Type to filter, Enter to apply, Esc returns"
                   : "Settings  ·  Type to filter, Enter to edit, S saves, Esc closes"
+              : overlay.type === "season_picker" ||
+                  overlay.type === "episode_picker" ||
+                  overlay.type === "subtitle_picker"
+                ? `${title}  ·  Type to filter, Enter to select, Esc closes`
               : `${title}  ·  Esc closes and returns to the previous shell state`
           }
           actions={footerActions}

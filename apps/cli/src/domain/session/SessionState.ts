@@ -5,7 +5,7 @@
 // Keep it pure, explicit, and testable.
 // =============================================================================
 
-import type { EpisodeInfo, SearchResult, StreamInfo, SubtitleTrack, TitleInfo } from "../types";
+import type { EpisodeInfo, SearchResult, StreamInfo, TitleInfo } from "../types";
 import type { AppCommandId } from "./command-registry";
 import {
   DEFAULT_LAYOUT_PREFERENCES,
@@ -55,12 +55,18 @@ export interface CommandBarState {
   readonly highlightedCommandId: AppCommandId | null;
 }
 
+export interface OverlayPickerOption {
+  readonly value: string;
+  readonly label: string;
+  readonly detail?: string;
+}
+
 export type OverlayState =
   | { type: "settings" }
   | { type: "provider_picker"; currentProvider: string; isAnime: boolean }
-  | { type: "subtitle_picker"; tracks: SubtitleTrack[] }
-  | { type: "season_picker"; seasonCount?: number }
-  | { type: "episode_picker"; season: number }
+  | { type: "subtitle_picker"; options: readonly OverlayPickerOption[] }
+  | { type: "season_picker"; currentSeason: number; options: readonly OverlayPickerOption[] }
+  | { type: "episode_picker"; season: number; options: readonly OverlayPickerOption[] }
   | { type: "history" }
   | { type: "diagnostics" }
   | { type: "help" }

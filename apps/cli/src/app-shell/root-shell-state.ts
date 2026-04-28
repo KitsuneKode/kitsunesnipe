@@ -2,7 +2,18 @@ import type { OverlayState, SessionState, StateTransition } from "@/domain/sessi
 
 export type RootOwnedOverlay = Extract<
   OverlayState,
-  { type: "help" | "about" | "diagnostics" | "provider_picker" | "history" | "settings" }
+  {
+    type:
+      | "help"
+      | "about"
+      | "diagnostics"
+      | "provider_picker"
+      | "history"
+      | "settings"
+      | "season_picker"
+      | "episode_picker"
+      | "subtitle_picker";
+  }
 >;
 
 export type RootShellSurface = "error" | "playback" | "root-overlay" | "mounted-screen" | "idle";
@@ -16,7 +27,10 @@ export function isRootOwnedOverlay(
     overlay?.type === "diagnostics" ||
     overlay?.type === "provider_picker" ||
     overlay?.type === "history" ||
-    overlay?.type === "settings"
+    overlay?.type === "settings" ||
+    overlay?.type === "season_picker" ||
+    overlay?.type === "episode_picker" ||
+    overlay?.type === "subtitle_picker"
   );
 }
 

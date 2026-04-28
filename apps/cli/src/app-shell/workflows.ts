@@ -10,6 +10,7 @@ import {
 } from "@/services/persistence/HistoryStore";
 import type { ShellAction } from "./types";
 import { resolveCommands } from "./commands";
+import { waitForRootPicker } from "./root-picker-bridge";
 
 import { openListShell, type ListShellActionContext } from "./ink-shell";
 
@@ -58,9 +59,26 @@ export async function chooseSeasonFromOptions(
   seasons: readonly number[],
   currentSeason: number,
   actionContext?: ListShellActionContext,
+  container?: Container,
 ): Promise<number | null> {
   if (seasons.length === 0) return null;
   if (seasons.length === 1) return seasons[0] ?? currentSeason;
+
+  if (container) {
+    container.stateManager.dispatch({
+      type: "OPEN_OVERLAY",
+      overlay: {
+        type: "season_picker",
+        currentSeason,
+        options: seasons.map((season) => ({
+          value: String(season),
+          label: season === currentSeason ? `Season ${season}  ·  current` : `Season ${season}`,
+        })),
+      },
+    });
+    const picked = await waitForRootPicker();
+    return picked ? Number.parseInt(picked, 10) : null;
+  }
 
   return chooseOption({
     title: "Choose season",
@@ -78,8 +96,30 @@ export async function chooseEpisodeFromOptions(
   season: number,
   currentEpisode: number,
   actionContext?: ListShellActionContext,
+  container?: Container,
 ): Promise<EpisodeInfo | null> {
   if (episodes.length === 0) return null;
+
+  if (container) {
+    container.stateManager.dispatch({
+      type: "OPEN_OVERLAY",
+      overlay: {
+        type: "episode_picker",
+        season,
+        options: episodes.map((episode) => ({
+          value: String(episode.number),
+          label:
+            episode.number === currentEpisode
+              ? `Episode ${episode.number}  ·  ${episode.name}  ·  current`
+              : `Episode ${episode.number}  ·  ${episode.name}`,
+          detail: `${episode.airDate || "unknown year"}${episode.overview ? `  ·  ${episode.overview}` : ""}`,
+        })),
+      },
+    });
+    const picked = await waitForRootPicker();
+    if (!picked) return null;
+    return episodes.find((episode) => String(episode.number) === picked) ?? null;
+  }
 
   return chooseOption({
     title: "Choose episode",
@@ -579,7 +619,23 @@ export async function openSubtitlePicker(
     release?: string;
   }>,
   actionContext?: ListShellActionContext,
+  container?: Container,
 ): Promise<string | null> {
+  if (container) {
+    container.stateManager.dispatch({
+      type: "OPEN_OVERLAY",
+      overlay: {
+        type: "subtitle_picker",
+        options: entries.map((entry) => ({
+          value: entry.url,
+          label: entry.display ?? entry.language ?? "Unknown track",
+          detail: `${entry.language ?? "unknown"}${entry.release ? `  ·  ${entry.release}` : ""}`,
+        })),
+      },
+    });
+    return await waitForRootPicker();
+  }
+
   return chooseOption({
     title: "Choose subtitles",
     subtitle: `${entries.length} tracks available`,
@@ -596,9 +652,10 @@ export async function openSeasonPicker(
   tmdbId: string,
   currentSeason: number,
   actionContext?: ListShellActionContext,
+  container?: Container,
 ): Promise<number | null> {
   const seasons = await fetchSeasons(tmdbId);
-  return chooseSeasonFromOptions(seasons, currentSeason, actionContext);
+  return chooseSeasonFromOptions(seasons, currentSeason, actionContext, container);
 }
 
 export async function openEpisodePicker(
@@ -606,17 +663,34 @@ export async function openEpisodePicker(
   season: number,
   currentEpisode: number,
   actionContext?: ListShellActionContext,
+  container?: Container,
 ): Promise<EpisodeInfo | null> {
   const episodes = await fetchEpisodes(tmdbId, season);
-  return chooseEpisodeFromOptions(episodes, season, currentEpisode, actionContext);
+  return chooseEpisodeFromOptions(episodes, season, currentEpisode, actionContext, container);
 }
 
 export async function openAnimeEpisodePicker(
   count: number,
   currentEpisode: number,
   actionContext?: ListShellActionContext,
+  container?: Container,
 ): Promise<number | null> {
   const episodes = Array.from({ length: count }, (_, index) => index + 1);
+  if (container) {
+    container.stateManager.dispatch({
+      type: "OPEN_OVERLAY",
+      overlay: {
+        type: "episode_picker",
+        season: 1,
+        options: episodes.map((episode) => ({
+          value: String(episode),
+          label: episode === currentEpisode ? `Episode ${episode}  ·  current` : `Episode ${episode}`,
+        })),
+      },
+    });
+    const picked = await waitForRootPicker();
+    return picked ? Number.parseInt(picked, 10) : null;
+  }
   return chooseOption({
     title: "Choose episode",
     subtitle: `${count} episodes available`,
@@ -632,8 +706,26 @@ export async function openAnimeEpisodeListPicker(
   episodes: readonly EpisodePickerOption[],
   currentEpisode: number,
   actionContext?: ListShellActionContext,
+  container?: Container,
 ): Promise<number | null> {
   if (episodes.length === 0) return null;
+
+  if (container) {
+    container.stateManager.dispatch({
+      type: "OPEN_OVERLAY",
+      overlay: {
+        type: "episode_picker",
+        season: 1,
+        options: episodes.map((episode) => ({
+          value: String(episode.index),
+          label: episode.index === currentEpisode ? `${episode.label}  ·  current` : episode.label,
+          detail: episode.detail,
+        })),
+      },
+    });
+    const picked = await waitForRootPicker();
+    return picked ? Number.parseInt(picked, 10) : null;
+  }
 
   return chooseOption({
     title: "Choose episode",

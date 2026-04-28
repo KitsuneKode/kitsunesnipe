@@ -500,6 +500,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             container: context.container,
             taskLabel: "Choose subtitles",
           }),
+          context.container,
         ),
     });
 
