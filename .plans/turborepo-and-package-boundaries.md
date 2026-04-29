@@ -64,6 +64,10 @@ packages/
     Future package name: `@kunai/providers`.
     Provider modules behind one SDK-style interface. Owns provider-specific route builders, parsers, mirror/source loops, subtitle extraction, and provider-local decryption logic.
 
+  catalog/
+    Future package name: `@kunai/catalog`.
+    Search services, title identity, TMDB/AniList/MAL/Kitsu/provider mappings, metadata enrichment, episode catalogs, recommendations, and catalog cache policy.
+
   runtime-browser/
     Future package name: `@kunai/runtime-browser`.
     JIT Playwright lease manager, browser lifecycle policy, interceptors, timeout/cooldown policy, request evidence capture, and safe teardown.
@@ -238,6 +242,9 @@ Target package ownership:
 
 @kunai/providers
   Provider modules with one SDK interface. Owns provider-local source/mirror/variant extraction and returns structured results.
+
+@kunai/catalog
+  Search, content identity, mapping graph, metadata enrichment, episode catalogs, catalog cache policy, and recommendation signals.
 
 @kunai/runtime-browser
   JIT Playwright lease manager, browser pool/launch policy, interception helpers, cooldowns, timeout policy, evidence collection, teardown.

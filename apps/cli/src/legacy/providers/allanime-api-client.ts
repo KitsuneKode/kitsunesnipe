@@ -1,5 +1,5 @@
 // =============================================================================
-// AllAnime-family — reusable AllAnime / AllManga-family GraphQL client
+// AllAnime API client — reusable AllAnime / AllManga-inspired GraphQL client
 //
 // Providers that deliberately target the allanime.day API family share:
 //   • GraphQL endpoint, Referer header, User-Agent
@@ -9,7 +9,7 @@
 //
 // To add a new anime provider that uses this API:
 //   1. Create src/providers/myprovider.ts
-//   2. Import createAnimeProvider and call it with your config.
+//   2. Import createAllAnimeApiProvider and call it with your config.
 //   3. Register in src/providers/index.ts — one line.
 //
 // Nothing else needs to change.
@@ -19,7 +19,7 @@ import type { StreamData } from "@/scraper";
 import type { EpisodePickerOption } from "@/domain/types";
 import { dbg, dbgErr } from "@/logger";
 
-// ── Legacy Adapter Types (retained for AllAnime family) ────────────────────────
+// ── Legacy Adapter Types (retained for this API client) ────────────────────────
 
 export type ApiSearchResult = {
   id: string;
@@ -206,7 +206,7 @@ export async function decodeTobeparsed(
     }
     return results;
   } catch (e) {
-    dbgErr("allanime-family", "tobeparsed decryption failed", e);
+    dbgErr("allanime-api", "tobeparsed decryption failed", e);
     return [];
   }
 }
@@ -493,7 +493,7 @@ export async function resolveEpisodeSources(opts: {
   return all;
 }
 
-export async function fetchAnimeEpisodeCatalog(opts: {
+export async function fetchAllAnimeEpisodeCatalog(opts: {
   apiUrl: string;
   referer: string;
   ua: string;
@@ -514,7 +514,7 @@ export async function fetchAnimeEpisodeCatalog(opts: {
   }));
 }
 
-// ── Factory: createAnimeProvider ──────────────────────────────────────────────
+// ── Factory: createAllAnimeApiProvider ────────────────────────────────────────
 //
 // Builds an ApiProvider from a minimal config object.
 // Adding a new allanime-compatible provider = call this function with
@@ -535,7 +535,7 @@ export type AnimeProviderConfig = {
 const DEFAULT_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0";
 
-export function createAnimeProvider(cfg: AnimeProviderConfig): ApiProvider {
+export function createAllAnimeApiProvider(cfg: AnimeProviderConfig): ApiProvider {
   const ua = cfg.ua ?? DEFAULT_UA;
 
   return {

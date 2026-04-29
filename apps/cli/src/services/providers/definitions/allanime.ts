@@ -12,7 +12,7 @@ import type {
 } from "@/domain/types";
 import type { StreamData } from "@/scraper";
 import { allanimeManifest } from "@kunai/core";
-import { createAnimeProvider, fetchAnimeEpisodeCatalog } from "./allanime-family";
+import { createAllAnimeApiProvider, fetchAllAnimeEpisodeCatalog } from "./allanime-api-client";
 
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import {
@@ -37,7 +37,7 @@ export class AllAnimeProvider implements Provider {
 
   readonly capabilities: ProviderCapabilities = manifestToProviderCapabilities(allanimeManifest);
 
-  private legacyProvider = createAnimeProvider(ALLANIME_CONFIG);
+  private apiProvider = createAllAnimeApiProvider(ALLANIME_CONFIG);
 
   constructor(private deps: ProviderDeps) {}
 
@@ -57,7 +57,7 @@ export class AllAnimeProvider implements Provider {
         }) as Promise<StreamData | null>,
     };
 
-    const result = await this.legacyProvider.resolveStream(
+    const result = await this.apiProvider.resolveStream(
       request.title.id,
       request.title.type,
       request.episode?.season ?? 1,
@@ -88,7 +88,7 @@ export class AllAnimeProvider implements Provider {
     request: { title: TitleInfo },
     _signal?: AbortSignal,
   ): Promise<EpisodePickerOption[] | null> {
-    return fetchAnimeEpisodeCatalog({
+    return fetchAllAnimeEpisodeCatalog({
       apiUrl: ALLANIME_CONFIG.apiUrl,
       referer: "https://allmanga.to",
       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
@@ -102,7 +102,7 @@ export class AllAnimeProvider implements Provider {
     opts: { animeLang: "sub" | "dub" },
     _signal?: AbortSignal,
   ): Promise<import("@/domain/types").SearchResult[] | null> {
-    const results = await this.legacyProvider.search(query, opts);
+    const results = await this.apiProvider.search(query, opts);
     if (!results) return null;
 
     return results.map((r) => ({

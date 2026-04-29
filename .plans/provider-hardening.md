@@ -141,16 +141,16 @@ See [.docs/provider-intake.md](../.docs/provider-intake.md).
 - track provider-level and source/mirror-level health locally: success rate, median latency, subtitle success, recent timeout spikes, and failure reasons
 - use health as ranking input without making provider modules stateful
 
-### Workstream 8: AllAnime / Ani-CLI Parity Discipline
+### Workstream 8: AllAnime API / Ani-CLI Parity Discipline
 
-- treat ani-cli as the canonical reference for AllAnime or AllManga behavior while it remains maintained
+- treat ani-cli as the canonical reference for the concrete AllAnime/AllManga-style API behavior while it remains maintained
 - on this machine, use the local checkout at `~/Projects/osc/ani-cli` for parity checks
 - when both Kunai and ani-cli are broken, isolate the shared upstream break from local integration bugs
 - allow temporary local fixes in Kunai when upstream is broken, but record:
   - what diverged
   - why the divergence exists
   - how to remove it once upstream parity is restored
-- preserve at least one regression case for search, episode lookup, `tobeparsed`, and final source extraction
+- preserve at least one regression case for AllAnime API search, episode lookup, `tobeparsed`, and final source extraction
 
 ## Phase Plan
 

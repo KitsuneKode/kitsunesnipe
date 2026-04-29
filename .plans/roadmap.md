@@ -18,7 +18,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Autoplay is now app-driven: mpv exits cleanly at EOF, then Kunai launches the next actually available released episode when enabled
 - The CLI now has a dedicated `apps/cli/test/` tree for integration, live smoke, provider templates, and VHS tapes
 - Browser/embed scraping in the new runtime now reads and writes the shared stream cache
-- AllAnime family parity code is explicitly named `allanime-family.ts`
+- AllAnime parity code is explicitly named `allanime-api-client.ts` so it is not mistaken for the generic anime provider base
 - `apps/cli/src/main.ts` is now the default runnable and build entrypoint
 - Shell-local debug POST instrumentation has been removed from the Ink UI path
 - Browse and post-playback now keep provider, help, about, history, and diagnostics inside the mounted shell instead of bouncing into separate helper screens
@@ -84,7 +84,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 | Ink UI migration                 | Planned     | [.plans/ink-migration.md](.plans/ink-migration.md)                                                   |
 | Provider hardening               | Planned     | [.plans/provider-hardening.md](.plans/provider-hardening.md)                                         |
 | Runtime entry consolidation      | Planned     | [.docs/architecture-v2.md](.docs/architecture-v2.md)                                                 |
-| Search/provider decoupling       | Deferred    | [.plans/search-service.md](.plans/search-service.md)                                                 |
+| Search/catalog service           | Active Design | [.plans/search-service.md](.plans/search-service.md)                                               |
 | YouTube provider research        | Idea        | [.plans/yt-provider.md](.plans/yt-provider.md)                                                       |
 
 ## Rules For This Folder

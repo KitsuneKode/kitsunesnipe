@@ -1,9 +1,9 @@
-import { createAnimeProvider } from "./allanime-family";
+import { createAllAnimeApiProvider } from "./allanime-api-client";
 
 // AllAnime / AllManga — the reference implementation for this specific API family.
-// To add a compatible provider, call createAnimeProvider with different config.
+// To add a compatible provider, call createAllAnimeApiProvider with different config.
 
-export const AllAnime = createAnimeProvider({
+export const AllAnime = createAllAnimeApiProvider({
   id: "allanime",
   name: "AllAnime",
   description: "AllAnime / AllManga  (anime · sub & dub · no browser needed)",

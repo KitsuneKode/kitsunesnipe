@@ -116,9 +116,9 @@ For new providers or major provider hardening, do not jump straight from this do
 
 - `isAnimeProvider: true` is what includes a provider in anime mode
 - Episode numbering in the UI is always 1-based
-- `allanime-family.ts` should stay aligned with ani-cli assumptions unless the codebase deliberately chooses a new contract
+- `allanime-api-client.ts` should stay aligned with the specific ani-cli/AllManga-inspired API assumptions it implements unless the codebase deliberately chooses a new contract
 
-### AllAnime-compatible invariants
+### AllAnime API-client invariants
 
 - `KNOWN_SOURCES = ["Default", "Yt-mp4", "S-mp4", "Luf-Mp4"]`
 - `hexDecode` mirrors ani-cli provider decoding logic
@@ -131,7 +131,7 @@ For new providers or major provider hardening, do not jump straight from this do
 - `tobeparsed` stays out of the GraphQL selection set
 - `m3u8Referer` comes from the JSON response body, not the static config referer
 
-This parity policy only applies to the AllAnime / AllManga API family and other deliberate compatibles. It is not a universal standard for every anime provider in the repo.
+This parity policy only applies to the concrete AllAnime / AllManga-style API client and other deliberate compatibles. It is not a universal standard for every anime provider in the repo.
 
 ## Playback and Recovery
 

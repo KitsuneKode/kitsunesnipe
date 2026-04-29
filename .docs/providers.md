@@ -184,14 +184,16 @@ export const MyApiProvider: ApiProvider = {
 };
 ```
 
-## Adding an AllAnime-Compatible Provider
+## Adding An AllAnime-API-Compatible Provider
 
-If the provider follows the same contract as `allanime-family.ts`, use `createAnimeProvider()` instead of reimplementing the crypto and decoder path.
+AllAnime is one concrete anime provider/API client. It is not the base abstraction for anime providers.
+
+If a provider deliberately follows the same AllAnime/AllManga-style API contract as `allanime-api-client.ts`, use `createAllAnimeApiProvider()` instead of reimplementing that specific crypto and decoder path.
 
 ```ts
-export const MyAnime = createAnimeProvider({
+export const MyAllAnimeCompatible = createAllAnimeApiProvider({
   id: "myanime",
-  description: "Alternative AllAnime endpoint",
+  description: "Alternative AllAnime-compatible endpoint",
   apiUrl: "https://example.com/api",
   referer: "https://example.com/",
   isAnimeProvider: true,
@@ -200,11 +202,11 @@ export const MyAnime = createAnimeProvider({
 
 ## AllAnime / AllManga Parity Policy
 
-- `src/providers/allanime-family.ts` should stay aligned with ani-cli behavior unless Kunai deliberately chooses a different contract
+- `apps/cli/src/services/providers/definitions/allanime-api-client.ts` should stay aligned with the specific ani-cli/AllManga-inspired behavior it implements unless Kunai deliberately chooses a different contract
 - when AllAnime or AllManga breaks, compare against ani-cli before guessing at a fix
 - on this machine, the canonical local ani-cli checkout is `~/Projects/osc/ani-cli`
 - if ani-cli is also broken upstream, Kunai may carry a temporary local fix, but that divergence should be documented and easy to remove when parity can be restored
-- this is a family-specific reference contract for AllAnime-compatible providers, not the default contract for every anime source
+- this is a concrete API-client parity policy, not the default contract for every anime source
 - when fixing this family of providers, check:
   - search GraphQL query shape
   - episode list query shape

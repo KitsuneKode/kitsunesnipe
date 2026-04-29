@@ -1,4 +1,4 @@
-# AllAnime Family Provider Dossier
+# AllAnime API Client Provider Dossier
 
 - **Status:** production
 - **Provider ID:** allanime

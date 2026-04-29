@@ -90,7 +90,7 @@ Provider work should:
 - keep Playwright fallback paths where browser behavior is genuinely required
 - emit diagnostics that explain which stage failed
 
-AllAnime-family parity should track the local `ani-cli` reference for that provider family only. It is not the standard for every anime provider.
+AllAnime API-client parity should track the local `ani-cli` reference for that concrete provider path only. It is not the standard for every anime provider.
 
 ## Privacy And Diagnostics
 

@@ -4,7 +4,7 @@ import {
   buildStreamHeaders,
   decodeTobeparsed,
   resolveAnimeEpisodeString,
-} from "@/services/providers/definitions/allanime-family";
+} from "@/services/providers/definitions/allanime-api-client";
 
 const TEST_KEY_RAW = "Xot36i3lK3:v1";
 
