@@ -25,6 +25,8 @@
     "relink:global": "bun run --cwd apps/cli relink:global"
   },
   "devDependencies": {
+    "oxfmt": "^0.47.0",
+    "oxlint": "^1.62.0",
     "turbo": "^2.9.6"
   },
   "engines": {

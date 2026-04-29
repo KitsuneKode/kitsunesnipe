@@ -5,6 +5,10 @@
 // No dependencies on infrastructure or UI.
 // =============================================================================
 
+import type { ResolveTrace as SharedResolveTrace } from "@kunai/types";
+
+export type { SharedResolveTrace };
+
 export type ContentType = "movie" | "series";
 export type ShellMode = "series" | "anime";
 

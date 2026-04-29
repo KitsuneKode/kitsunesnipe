@@ -1,0 +1,22 @@
+{
+  "name": "@kunai/types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared Kunai TypeScript contracts.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "bun tsc --noEmit",
+    "lint": "oxlint .",
+    "fmt": "oxfmt --write .",
+    "test": "bun test test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
