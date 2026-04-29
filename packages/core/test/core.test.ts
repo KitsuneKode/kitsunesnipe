@@ -5,6 +5,9 @@ import {
   adaptCliStreamResult,
   assertManifestHasRuntimePort,
   bitcineManifest,
+  buildBitcineEmbedUrl,
+  buildCinebyEmbedUrl,
+  buildVidkingEmbedUrl,
   braflixManifest,
   cinebyAnimeManifest,
   cinebyManifest,
@@ -23,6 +26,41 @@ test("vidking manifest declares capability, cache, and runtime boundaries", () =
   const port = assertManifestHasRuntimePort(vidkingManifest, "playwright-lease");
   expect(port.localOnly).toBe(true);
   expect(port.browserSafe).toBe(false);
+});
+
+test("provider embed URL builders preserve production playback routes", () => {
+  expect(buildVidkingEmbedUrl({ id: "438631", mediaKind: "movie" })).toBe(
+    "https://www.vidking.net/embed/movie/438631?autoPlay=true",
+  );
+  expect(buildVidkingEmbedUrl({ id: "1396", mediaKind: "series", season: 1, episode: 5 })).toBe(
+    "https://www.vidking.net/embed/tv/1396/1/5?autoPlay=true&episodeSelector=false&nextEpisode=false",
+  );
+
+  expect(buildCinebyEmbedUrl({ id: "438631", mediaKind: "movie" })).toBe(
+    "https://www.cineby.sc/movie/438631?play=true",
+  );
+  expect(buildCinebyEmbedUrl({ id: "1396", mediaKind: "series", season: 1, episode: 5 })).toBe(
+    "https://www.cineby.sc/tv/1396/1/5?play=true",
+  );
+
+  expect(buildBitcineEmbedUrl({ id: "438631", mediaKind: "movie" })).toBe(
+    "https://www.bitcine.net/movie/438631?play=true",
+  );
+  expect(buildBitcineEmbedUrl({ id: "1396", mediaKind: "series", season: 1, episode: 5 })).toBe(
+    "https://www.bitcine.net/tv/1396/1/5?play=true",
+  );
+});
+
+test("provider embed URL builders reject incomplete series inputs", () => {
+  expect(() => buildVidkingEmbedUrl({ id: "1396", mediaKind: "series", season: 1 })).toThrow(
+    "VidKing requires season and episode",
+  );
+  expect(() => buildCinebyEmbedUrl({ id: "1396", mediaKind: "series", episode: 5 })).toThrow(
+    "Cineby requires season and episode",
+  );
+  expect(() => buildBitcineEmbedUrl({ id: "1396", mediaKind: "series" })).toThrow(
+    "BitCine requires season and episode",
+  );
 });
 
 test("all production providers declare cache and runtime boundaries", () => {

@@ -3,7 +3,7 @@
 // =============================================================================
 
 import type { ProviderCapabilities, ProviderMetadata, StreamInfo, TitleInfo } from "@/domain/types";
-import { cinebyManifest } from "@kunai/core";
+import { buildCinebyEmbedUrl, cinebyManifest } from "@kunai/core";
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import {
   attachProviderResolveResult,
@@ -23,10 +23,12 @@ export class CinebyProvider implements Provider {
   }
 
   async resolveStream(request: StreamRequest, signal?: AbortSignal): Promise<StreamInfo | null> {
-    const url =
-      request.title.type === "movie"
-        ? `https://www.cineby.sc/movie/${request.title.id}?play=true`
-        : `https://www.cineby.sc/tv/${request.title.id}/${request.episode!.season}/${request.episode!.episode}?play=true`;
+    const url = buildCinebyEmbedUrl({
+      id: request.title.id,
+      mediaKind: request.title.type,
+      season: request.episode?.season,
+      episode: request.episode?.episode,
+    });
 
     const stream = await this.deps.browser.scrape({
       url,

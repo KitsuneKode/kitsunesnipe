@@ -3,7 +3,7 @@
 // =============================================================================
 
 import type { ProviderCapabilities, ProviderMetadata, StreamInfo, TitleInfo } from "@/domain/types";
-import { bitcineManifest } from "@kunai/core";
+import { bitcineManifest, buildBitcineEmbedUrl } from "@kunai/core";
 
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import {
@@ -24,10 +24,12 @@ export class BitCineProvider implements Provider {
   }
 
   async resolveStream(request: StreamRequest, signal?: AbortSignal): Promise<StreamInfo | null> {
-    const url =
-      request.title.type === "movie"
-        ? `https://www.bitcine.net/movie/${request.title.id}?play=true`
-        : `https://www.bitcine.net/tv/${request.title.id}/${request.episode!.season}/${request.episode!.episode}?play=true`;
+    const url = buildBitcineEmbedUrl({
+      id: request.title.id,
+      mediaKind: request.title.type,
+      season: request.episode?.season,
+      episode: request.episode?.episode,
+    });
 
     const stream = await this.deps.browser.scrape({
       url,

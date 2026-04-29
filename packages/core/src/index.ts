@@ -1,5 +1,6 @@
 export * from "./adapter";
 export * from "./cache-policy";
+export * from "./embed-url";
 export * from "./provider-manifest";
 export * from "./providers/allanime";
 export * from "./providers/bitcine";

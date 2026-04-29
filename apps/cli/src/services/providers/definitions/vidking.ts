@@ -3,7 +3,7 @@
 // =============================================================================
 
 import type { ProviderCapabilities, ProviderMetadata, StreamInfo, TitleInfo } from "@/domain/types";
-import { vidkingManifest } from "@kunai/core";
+import { buildVidkingEmbedUrl, vidkingManifest } from "@kunai/core";
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import {
   attachProviderResolveResult,
@@ -23,10 +23,12 @@ export class VidKingProvider implements Provider {
   }
 
   async resolveStream(request: StreamRequest, signal?: AbortSignal): Promise<StreamInfo | null> {
-    const url =
-      request.title.type === "movie"
-        ? `https://www.vidking.net/embed/movie/${request.title.id}?autoPlay=true`
-        : `https://www.vidking.net/embed/tv/${request.title.id}/${request.episode!.season}/${request.episode!.episode}?autoPlay=true&episodeSelector=false&nextEpisode=false`;
+    const url = buildVidkingEmbedUrl({
+      id: request.title.id,
+      mediaKind: request.title.type,
+      season: request.episode?.season,
+      episode: request.episode?.episode,
+    });
 
     const stream = await this.deps.browser.scrape({
       url,

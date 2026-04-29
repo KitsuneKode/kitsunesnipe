@@ -1,6 +1,6 @@
 # Kunai Turborepo And Package Boundaries Plan
 
-Status: Phase 4D provider resolve-result wiring in progress
+Status: Phase 4F provider implementation extraction started
 
 Last updated: 2026-04-29
 
@@ -319,7 +319,7 @@ Phase 3B wiring, after the package foundation:
 
 Extract one simple provider path first. Prefer a 0-RAM or low-risk provider before Playwright-heavy providers.
 
-Status: Phase 4E resolver orchestration in progress.
+Status: Phase 4F provider implementation extraction started.
 
 Phase 4A foundation:
 
@@ -373,6 +373,13 @@ Phase 4E resolver orchestration:
 - adapt existing CLI providers into resolver candidates instead of moving provider internals
 - preserve provider attempts, structured failures, and attached `ProviderResolveResult` evidence
 - keep PlaybackPhase responsible for app state, history, subtitles, mpv playback, and user-facing diagnostics
+
+Phase 4F implementation extraction:
+
+- move deterministic provider-local logic into `@kunai/core` before moving network/browser-heavy internals
+- keep Playwright scraping, app logging, config, storage, subtitles, and playback orchestration inside `apps/cli`
+- first slice extracts VidKing, Cineby, and BitCine embed-route builders into `@kunai/core`
+- preserve exact production playback URLs with package tests before extracting any higher-risk provider behavior
 
 Provider move order:
 
