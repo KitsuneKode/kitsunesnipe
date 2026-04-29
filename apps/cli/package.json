@@ -60,6 +60,7 @@
     "@assemblyscript/loader": "^0.28.16",
     "@clack/prompts": "^1.2.0",
     "@kitsunekode/run-cli": "^0.1.0",
+    "@kunai/core": "workspace:*",
     "@kunai/storage": "workspace:*",
     "@kunai/types": "workspace:*",
     "@types/crypto-js": "^4.2.2",

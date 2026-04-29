@@ -6,25 +6,23 @@
 // =============================================================================
 
 import type { ProviderDefinition } from "../Provider";
+import { vidkingManifest } from "@kunai/core";
 import { createVidKingProvider } from "./vidking";
 import { createCinebyProvider } from "./cineby";
 import { createBitCineProvider } from "./bitcine";
 import { createBraflixProvider } from "./braflix";
 import { createAllAnimeProvider } from "./allanime";
 import { createCinebyAnimeProvider } from "./cineby-anime";
+import {
+  manifestToProviderCapabilities,
+  manifestToProviderMetadata,
+} from "../core-manifest-adapter";
 
 export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
   {
-    id: "vidking",
-    metadata: {
-      id: "vidking",
-      name: "VidKing",
-      description: "VidKing (recommended)",
-      recommended: true,
-      isAnimeProvider: false,
-      domain: "vidking.net",
-    },
-    capabilities: { contentTypes: ["movie", "series"] },
+    id: vidkingManifest.id,
+    metadata: manifestToProviderMetadata(vidkingManifest),
+    capabilities: manifestToProviderCapabilities(vidkingManifest),
     factory: createVidKingProvider,
   },
   {

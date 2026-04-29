@@ -20,6 +20,7 @@
         "@assemblyscript/loader": "^0.28.16",
         "@clack/prompts": "^1.2.0",
         "@kitsunekode/run-cli": "^0.1.0",
+        "@kunai/core": "workspace:*",
         "@kunai/storage": "workspace:*",
         "@kunai/types": "workspace:*",
         "@types/crypto-js": "^4.2.2",
@@ -62,6 +63,19 @@
         "@types/bun": "latest",
         "cheerio": "^1.2.0",
         "playwright": "^1.59.1",
+      },
+    },
+    "packages/core": {
+      "name": "@kunai/core",
+      "version": "0.1.0",
+      "dependencies": {
+        "@kunai/types": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
       },
     },
     "packages/schemas": {
@@ -215,6 +229,8 @@
     "@inquirer/external-editor": ["@inquirer/external-editor@1.0.3", "", { "dependencies": { "chardet": "^2.1.1", "iconv-lite": "^0.7.0" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-RWbSrDiYmO4LbejWY7ttpxczuwQyZLBUyygsA9Nsv95hpzUWwnNTVQmAq3xuh7vNwCp07UTmE5i11XAEExx4RA=="],
 
     "@kitsunekode/run-cli": ["@kitsunekode/run-cli@0.1.0", "", { "peerDependencies": { "typescript": "^5" }, "bin": { "run": "bin/run", "runx": "bin/runx" } }, "sha512-HNHucLnAGsMzbjaRipueziqCCCfed4uLbzOaaeqcRTGjap75akqP7QJNrVHe0Hqm/P6oGXsPXO2HLJ/UNE+3cg=="],
+
+    "@kunai/core": ["@kunai/core@workspace:packages/core"],
 
     "@kunai/experiments": ["@kunai/experiments@workspace:apps/experiments"],
 

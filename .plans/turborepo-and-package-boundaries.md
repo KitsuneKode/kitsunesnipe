@@ -1,6 +1,6 @@
 # Kunai Turborepo And Package Boundaries Plan
 
-Status: Phase 3 storage complete; Phase 4 provider extraction next
+Status: Phase 4A provider-core foundation in progress
 
 Last updated: 2026-04-29
 
@@ -318,6 +318,16 @@ Phase 3B wiring, after the package foundation:
 ## Phase 4: First Provider Extraction
 
 Extract one simple provider path first. Prefer a 0-RAM or low-risk provider before Playwright-heavy providers.
+
+Status: Phase 4A started.
+
+Phase 4A foundation:
+
+- create `@kunai/core`
+- move VidKing provider manifest, capability declaration, runtime-port declaration, and cache policy into `@kunai/core`
+- add a CLI compatibility adapter for converting current `StreamInfo`-shaped results into `ProviderResolveResult`
+- wire the CLI VidKing definition through the core manifest without moving the working provider implementation yet
+- keep the current Playwright/browser scrape path honest in the manifest until a real 0-RAM implementation is production-wired
 
 Actions:
 

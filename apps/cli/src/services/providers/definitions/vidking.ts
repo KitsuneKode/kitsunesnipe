@@ -3,21 +3,17 @@
 // =============================================================================
 
 import type { ProviderCapabilities, ProviderMetadata, StreamInfo, TitleInfo } from "@/domain/types";
+import { vidkingManifest } from "@kunai/core";
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
+import {
+  manifestToProviderCapabilities,
+  manifestToProviderMetadata,
+} from "../core-manifest-adapter";
 
 export class VidKingProvider implements Provider {
-  readonly metadata: ProviderMetadata = {
-    id: "vidking",
-    name: "VidKing",
-    description: "VidKing (recommended)",
-    recommended: true,
-    isAnimeProvider: false,
-    domain: "vidking.net",
-  };
+  readonly metadata: ProviderMetadata = manifestToProviderMetadata(vidkingManifest);
 
-  readonly capabilities: ProviderCapabilities = {
-    contentTypes: ["movie", "series"],
-  };
+  readonly capabilities: ProviderCapabilities = manifestToProviderCapabilities(vidkingManifest);
 
   constructor(private deps: ProviderDeps) {}
 
