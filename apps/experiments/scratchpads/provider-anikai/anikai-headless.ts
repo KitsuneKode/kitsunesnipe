@@ -96,12 +96,15 @@ async function main() {
     });
 
     try {
-        await page.goto(`https://anikai.to/watch/${selected.slug}`, { waitUntil: "commit" });
+        await page.goto(`https://anikai.to/watch/${selected.slug}`, { waitUntil: "commit", timeout: 15000 }).catch(e => {
+            console.log(`[i] Initial navigation aborted (likely Cloudflare challenge). Waiting for JS redirect...`);
+        });
+        
         // Wait for the episode list to load. Anikai loads episodes via ajax into .ep-item
         // Give it a massive timeout for Cloudflare to clear
         await page.waitForSelector('a[token]', { timeout: 60000 });
     } catch (e) {
-        console.error(`[!] Failed to load watch page or episode list. Cloudflare might be blocking heavily. Error: ${e.message}`);
+        console.error(`[!] Failed to load watch page or episode list after waiting for Cloudflare. Error: ${e.message}`);
         rl.close();
         await browser.close();
         process.exit(1);
@@ -200,6 +203,45 @@ async function main() {
 
     console.log(`\n[+] SUCCESS! Stream URL extracted:`);
     console.log(`    -> ${finalStreamUrl}`);
+
+    // --- NEW: Client-Side Extractor Test ---
+    console.log(`\n[*] EXTRACTOR TEST: Fetching the raw HTML of the embed link to find the hidden video...`);
+    try {
+        const embedRes = await page.goto(finalStreamUrl, { waitUntil: "domcontentloaded" });
+        const embedHtml = await page.content();
+        
+        let foundObfuscation = false;
+        
+        // Let's hunt for the Dean Edwards packer or raw mp4 links in the DOM
+        const scripts = await page.evaluate(() => {
+            return Array.from(document.querySelectorAll('script')).map(s => s.innerHTML);
+        });
+
+        for (const script of scripts) {
+            if (script.includes('eval(function(p,a,c,k,e,d)')) {
+                console.log(`    🚨 BINGO! Found a 'Dean Edwards' JavaScript packer hiding the video.`);
+                console.log(`       We can build a TypeScript unpacker to decrypt this in the browser!`);
+                console.log(`       Snippet: ${script.substring(0, 100)}...`);
+                foundObfuscation = true;
+            } else if (script.match(/https?:\/\/[^"']*\.(?:mp4|m3u8)[^"']*/i)) {
+                const match = script.match(/https?:\/\/[^"']*\.(?:mp4|m3u8)[^"']*/i);
+                console.log(`    🚨 BINGO! Found an un-obfuscated raw video link injected in JS:`);
+                console.log(`       -> ${match[0]}`);
+                foundObfuscation = true;
+            }
+        }
+
+        if (!foundObfuscation) {
+            console.log(`    [?] Did not find obvious obfuscation or direct links. Here is a snippet of the embed HTML:`);
+            console.log(`        ${embedHtml.substring(0, 300)}`);
+            await require('fs').promises.writeFile('megaup-dump.html', embedHtml);
+            console.log(`    [+] Dumped full embed HTML to megaup-dump.html for inspection.`);
+        }
+
+    } catch (e) {
+        console.error(`    [!] Extractor test failed: ${e.message}`);
+    }
+    // ---------------------------------------
 
     if (!finalStreamUrl.includes('.m3u8') && !finalStreamUrl.includes('.mp4')) {
         console.log(`    [!] This is an embed link. 'mpv' will automatically use 'yt-dlp' to extract the raw video.`);
