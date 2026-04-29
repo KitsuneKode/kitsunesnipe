@@ -51,7 +51,8 @@ Implement a reliable player telemetry path.
 Preferred direction:
 
 - Use `mpv --input-ipc-server=<socket-or-pipe>` where supported.
-- Poll or request `playback-time`, `duration`, `time-pos`, `percent-pos`, `pause`, `core-idle`, and end reason where practical.
+- Poll or request `time-pos`, `playback-time`, `duration`, `percent-pos`, `pause`, `eof-reached`, `idle-active`, `core-idle`, `filename`, `media-title`, and `track-list` where practical.
+- Subscribe to useful properties over IPC when practical instead of only polling.
 - Keep the Lua reporter only as fallback if useful.
 - Persist a useful final playback result on EOF/quit/error.
 - Never save fake history for an instant failed playback.
@@ -66,6 +67,38 @@ Minimum telemetry model:
 - whether the player process exited cleanly
 - last non-zero progress sample
 - final result source: ipc, lua, progress fallback, or unknown
+- raw mpv process exit code/signal when available
+- socket/pipe path cleanup status
+
+## IPC Details To Handle
+
+Implement IPC deliberately, not as a fragile one-off.
+
+Expected shape:
+
+1. Create a unique IPC socket path per playback session.
+2. Launch `mpv` with `--input-ipc-server=<path>`.
+3. Wait briefly for the socket to become available.
+4. Connect to the socket and send newline-delimited JSON commands.
+5. Use `observe_property` or periodic `get_property` commands for position and duration.
+6. Listen for `end-file` events and process close events.
+7. Fold all events into a `PlayerTelemetry` state object.
+8. Choose the final `PlaybackResult` from the best available snapshot.
+9. Clean up socket, Lua script, progress files, and timers.
+
+Unix socket note:
+
+- Linux/macOS can use a Unix socket path under `tmpdir()`.
+- Windows may need a named pipe path later. If Windows is not implemented in this pass, keep the fallback Lua path and document the limitation.
+
+Telemetry selection rules:
+
+- Prefer IPC final snapshot when it has non-zero position or duration.
+- If IPC final is zero but a prior IPC/progress snapshot is non-zero, use the latest non-zero snapshot.
+- If `end-file` says EOF and duration is known, final position should be at least duration.
+- If process exits immediately with zero telemetry, return unknown/error-ish result and do not save history.
+- If only Lua progress has useful state, use it and mark `resultSource` as Lua/progress fallback.
+- Never convert `{0,0,eof}` into a completed watch without another non-zero evidence source.
 
 ## Scope
 
@@ -110,6 +143,8 @@ If full IPC is too large for one pass:
 Add focused tests for:
 
 - parsing mpv telemetry reports
+- parsing newline-delimited IPC JSON events
+- building IPC commands
 - selecting final playback result from IPC/final/progress snapshots
 - EOF with zero final duration but non-zero progress sample
 - quit with partial progress

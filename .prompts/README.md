@@ -24,5 +24,9 @@ Do not run two agents that edit the same runtime seam at the same time.
   - Fixes the playback telemetry issue blocking real history persistence.
   - Owns MPV IPC/player progress foundation.
 
+- `day1-temporary-english-subtitles.md`
+  - Best for the Day-1/runtime-aware agent after or alongside IPC if ownership is clear.
+  - Adds a temporary English-first subtitle hardening path without scattering provider hacks.
+
 - `operating-model.md`
   - Explains how to run agents from here without over-distributing work.
