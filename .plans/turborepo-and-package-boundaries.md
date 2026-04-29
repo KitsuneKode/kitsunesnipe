@@ -1,6 +1,6 @@
 # Kunai Turborepo And Package Boundaries Plan
 
-Status: Phase 2 complete; Phase 3 storage next
+Status: Phase 3 storage complete; Phase 4 provider extraction next
 
 Last updated: 2026-04-29
 
@@ -272,7 +272,7 @@ Drift guard:
 
 Extract storage foundations before provider extraction so the CLI has reliable local history, cache, diagnostics, and source intelligence.
 
-Status: Next.
+Status: Complete.
 
 Current execution mode:
 

@@ -78,6 +78,7 @@ export interface StreamCandidate {
   readonly expiresAt?: string;
   readonly confidence: number;
   readonly cachePolicy: CachePolicy;
+  readonly metadata?: Record<string, unknown>;
 }
 
 export interface SubtitleCandidate {

@@ -1,0 +1,167 @@
+import type { KunaiDatabase } from "./sqlite";
+
+export type MigrationDatabase = "data" | "cache";
+
+export interface Migration {
+  readonly id: string;
+  readonly database: MigrationDatabase;
+  readonly sql: string;
+}
+
+export const dataMigrations: readonly Migration[] = [
+  {
+    id: "001_data_history_progress",
+    database: "data",
+    sql: `
+      CREATE TABLE IF NOT EXISTS history_progress (
+        key TEXT PRIMARY KEY,
+        title_id TEXT NOT NULL,
+        media_kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        season INTEGER,
+        episode INTEGER,
+        absolute_episode INTEGER,
+        position_seconds INTEGER NOT NULL DEFAULT 0,
+        duration_seconds INTEGER,
+        completed INTEGER NOT NULL DEFAULT 0,
+        provider_id TEXT,
+        updated_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_history_progress_updated_at
+        ON history_progress(updated_at DESC);
+    `,
+  },
+  {
+    id: "002_data_playback_events",
+    database: "data",
+    sql: `
+      CREATE TABLE IF NOT EXISTS playback_events (
+        id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        title_id TEXT NOT NULL,
+        media_kind TEXT NOT NULL,
+        season INTEGER,
+        episode INTEGER,
+        position_seconds INTEGER,
+        duration_seconds INTEGER,
+        provider_id TEXT,
+        at TEXT NOT NULL,
+        payload_json TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_playback_events_title_at
+        ON playback_events(title_id, at DESC);
+    `,
+  },
+];
+
+export const cacheMigrations: readonly Migration[] = [
+  {
+    id: "001_cache_stream_cache",
+    database: "cache",
+    sql: `
+      CREATE TABLE IF NOT EXISTS stream_cache (
+        cache_key TEXT PRIMARY KEY,
+        schema_version INTEGER NOT NULL,
+        provider_id TEXT NOT NULL,
+        stream_json TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        last_accessed_at TEXT NOT NULL,
+        hit_count INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_stream_cache_expires_at
+        ON stream_cache(expires_at);
+    `,
+  },
+  {
+    id: "002_cache_provider_health",
+    database: "cache",
+    sql: `
+      CREATE TABLE IF NOT EXISTS provider_health (
+        provider_id TEXT PRIMARY KEY,
+        health_json TEXT NOT NULL,
+        checked_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_provider_health_checked_at
+        ON provider_health(checked_at DESC);
+    `,
+  },
+  {
+    id: "003_cache_source_inventory",
+    database: "cache",
+    sql: `
+      CREATE TABLE IF NOT EXISTS source_inventory (
+        inventory_key TEXT PRIMARY KEY,
+        provider_id TEXT NOT NULL,
+        title_id TEXT NOT NULL,
+        inventory_json TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        last_accessed_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_source_inventory_expires_at
+        ON source_inventory(expires_at);
+    `,
+  },
+  {
+    id: "004_cache_resolve_traces",
+    database: "cache",
+    sql: `
+      CREATE TABLE IF NOT EXISTS resolve_traces (
+        trace_id TEXT PRIMARY KEY,
+        trace_json TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_resolve_traces_started_at
+        ON resolve_traces(started_at DESC);
+    `,
+  },
+];
+
+export function runMigrations(
+  db: KunaiDatabase,
+  database: MigrationDatabase,
+  migrations: readonly Migration[] = database === "data" ? dataMigrations : cacheMigrations,
+): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS __kunai_migrations (
+      id TEXT PRIMARY KEY,
+      database_name TEXT NOT NULL,
+      applied_at TEXT NOT NULL
+    );
+  `);
+
+  const applied = new Set(
+    db
+      .query<{ id: string }, [string]>(
+        "SELECT id FROM __kunai_migrations WHERE database_name = ? ORDER BY id",
+      )
+      .all(database)
+      .map((row) => row.id),
+  );
+
+  const applyMigration = db.transaction((migration: Migration, now: string) => {
+    db.exec(migration.sql);
+    db.query("INSERT INTO __kunai_migrations (id, database_name, applied_at) VALUES (?, ?, ?)").run(
+      migration.id,
+      migration.database,
+      now,
+    );
+  });
+
+  for (const migration of migrations) {
+    if (migration.database !== database || applied.has(migration.id)) {
+      continue;
+    }
+
+    applyMigration(migration, new Date().toISOString());
+  }
+}

@@ -1,6 +1,6 @@
 # Kunai CLI Storage Plan
 
-Status: CLI-first SQLite planned
+Status: Phase 3 implemented
 
 Use this plan when changing config, history, stream cache, provider health cache, source inventory, resolve traces, local playback events, or future sync persistence.
 
@@ -8,7 +8,7 @@ Use this plan when changing config, history, stream cache, provider health cache
 
 Kunai is pre-release and currently focused on the full-fledged CLI. Do not spend effort preserving repo-local `stream_cache.json` or old cache/history formats unless the project explicitly decides to support existing external users.
 
-Use SQLite now for local runtime state:
+Kunai now uses SQLite for local runtime state:
 
 ```text
 kunai-data.sqlite
@@ -184,6 +184,8 @@ Trace storage rules:
 
 ### Phase 3A: Storage Foundation
 
+Status: Complete.
+
 1. Create `@kunai/storage`.
 2. Add OS path resolver.
 3. Add SQLite connection helper.
@@ -193,6 +195,8 @@ Trace storage rules:
 7. Add repository interfaces and basic tests.
 
 ### Phase 3B: CLI Wiring
+
+Status: Complete.
 
 1. Replace JSON history with SQLite history.
 2. Replace JSON stream cache with SQLite stream cache.

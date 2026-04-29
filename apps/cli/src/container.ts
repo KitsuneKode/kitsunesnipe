@@ -20,6 +20,13 @@ import type { CacheStore } from "./services/persistence/CacheStore";
 import type { DiagnosticsStore } from "./services/diagnostics/DiagnosticsStore";
 import type { SessionStateManager } from "./domain/session/SessionStateManager";
 import { initLogger } from "@/logger";
+import {
+  getKunaiPaths,
+  HistoryRepository,
+  openKunaiDatabase,
+  runMigrations,
+  StreamCacheRepository,
+} from "@kunai/storage";
 
 // Import implementations
 import { StructuredLogger } from "./infra/logger/StructuredLogger";
@@ -27,8 +34,8 @@ import { TracerImpl } from "./infra/tracer/TracerImpl";
 import { FileStorage } from "./infra/storage/FileStorage";
 import { ConfigServiceImpl } from "./services/persistence/ConfigServiceImpl";
 import { ConfigStoreImpl } from "./services/persistence/ConfigStoreImpl";
-import { HistoryStoreImpl } from "./services/persistence/HistoryStoreImpl";
-import { CacheStoreImpl } from "./services/persistence/CacheStoreImpl";
+import { SqliteHistoryStoreImpl } from "./services/persistence/SqliteHistoryStoreImpl";
+import { SqliteCacheStoreImpl } from "./services/persistence/SqliteCacheStoreImpl";
 import { DiagnosticsStoreImpl } from "./services/diagnostics/DiagnosticsStoreImpl";
 import { SessionStateManagerImpl } from "./domain/session/SessionStateManager";
 import { ShellServiceImpl } from "./infra/shell/ShellServiceImpl";
@@ -95,11 +102,16 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   });
 
   const storage = new FileStorage();
+  const paths = getKunaiPaths();
+  const dataDb = openKunaiDatabase(paths.dataDbPath);
+  const cacheDb = openKunaiDatabase(paths.cacheDbPath);
+  runMigrations(dataDb, "data");
+  runMigrations(cacheDb, "cache");
 
   // Persistence layer
   const configStore = new ConfigStoreImpl(storage);
-  const historyStore = new HistoryStoreImpl(storage);
-  const cacheStore = new CacheStoreImpl(storage);
+  const historyStore = new SqliteHistoryStoreImpl(new HistoryRepository(dataDb));
+  const cacheStore = new SqliteCacheStoreImpl(new StreamCacheRepository(cacheDb));
   const diagnosticsStore = new DiagnosticsStoreImpl();
 
   // Load config

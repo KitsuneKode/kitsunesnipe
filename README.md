@@ -108,7 +108,7 @@ The main flow stays inside the same shell:
 
 ## 📼 Watch History
 
-History currently uses a temporary local store while Kunai moves to SQLite-backed storage. The target model stores durable watch progress in the OS app data directory as `kunai-data.sqlite`.
+History is stored in the OS app data directory as `kunai-data.sqlite`.
 
 - **Unfinished episode** → prompted to resume from exact timestamp or restart
 - **Finished episode** (>85% watched) → prompted to jump to next episode
@@ -130,7 +130,7 @@ apps/cli/src/tmdb.ts             season/episode metadata
 apps/cli/src/session-flow.ts     start-episode and provider/session helpers
 apps/experiments/*               private provider research lab
 apps/experiments/scratchpads/*   raw provider probes and reverse-engineering notes
-stream_cache.json                temporary development cache until SQLite storage wiring lands
+kunai-cache.sqlite               local stream cache in the OS cache directory
 logs.txt                         scrape log
 ```
 

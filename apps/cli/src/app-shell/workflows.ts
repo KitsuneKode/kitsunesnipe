@@ -822,7 +822,7 @@ export async function openSettingsShell({
         {
           value: "clearCache" as const,
           label: "Clear stream cache",
-          detail: "Wipe the local URL cache (stream_cache.json)",
+          detail: "Wipe the local SQLite stream cache",
         },
         {
           value: "clearHistory" as const,

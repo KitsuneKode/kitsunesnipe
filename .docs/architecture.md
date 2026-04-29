@@ -164,11 +164,11 @@ Observability matters here too: failures around stream resolution, cache reuse, 
 | ------------------ | ------------------------------------------ | ---------------- |
 | Config             | `~/.config/kunai/config.json`              | `apps/cli/src/config.ts`  |
 | Provider overrides | `~/.config/kunai/providers.json`           | `apps/cli/src/config.ts`  |
-| Watch history      | Temporary JSON store; target `kunai-data.sqlite`   | `apps/cli/src/history.ts` |
-| Stream cache       | Temporary JSON store; target `kunai-cache.sqlite`  | CLI cache store           |
+| Watch history      | OS app data dir `kunai-data.sqlite`         | `@kunai/storage` + CLI history store |
+| Stream cache       | OS cache dir `kunai-cache.sqlite`           | `@kunai/storage` + CLI cache store   |
 | Debug logs         | `./logs.txt`                               | `apps/cli/src/logger.ts`  |
 
-Known caveat: the current JSON history/cache stores are pre-release implementation details. The target is the SQLite storage model described in [.plans/storage-hardening.md](../.plans/storage-hardening.md), with durable history/progress in the OS app data directory and disposable cache in the OS cache directory.
+The SQLite storage model is described in [.plans/storage-hardening.md](../.plans/storage-hardening.md), with durable history/progress in the OS app data directory and disposable cache in the OS cache directory.
 
 Migration rule:
 

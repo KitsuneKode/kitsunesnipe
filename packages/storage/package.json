@@ -1,0 +1,26 @@
+{
+  "name": "@kunai/storage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Kunai storage paths, SQLite migrations, repositories, and cache policy helpers.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "bun tsc --noEmit",
+    "lint": "oxlint .",
+    "fmt": "oxfmt --write .",
+    "test": "bun test test"
+  },
+  "dependencies": {
+    "@kunai/schemas": "workspace:*",
+    "@kunai/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

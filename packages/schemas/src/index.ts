@@ -91,6 +91,7 @@ export const streamCandidateSchema = z.object({
   expiresAt: z.iso.datetime().optional(),
   confidence: z.number().min(0).max(1),
   cachePolicy: cachePolicySchema,
+  metadata: z.record(z.string(), z.unknown()).optional(),
 }) satisfies z.ZodType<StreamCandidate>;
 
 export const subtitleCandidateSchema = z.object({
