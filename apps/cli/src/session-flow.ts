@@ -14,6 +14,7 @@ import {
   openAnimeEpisodePicker,
   openAnimeEpisodeListPicker,
 } from "@/app-shell/workflows";
+import { resolveEpisodeAvailability } from "@/app/playback-policy";
 import { openListShell } from "@/app-shell/ink-shell";
 
 export type EpisodeSelection = {
@@ -32,6 +33,18 @@ type SelectionOpts = {
   flags: { season?: string; episode?: string };
   getHistoryEntry: () => Promise<HistoryEntry | null>;
   container?: Container;
+};
+
+type NextHistoryEpisodeArgs = {
+  currentId: string;
+  isAnime: boolean;
+  history: HistoryEntry;
+  animeEpisodeCount?: number;
+  animeEpisodes?: readonly EpisodePickerOption[];
+  loaders?: {
+    loadSeasons: typeof fetchSeriesData;
+    loadEpisodes: typeof fetchEpisodes;
+  };
 };
 
 function createPickerActionContext(container: Container | undefined, taskLabel: string) {
@@ -147,8 +160,15 @@ export async function chooseStartingEpisode(opts: SelectionOpts): Promise<Episod
   }
 
   const finished = isFinished(history);
-  const nextEpisode = history.episode + 1;
   const resumeAt = formatTimestamp(history.timestamp);
+
+  const nextEpisode = await resolveNextHistoryEpisode({
+    currentId: opts.currentId,
+    isAnime: opts.isAnime,
+    history,
+    animeEpisodeCount: opts.animeEpisodeCount,
+    animeEpisodes: opts.animeEpisodes,
+  });
 
   const choice = (await openListShell({
     title: "Where to start?",
@@ -173,8 +193,12 @@ export async function chooseStartingEpisode(opts: SelectionOpts): Promise<Episod
         : []),
       {
         value: "next" as const,
-        label: `Next episode  S${history.season}E${nextEpisode}`,
-        detail: "Advance to the next episode",
+        label: nextEpisode
+          ? `Next episode  S${nextEpisode.season}E${nextEpisode.episode}`
+          : "Next episode unavailable",
+        detail: nextEpisode
+          ? "Advance to the next released episode"
+          : "No later released episode is available yet",
       },
       {
         value: "pick" as const,
@@ -200,10 +224,49 @@ export async function chooseStartingEpisode(opts: SelectionOpts): Promise<Episod
     return { season: opts.isAnime ? 1 : history.season, episode: history.episode };
   }
   if (choice === "next") {
-    return { season: opts.isAnime ? 1 : history.season, episode: nextEpisode };
+    if (!nextEpisode) {
+      return null;
+    }
+    return nextEpisode;
   }
 
   return pickEpisodeSelection(history.season, history.episode, opts);
+}
+
+export async function resolveNextHistoryEpisode(
+  args: NextHistoryEpisodeArgs,
+): Promise<EpisodeSelection | null> {
+  const loadSeriesData = args.loaders?.loadSeasons ?? fetchSeriesData;
+  const loadEpisodes = args.loaders?.loadEpisodes ?? fetchEpisodes;
+  const nextSelection = await resolveEpisodeAvailability({
+    title: {
+      id: args.currentId,
+      type: "series",
+      name: "Current title",
+      episodeCount: args.animeEpisodeCount,
+    },
+    currentEpisode: {
+      season: args.isAnime ? 1 : args.history.season,
+      episode: args.history.episode,
+    },
+    isAnime: args.isAnime,
+    animeEpisodeCount: args.animeEpisodeCount,
+    animeEpisodes: args.animeEpisodes,
+    loaders: {
+      loadSeasons: async (titleId) => {
+        const { seasons } = await loadSeriesData(titleId, args.history.season);
+        return seasons;
+      },
+      loadEpisodes,
+    },
+  });
+
+  return nextSelection.nextEpisode
+    ? {
+        season: nextSelection.nextEpisode.season,
+        episode: nextSelection.nextEpisode.episode,
+      }
+    : null;
 }
 
 export function describeHistoryEntry(entry: HistoryEntry): string {

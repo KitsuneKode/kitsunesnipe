@@ -79,6 +79,8 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 
   // Initialize session state with CLI overrides
   stateManager.initialize(config.provider, config.animeProvider);
+  stateManager.dispatch({ type: "SET_SUB_LANG", subLang: config.subLang });
+  stateManager.dispatch({ type: "SET_ANIME_LANG", animeLang: config.animeLang });
 
   const initialMode = args.anime ? "anime" : config.defaultMode;
   if (initialMode === "anime") {
