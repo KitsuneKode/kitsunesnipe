@@ -267,6 +267,19 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           };
         }
 
+        if (stream.providerResolveResult) {
+          diagnosticsStore.record({
+            category: "provider",
+            message: "Provider resolve trace completed",
+            context: {
+              trace: stream.providerResolveResult.trace,
+              streamCandidates: stream.providerResolveResult.streams.length,
+              subtitleCandidates: stream.providerResolveResult.subtitles.length,
+              cachePolicy: stream.providerResolveResult.cachePolicy,
+            },
+          });
+        }
+
         const preparedStream = await this.preparePlaybackStream(
           stream,
           title,

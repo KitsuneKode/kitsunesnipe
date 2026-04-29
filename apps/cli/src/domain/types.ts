@@ -5,7 +5,10 @@
 // No dependencies on infrastructure or UI.
 // =============================================================================
 
-import type { ResolveTrace as SharedResolveTrace } from "@kunai/types";
+import type {
+  ProviderResolveResult as SharedProviderResolveResult,
+  ResolveTrace as SharedResolveTrace,
+} from "@kunai/types";
 
 export type { SharedResolveTrace };
 
@@ -46,6 +49,7 @@ export interface StreamInfo {
   readonly subtitleEvidence?: SubtitleEvidence;
   readonly title?: string;
   readonly timestamp: number;
+  readonly providerResolveResult?: SharedProviderResolveResult;
 }
 
 export interface SubtitleEvidence {

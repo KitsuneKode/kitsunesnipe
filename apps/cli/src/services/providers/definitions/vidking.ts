@@ -3,11 +3,13 @@
 // =============================================================================
 
 import type { ProviderCapabilities, ProviderMetadata, StreamInfo, TitleInfo } from "@/domain/types";
-import { vidkingManifest } from "@kunai/core";
+import { adaptCliStreamResult, createProviderCachePolicy, vidkingManifest } from "@kunai/core";
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import {
+  episodeToCoreIdentity,
   manifestToProviderCapabilities,
   manifestToProviderMetadata,
+  titleToCoreIdentity,
 } from "../core-manifest-adapter";
 
 export class VidKingProvider implements Provider {
@@ -27,7 +29,7 @@ export class VidKingProvider implements Provider {
         ? `https://www.vidking.net/embed/movie/${request.title.id}?autoPlay=true`
         : `https://www.vidking.net/embed/tv/${request.title.id}/${request.episode!.season}/${request.episode!.episode}?autoPlay=true&episodeSelector=false&nextEpisode=false`;
 
-    return this.deps.browser.scrape({
+    const stream = await this.deps.browser.scrape({
       url,
       needsClick: false, // autoPlay=true handles it
       subLang: request.subLang,
@@ -38,6 +40,31 @@ export class VidKingProvider implements Provider {
       episode: request.episode?.episode,
       playerDomains: this.deps.playerDomains,
     });
+
+    if (!stream) {
+      return null;
+    }
+
+    const title = titleToCoreIdentity(request.title, "series");
+    const episode = episodeToCoreIdentity(request.episode);
+    const cachePolicy = createProviderCachePolicy({
+      providerId: vidkingManifest.id,
+      title,
+      episode,
+      subtitleLanguage: request.subLang,
+    });
+
+    return {
+      ...stream,
+      providerResolveResult: adaptCliStreamResult({
+        providerId: vidkingManifest.id,
+        title,
+        episode,
+        stream,
+        cachePolicy,
+        runtime: "playwright-lease",
+      }),
+    };
   }
 }
 

@@ -1,6 +1,6 @@
 # Kunai Turborepo And Package Boundaries Plan
 
-Status: Phase 4A provider-core foundation in progress
+Status: Phase 4B provider trace wiring in progress
 
 Last updated: 2026-04-29
 
@@ -319,7 +319,7 @@ Phase 3B wiring, after the package foundation:
 
 Extract one simple provider path first. Prefer a 0-RAM or low-risk provider before Playwright-heavy providers.
 
-Status: Phase 4A started.
+Status: Phase 4B started.
 
 Phase 4A foundation:
 
@@ -328,6 +328,24 @@ Phase 4A foundation:
 - add a CLI compatibility adapter for converting current `StreamInfo`-shaped results into `ProviderResolveResult`
 - wire the CLI VidKing definition through the core manifest without moving the working provider implementation yet
 - keep the current Playwright/browser scrape path honest in the manifest until a real 0-RAM implementation is production-wired
+
+Phase 4B trace wiring:
+
+- keep the existing CLI provider return shape stable
+- attach `ProviderResolveResult` to resolved VidKing `StreamInfo`
+- record the real provider trace in diagnostics when available
+- prove the adapter with mocked provider tests before touching fallback orchestration
+
+Provider move order:
+
+1. Manifest-only for each provider: id, domain, media kinds, capabilities, runtime ports, cache policy, browser/relay safety.
+2. Adapter wiring for each provider: attach `ProviderResolveResult` while preserving current `StreamInfo` callers.
+3. Resolver orchestration: introduce a core resolver that ranks providers, calls runtime ports, and returns `ProviderResolveResult`.
+4. Implementation extraction: move only pure/provider-local logic into `@kunai/core`; keep Playwright, `mpv`, config, history, and storage wiring in `apps/cli`.
+5. Runtime-port split: replace direct browser imports with injected ports so CLI, future daemon, and future web can safely choose allowed runtimes.
+6. Remove legacy provider shape only after every production provider emits core results and fallback/autoplay/history are green.
+
+Do not move all providers at once. The first full implementation extraction should be a low-risk provider path after every provider has a manifest and at least VidKing has proven trace wiring in production flow.
 
 Actions:
 

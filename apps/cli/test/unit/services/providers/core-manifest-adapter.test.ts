@@ -2,8 +2,10 @@ import { expect, test } from "bun:test";
 
 import { vidkingManifest } from "@kunai/core";
 import {
+  episodeToCoreIdentity,
   manifestToProviderCapabilities,
   manifestToProviderMetadata,
+  titleToCoreIdentity,
 } from "@/services/providers/core-manifest-adapter";
 
 test("core provider manifest maps to the current CLI provider shape", () => {
@@ -14,4 +16,24 @@ test("core provider manifest maps to the current CLI provider shape", () => {
   expect(metadata.name).toBe("VidKing");
   expect(metadata.isAnimeProvider).toBe(false);
   expect(capabilities.contentTypes).toEqual(["movie", "series"]);
+});
+
+test("cli title and episode identities map to shared provider identities", () => {
+  expect(
+    titleToCoreIdentity({ id: "438631", type: "movie", name: "Dune", year: "2021" }, "series"),
+  ).toEqual({
+    id: "438631",
+    kind: "movie",
+    title: "Dune",
+    year: 2021,
+    tmdbId: "438631",
+    anilistId: undefined,
+  });
+
+  expect(episodeToCoreIdentity({ season: 1, episode: 2, name: "Pilot" })).toEqual({
+    season: 1,
+    episode: 2,
+    title: "Pilot",
+    airDate: undefined,
+  });
 });

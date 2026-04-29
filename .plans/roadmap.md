@@ -43,7 +43,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 
 - Current execution mode: full-fledged CLI first. Web, desktop, remote sync, paid cloud, premium dashboards, and account-required flows are parked.
 - Phase 3 storage foundation is implemented with `@kunai/storage`.
-- Phase 4A provider-core foundation is underway with `@kunai/core` owning the first provider manifest and adapter seam.
+- Phase 4B provider trace wiring is underway with VidKing attaching `ProviderResolveResult` evidence while preserving current CLI provider calls.
 - CLI history and stream cache now use SQLite-backed stores.
 - Fullscreen shell convergence so the UI stops reading like stacked full-width cards and stays inside the viewport
 - Fullscreen root-shell redesign spec is now tracked in [.plans/fullscreen-root-shell-redesign.md](.plans/fullscreen-root-shell-redesign.md)
