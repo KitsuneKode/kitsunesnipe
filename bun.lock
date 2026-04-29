@@ -54,6 +54,10 @@
     "apps/experiments": {
       "name": "@kunai/experiments",
       "version": "0.1.0",
+      "dependencies": {
+        "@assemblyscript/loader": "^0.28.16",
+        "crypto-js": "^4.2.0",
+      },
       "devDependencies": {
         "@types/bun": "latest",
         "cheerio": "^1.2.0",

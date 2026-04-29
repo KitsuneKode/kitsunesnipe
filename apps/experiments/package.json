@@ -16,5 +16,9 @@
     "@types/bun": "latest",
     "playwright": "^1.59.1",
     "cheerio": "^1.2.0"
+  },
+  "dependencies": {
+ "@assemblyscript/loader": "^0.28.16",
+    "crypto-js": "^4.2.0"
   }
 }
