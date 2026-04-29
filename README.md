@@ -128,7 +128,8 @@ apps/cli/src/image.ts            Kitty/Ghostty poster preview
 apps/cli/src/subtitle.ts         wyzie subtitle API
 apps/cli/src/tmdb.ts             season/episode metadata
 apps/cli/src/session-flow.ts     start-episode and provider/session helpers
-apps/experiments/scratchpads/*   provider probes and reverse-engineering notes
+apps/experiments/*               private provider research lab
+apps/experiments/scratchpads/*   raw provider probes and reverse-engineering notes
 stream_cache.json                legacy 1-hour stream URL cache during storage migration
 logs.txt                         scrape log
 ```

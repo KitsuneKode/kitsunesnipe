@@ -62,7 +62,8 @@ apps/cli/src/session-flow.ts         start-episode selection and provider/sessio
 apps/cli/src/history.ts              watch history persistence
 apps/cli/src/config.ts               persisted user config + provider overrides
 apps/cli/src/services/providers/*    provider implementations and registry
-apps/experiments/scratchpads/*       provider probes and reverse-engineering scratch work
+apps/experiments/*                   private provider research lab, not production runtime
+apps/experiments/scratchpads/*       raw provider probes, captures, and reverse-engineering scratch work
 ```
 
 ## Commands

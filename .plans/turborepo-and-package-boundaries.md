@@ -16,7 +16,7 @@ Phase 1 result:
 
 - root `package.json` is a private workspace orchestrator
 - `turbo.json` delegates common checks to workspace packages
-- the publishable CLI package remains named `kunai` under `apps/cli`
+- the CLI app package is named `kunai-cli` under `apps/cli`
 - provider scratchpads moved to `apps/experiments/scratchpads`
 - no provider logic or runtime behavior was intentionally changed
 
@@ -38,7 +38,7 @@ apps/
     Current production CLI after move.
 
   experiments/
-    Scratchpads, provider probes, reverse-engineering notes, and demos.
+    Private research lab package for scratchpads, provider probes, reverse-engineering notes, and demos.
     Not part of production builds.
 
   web/

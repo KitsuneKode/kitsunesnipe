@@ -1,0 +1,20 @@
+{
+  "name": "@kunai/experiments",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private Kunai provider research lab. Not imported by production runtime.",
+  "type": "module",
+  "scripts": {
+    "list": "find scratchpads -maxdepth 1 -mindepth 1 -type d | sort",
+    "vidking:0ram": "bun scratchpads/provider-vidking/vidking-0-ram-scraper.ts",
+    "vidking:headless": "bun scratchpads/provider-vidking/vidking-headless.ts",
+    "rivestream:headless": "bun scratchpads/provider-rivestream/rivestream-headless.ts",
+    "anikai:headless": "bun scratchpads/provider-anikai/anikai-headless.ts",
+    "miruro:headless": "bun scratchpads/provider-miruro/miruro-headless.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "playwright": "^1.59.1",
+    "cheerio": "^1.2.0"
+  }
+}

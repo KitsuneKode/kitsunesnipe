@@ -17,6 +17,7 @@
     "build": "turbo run build",
     "check": "turbo run check",
     "clean": "turbo run clean",
+    "experiments:list": "bun run --cwd apps/experiments list",
     "pkg:check": "bun run --cwd apps/cli pkg:check",
     "release:dry-run": "bun run --cwd apps/cli release:dry-run",
     "link:global": "bun run --cwd apps/cli link:global",
