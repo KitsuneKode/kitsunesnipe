@@ -120,7 +120,7 @@ async function uploadKitty(
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
 
-function resolveUrl(url: string): string {
+export function resolvePosterUrl(url: string): string {
   return url.startsWith("/") ? `${TMDB_IMG}${url}` : url;
 }
 
@@ -137,13 +137,16 @@ async function fetchKitty(url: string, rows: number, cols: number): Promise<Post
 async function fetchChafa(url: string, rows: number, cols: number): Promise<PosterResult> {
   const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) return { kind: "none" };
-  const tmpPath = join(tmpdir(), `kitsune-poster-${Date.now()}.jpg`);
+  const tmpPath = join(tmpdir(), `kunai-poster-${Date.now()}.jpg`);
   await Bun.write(tmpPath, await res.arrayBuffer());
   try {
-    const proc = Bun.spawn(["chafa", "--size", `${cols}x${rows}`, "--format", "utf8", tmpPath], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const proc = Bun.spawn(
+      ["chafa", "--size", `${cols}x${rows}`, "--format", "symbols", "--colors", "full", tmpPath],
+      {
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
     const art = await new Response(proc.stdout).text();
     await proc.exited;
     if (!art.trim()) return { kind: "none" };
@@ -164,7 +167,7 @@ export async function fetchPoster(
   { rows, cols }: { rows: number; cols: number },
 ): Promise<PosterResult> {
   if (!url) return { kind: "none" };
-  const resolved = resolveUrl(url);
+  const resolved = resolvePosterUrl(url);
   const key = `${resolved}:${rows}x${cols}`;
 
   const cached = posterCache.get(key);
@@ -178,13 +181,14 @@ export async function fetchPoster(
   const task = (async (): Promise<PosterResult> => {
     let result: PosterResult;
     try {
-      if (isKittyCompatible()) {
-        result = await fetchKitty(resolved, rows, cols);
-        if (result.kind === "none" && (await isChafaAvailable())) {
-          result = await fetchChafa(resolved, rows, cols);
-        }
-      } else if (await isChafaAvailable()) {
+      const chafaAvailable = await isChafaAvailable();
+      if (chafaAvailable) {
         result = await fetchChafa(resolved, rows, cols);
+        if (result.kind === "none" && isKittyCompatible()) {
+          result = await fetchKitty(resolved, rows, cols);
+        }
+      } else if (isKittyCompatible()) {
+        result = await fetchKitty(resolved, rows, cols);
       } else {
         result = { kind: "none" };
       }

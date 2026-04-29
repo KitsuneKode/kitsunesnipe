@@ -13,8 +13,8 @@ const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
 // Keeps the poster from flooding a small terminal window.
 const MAX_ROWS = 18;
 
-export function isKittyCompatible(): boolean {
-  return !!(process.env.KITTY_WINDOW_ID || process.env.TERM_PROGRAM === "ghostty");
+export function isKittyCompatible(env: NodeJS.ProcessEnv = process.env): boolean {
+  return !!(env.KITTY_WINDOW_ID || env.TERM_PROGRAM?.toLowerCase() === "ghostty");
 }
 
 export async function displayPoster(posterPath: string | null): Promise<void> {

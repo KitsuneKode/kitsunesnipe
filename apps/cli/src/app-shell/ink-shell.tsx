@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Box, Text, render, useInput, useStdout } from "ink";
 import type { Container } from "@/container";
+import { isKittyCompatible } from "@/image";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 import { getShellViewportPolicy } from "@/app-shell/layout-policy";
 import type { SessionStateManager } from "@/domain/session/SessionStateManager";
@@ -11,6 +12,7 @@ import {
   fetchPoster,
   deleteAllKittyImages,
   deleteKittyImage,
+  isChafaAvailable,
   type PosterResult,
 } from "./image-pane";
 import { LoadingShell, useSpinner } from "./loading-shell";
@@ -291,6 +293,23 @@ function AppRoot({ container }: { container: Container }) {
   const screen = useRootShellScreen();
   const rootContent = useRootContentSession();
   const { stdout } = useStdout();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void isChafaAvailable().then((chafaAvailable) => {
+      if (cancelled) return;
+      stateManager.dispatch({
+        type: "SET_IMAGE_SUPPORT",
+        supported: isKittyCompatible() || chafaAvailable,
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [stateManager]);
+
   const rootStatus =
     state.playbackStatus === "playing"
       ? "playing"
