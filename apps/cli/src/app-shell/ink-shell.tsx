@@ -4,18 +4,9 @@ import type { Container } from "@/container";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 import { getShellViewportPolicy } from "@/app-shell/layout-policy";
 import type { SessionStateManager } from "@/domain/session/SessionStateManager";
-import type { SessionState } from "@/domain/session/SessionState";
-import { splitCursor, useLineEditor } from "@/app-shell/line-editor";
+import { useLineEditor } from "@/app-shell/line-editor";
 
 import { buildBrowseDetailsPanel } from "./details-panel";
-import { applySettingsToRuntime, handleShellAction } from "./workflows";
-import {
-  buildAboutPanelLines,
-  buildDiagnosticsPanelLines,
-  buildHelpPanelLines,
-  buildHistoryPanelLines,
-  buildProviderPickerOptions,
-} from "./panel-data";
 import {
   fetchPoster,
   deleteAllKittyImages,
@@ -23,7 +14,7 @@ import {
   type PosterResult,
 } from "./image-pane";
 import { LoadingShell, useSpinner } from "./loading-shell";
-import { hasPendingRootPicker, resolveRootPicker } from "./root-picker-bridge";
+import { RootOverlayShell } from "./root-overlay-shell";
 import {
   clearRootContentSession,
   mountRootContent,
@@ -42,14 +33,15 @@ import {
 } from "./shell-primitives";
 import { getWindowStart, truncateLine, wrapText } from "./shell-text";
 import { APP_LABEL, palette, statusColor } from "./shell-theme";
+import { type AppCommandId, type ResolvedAppCommand } from "./commands";
 import {
-  COMMANDS,
-  parseCommand,
-  resolveCommands,
-  suggestCommands,
-  type AppCommandId,
-  type ResolvedAppCommand,
-} from "./commands";
+  CommandPalette,
+  fallbackCommandState,
+  getCommandMatches,
+  getHighlightedCommand,
+  LineEditorText,
+  useShellInput,
+} from "./shell-command-ui";
 import {
   toShellAction,
   type FooterAction,
@@ -117,251 +109,6 @@ const stdinManager = {
 stdinManager.setup();
 
 const SCREEN_CLEAR_GRACE_MS = 140;
-
-function getCommandMatches(
-  input: string,
-  commands: readonly ResolvedAppCommand[],
-): readonly ResolvedAppCommand[] {
-  const allowed = commands.map((command) => command.id);
-  return suggestCommands(input, allowed)
-    .map((command) => commands.find((resolved) => resolved.id === command.id))
-    .filter((command): command is ResolvedAppCommand => Boolean(command))
-    .slice(0, 6);
-}
-
-function getHighlightedCommand(
-  input: string,
-  commands: readonly ResolvedAppCommand[],
-  highlightedIndex: number,
-): ResolvedAppCommand | null {
-  const exact = parseCommand(input);
-  if (exact) {
-    return commands.find((candidate) => candidate.id === exact.id) ?? null;
-  }
-
-  const matches = getCommandMatches(input, commands);
-  return matches[highlightedIndex] ?? matches[0] ?? null;
-}
-
-function CommandPalette({
-  input,
-  cursor = input.length,
-  commands,
-  highlightedIndex,
-}: {
-  input: string;
-  cursor?: number;
-  commands: readonly ResolvedAppCommand[];
-  highlightedIndex: number;
-}) {
-  const matches = getCommandMatches(input, commands);
-
-  return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      borderColor={palette.amber}
-      paddingX={1}
-      paddingY={0}
-      marginTop={1}
-    >
-      <Text color={palette.amber}>Command</Text>
-      <Box>
-        <Text color="white">/</Text>
-        <LineEditorText value={input} cursor={cursor} focused placeholder="type a command" />
-      </Box>
-      <Text color={palette.gray}>Tab autocomplete · ↑↓ choose · Enter run</Text>
-      <Box flexDirection="column" marginTop={1}>
-        {matches.length > 0 ? (
-          matches.map((command, index) => {
-            const selected = index === highlightedIndex;
-            return (
-              <Box key={command.id} flexDirection="column">
-                <Text
-                  backgroundColor={selected ? palette.cyan : undefined}
-                  color={selected ? "black" : command.enabled ? palette.muted : palette.gray}
-                  bold={selected}
-                >
-                  <Text color={selected ? "black" : palette.gray}>{selected ? "❯ " : "  "}</Text>/
-                  {command.aliases[0]} {command.description}
-                </Text>
-                {!command.enabled && command.reason ? (
-                  <Text color={palette.gray}>{`  ·  ${command.reason}`}</Text>
-                ) : null}
-              </Box>
-            );
-          })
-        ) : (
-          <Text color={palette.gray}>No matching commands</Text>
-        )}
-      </Box>
-    </Box>
-  );
-}
-
-function LineEditorText({
-  value,
-  cursor,
-  focused,
-  placeholder,
-}: {
-  value: string;
-  cursor: number;
-  focused: boolean;
-  placeholder?: string;
-}) {
-  if (!focused) {
-    return value.length > 0 ? (
-      <Text color="white">{value}</Text>
-    ) : (
-      <Text color={palette.gray}>{placeholder ?? ""}</Text>
-    );
-  }
-
-  if (value.length === 0) {
-    return (
-      <>
-        <Text backgroundColor={palette.cyan} color="black">
-          {" "}
-        </Text>
-        {placeholder ? <Text color={palette.gray}>{placeholder}</Text> : null}
-      </>
-    );
-  }
-
-  const { before, cursorChar, after } = splitCursor(value, cursor);
-  const visibleCursor = cursorChar.length > 0 ? cursorChar : " ";
-
-  return (
-    <>
-      <Text color="white">{before}</Text>
-      <Text backgroundColor={palette.cyan} color="black">
-        {visibleCursor}
-      </Text>
-      <Text color="white">{after}</Text>
-    </>
-  );
-}
-
-function useShellInput({
-  footerActions,
-  commands,
-  disabled = false,
-  escapeAction = "quit",
-  onResolve,
-}: {
-  footerActions: readonly FooterAction[];
-  commands: readonly ResolvedAppCommand[];
-  disabled?: boolean;
-  escapeAction?: ShellAction | null;
-  onResolve: (action: ShellAction) => void;
-}) {
-  const [commandMode, setCommandMode] = useState(false);
-  const [commandInput, setCommandInput] = useState("");
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const commandEditor = useLineEditor({
-    value: commandInput,
-    onChange: (nextValue) => {
-      setCommandInput(nextValue);
-      setHighlightedIndex(0);
-    },
-  });
-
-  useEffect(() => {
-    if (disabled) {
-      setCommandMode(false);
-      setCommandInput("");
-      setHighlightedIndex(0);
-      return;
-    }
-    if (!commandMode) {
-      setHighlightedIndex(0);
-      return;
-    }
-
-    const matches = getCommandMatches(commandInput, commands);
-    setHighlightedIndex((current) => {
-      if (matches.length === 0) return 0;
-      return Math.min(current, matches.length - 1);
-    });
-  }, [commandInput, commandMode, commands, disabled]);
-
-  useInput((input, key) => {
-    if (disabled) {
-      return;
-    }
-
-    if (key.escape) {
-      if (commandMode) {
-        setCommandMode(false);
-        setCommandInput("");
-        setHighlightedIndex(0);
-        return;
-      }
-      if (escapeAction) onResolve(escapeAction);
-      return;
-    }
-
-    if (commandMode) {
-      const matches = getCommandMatches(commandInput, commands);
-
-      if (key.return) {
-        const resolved = getHighlightedCommand(commandInput, commands, highlightedIndex);
-        if (resolved?.enabled) {
-          onResolve(toShellAction(resolved.id));
-          return;
-        }
-        return;
-      }
-      if (key.tab) {
-        const nextIndex = matches.length > 0 ? (highlightedIndex + 1) % matches.length : 0;
-        const target = matches[nextIndex];
-        if (target) {
-          setHighlightedIndex(nextIndex);
-          commandEditor.setValue(target.aliases[0] ?? target.id);
-        }
-        return;
-      }
-      if (key.upArrow) {
-        if (matches.length > 0) {
-          setHighlightedIndex((current) => (current - 1 + matches.length) % matches.length);
-        }
-        return;
-      }
-      if (key.downArrow) {
-        if (matches.length > 0) {
-          setHighlightedIndex((current) => (current + 1) % matches.length);
-        }
-        return;
-      }
-      if (commandEditor.handleInput(input, key)) {
-        return;
-      }
-      return;
-    }
-
-    if (input === "/") {
-      setCommandMode(true);
-      setCommandInput("");
-      return;
-    }
-
-    const footerAction = footerActions.find(
-      (action) => action.key === input.toLowerCase() && !action.disabled,
-    );
-    if (footerAction) {
-      if (footerAction.action === "command-mode") {
-        setCommandMode(true);
-        setCommandInput("");
-        setHighlightedIndex(0);
-        return;
-      }
-      onResolve(footerAction.action);
-    }
-  });
-
-  return { commandMode, commandInput, commandCursor: commandEditor.cursor, highlightedIndex };
-}
 
 function ShellFrame({
   eyebrow: _eyebrow,
@@ -695,557 +442,6 @@ export function useSessionState(stateManager: SessionStateManager) {
  * Persistent root of the state-driven UI.
  * Holds the identity logo and renders the appropriate shell based on state.
  */
-function RootOverlayShell({
-  overlay,
-  state,
-  container,
-}: {
-  overlay:
-    | { type: "help" | "about" | "diagnostics" }
-    | { type: "history" }
-    | { type: "settings" }
-    | {
-        type: "season_picker";
-        currentSeason: number;
-        options: readonly import("@/domain/session/SessionState").OverlayPickerOption[];
-      }
-    | {
-        type: "episode_picker";
-        season: number;
-        options: readonly import("@/domain/session/SessionState").OverlayPickerOption[];
-      }
-    | {
-        type: "subtitle_picker";
-        options: readonly import("@/domain/session/SessionState").OverlayPickerOption[];
-      }
-    | { type: "provider_picker"; currentProvider: string; isAnime: boolean };
-  state: SessionState;
-  container: Container;
-}) {
-  const { stdout } = useStdout();
-  const maxLines = Math.max(6, Math.min(12, (stdout.rows ?? 24) - 18));
-  const [scrollIndex, setScrollIndex] = useState(0);
-  const [filterQuery, setFilterQuery] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const filterEditor = useLineEditor({
-    value: filterQuery,
-    onChange: (nextValue) => {
-      setFilterQuery(nextValue);
-      setSelectedIndex(0);
-    },
-    onRedraw: clearShellScreen,
-  });
-  const [asyncLines, setAsyncLines] = useState<readonly ShellPanelLine[] | null>(null);
-  const [loadingAsyncLines, setLoadingAsyncLines] = useState(false);
-  const [settingsDraft, setSettingsDraft] = useState<KitsuneConfig | null>(null);
-  const [settingsChoice, setSettingsChoice] = useState<SettingsChoiceValue | null>(null);
-  const [settingsParentIndex, setSettingsParentIndex] = useState(0);
-  const [settingsBusy, setSettingsBusy] = useState(false);
-  const [settingsError, setSettingsError] = useState<string | null>(null);
-  const commands = resolveCommands(state, [
-    "settings",
-    "provider",
-    "history",
-    "help",
-    "about",
-    "diagnostics",
-  ]);
-  const settingsSeriesProviderOptions = buildSettingsProviderOptions({
-    providers: container.providerRegistry
-      .getAll()
-      .map((provider) => provider.metadata)
-      .filter((metadata) => !metadata.isAnimeProvider),
-    currentProvider: settingsDraft?.provider ?? container.config.provider,
-  });
-  const settingsAnimeProviderOptions = buildSettingsProviderOptions({
-    providers: container.providerRegistry
-      .getAll()
-      .map((provider) => provider.metadata)
-      .filter((metadata) => metadata.isAnimeProvider),
-    currentProvider: settingsDraft?.animeProvider ?? container.config.animeProvider,
-  });
-  const staticLines =
-    overlay.type === "help"
-      ? buildHelpPanelLines()
-      : overlay.type === "about"
-        ? buildAboutPanelLines({
-            config: container.config.getRaw(),
-            state,
-          })
-        : overlay.type === "diagnostics"
-          ? buildDiagnosticsPanelLines({
-              state,
-              recentEvents: container.diagnosticsStore.getRecent(10),
-            })
-          : [];
-  const lines = overlay.type === "history" ? (asyncLines ?? []) : staticLines;
-  const providerOptions =
-    overlay.type === "provider_picker"
-      ? buildProviderPickerOptions({
-          providers: container.providerRegistry
-            .getAll()
-            .map((provider) => provider.metadata)
-            .filter((metadata) => metadata.isAnimeProvider === overlay.isAnime),
-          currentProvider: overlay.currentProvider,
-        })
-      : [];
-  const genericPickerOptions =
-    overlay.type === "season_picker" ||
-    overlay.type === "episode_picker" ||
-    overlay.type === "subtitle_picker"
-      ? overlay.options.map((option) => ({
-          value: option.value,
-          label: option.label,
-          detail: option.detail,
-        }))
-      : [];
-  const filteredProviderOptions = providerOptions.filter((option) => {
-    const filter = filterQuery.trim().toLowerCase();
-    if (filter.length === 0) return true;
-    return `${option.label} ${option.detail ?? ""}`.toLowerCase().includes(filter);
-  });
-  const filteredGenericPickerOptions = genericPickerOptions.filter((option) => {
-    const filter = filterQuery.trim().toLowerCase();
-    if (filter.length === 0) return true;
-    return `${option.label} ${option.detail ?? ""}`.toLowerCase().includes(filter);
-  });
-  const settingsPanel =
-    overlay.type === "settings" && settingsDraft
-      ? settingsChoice
-        ? buildSettingsChoiceOverlay({
-            config: settingsDraft,
-            setting: settingsChoice,
-            seriesProviderOptions: settingsSeriesProviderOptions,
-            animeProviderOptions: settingsAnimeProviderOptions,
-            parentSelectedIndex: settingsParentIndex,
-          })
-        : ({
-            type: "settings",
-            title: "Settings",
-            subtitle: buildSettingsSummary(settingsDraft),
-            options: buildSettingsOptions(settingsDraft),
-            filterQuery: "",
-            selectedIndex,
-            dirty: !settingsEqual(settingsDraft, container.config.getRaw()),
-            busy: settingsBusy,
-          } satisfies Extract<BrowseOverlay, { type: "settings" }>)
-      : null;
-  const filteredSettingsOptions =
-    settingsPanel?.options.filter((option) => {
-      const filter = filterQuery.trim().toLowerCase();
-      if (filter.length === 0) return true;
-      return `${option.label} ${option.detail ?? ""}`.toLowerCase().includes(filter);
-    }) ?? [];
-  const title =
-    overlay.type === "help"
-      ? "Help"
-      : overlay.type === "about"
-        ? "About"
-        : overlay.type === "diagnostics"
-          ? "Diagnostics"
-          : overlay.type === "history"
-            ? "History"
-            : overlay.type === "settings"
-              ? "Settings"
-              : overlay.type === "season_picker"
-                ? "Choose season"
-                : overlay.type === "episode_picker"
-                  ? "Choose episode"
-                  : overlay.type === "subtitle_picker"
-                    ? "Choose subtitles"
-                    : "Provider";
-  const subtitle =
-    overlay.type === "help"
-      ? "Global commands, editing, filtering, and shell behavior"
-      : overlay.type === "about"
-        ? "Kunai beta"
-        : overlay.type === "diagnostics"
-          ? "Current runtime snapshot and recent events"
-          : overlay.type === "history"
-            ? "Recent playback positions without leaving the shell"
-            : overlay.type === "settings"
-              ? (settingsError ?? buildSettingsSummary(settingsDraft ?? container.config.getRaw()))
-              : overlay.type === "season_picker"
-                ? `Current season ${overlay.currentSeason}`
-                : overlay.type === "episode_picker"
-                  ? `Season ${overlay.season}  ·  Choose an episode`
-                  : overlay.type === "subtitle_picker"
-                    ? `${overlay.options.length} tracks available`
-                    : `Current provider ${state.provider}`;
-  const footerActions: readonly FooterAction[] = [
-    { key: "/", label: "commands", action: "command-mode" },
-    { key: "esc", label: "close", action: "quit" },
-  ];
-  const { commandMode, commandInput, commandCursor, highlightedIndex } = useShellInput({
-    footerActions,
-    commands,
-    escapeAction: null,
-    onResolve: (action) => {
-      if (
-        action === "settings" ||
-        action === "help" ||
-        action === "about" ||
-        action === "diagnostics" ||
-        action === "history" ||
-        action === "provider"
-      ) {
-        if (
-          hasPendingRootPicker() &&
-          (overlay.type === "season_picker" ||
-            overlay.type === "episode_picker" ||
-            overlay.type === "subtitle_picker")
-        ) {
-          resolveRootPicker(null);
-        }
-        container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
-        container.stateManager.dispatch({
-          type: "OPEN_OVERLAY",
-          overlay:
-            action === "provider"
-              ? {
-                  type: "provider_picker",
-                  currentProvider: state.provider,
-                  isAnime: state.mode === "anime",
-                }
-              : action === "history"
-                ? { type: "history" }
-                : action === "settings"
-                  ? { type: "settings" }
-                  : { type: action },
-        });
-      }
-    },
-  });
-
-  useEffect(() => {
-    setScrollIndex(0);
-    setFilterQuery("");
-    setSelectedIndex(0);
-    setAsyncLines(null);
-    setLoadingAsyncLines(false);
-    setSettingsDraft(overlay.type === "settings" ? container.config.getRaw() : null);
-    setSettingsChoice(null);
-    setSettingsParentIndex(0);
-    setSettingsBusy(false);
-    setSettingsError(null);
-  }, [container.config, overlay.type]);
-
-  useEffect(() => {
-    if (overlay.type !== "history") {
-      return;
-    }
-
-    let cancelled = false;
-    setLoadingAsyncLines(true);
-
-    void container.historyStore
-      .getAll()
-      .then((entries) => {
-        if (cancelled) return;
-        setAsyncLines(buildHistoryPanelLines(Object.entries(entries)));
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoadingAsyncLines(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [container.historyStore, overlay.type]);
-
-  useInput((input, key) => {
-    if (commandMode) {
-      return;
-    }
-    if (key.escape) {
-      if (overlay.type === "settings" && settingsChoice) {
-        setSettingsChoice(null);
-        setFilterQuery("");
-        setSelectedIndex(settingsParentIndex);
-        return;
-      }
-      if (
-        hasPendingRootPicker() &&
-        (overlay.type === "season_picker" ||
-          overlay.type === "episode_picker" ||
-          overlay.type === "subtitle_picker")
-      ) {
-        resolveRootPicker(null);
-      }
-      container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
-      return;
-    }
-    if (key.return) {
-      if (overlay.type === "settings") {
-        const picked = filteredSettingsOptions[selectedIndex];
-        if (!picked || !settingsDraft) {
-          return;
-        }
-        if (settingsChoice) {
-          const next = { ...settingsDraft };
-          if (settingsChoice === "defaultMode") {
-            next.defaultMode = picked.value as "series" | "anime";
-          } else if (settingsChoice === "provider") {
-            next.provider = picked.value;
-          } else if (settingsChoice === "animeProvider") {
-            next.animeProvider = picked.value;
-          } else if (settingsChoice === "subLang") {
-            next.subLang = picked.value;
-          } else if (settingsChoice === "animeLang") {
-            next.animeLang = picked.value as "sub" | "dub";
-          } else if (settingsChoice === "footerHints") {
-            next.footerHints = picked.value as "detailed" | "minimal";
-          }
-          setSettingsDraft(next);
-          setSettingsChoice(null);
-          setFilterQuery("");
-          setSelectedIndex(settingsParentIndex);
-          setSettingsError(null);
-          return;
-        }
-        if (picked.value === "headless") {
-          setSettingsDraft({ ...settingsDraft, headless: !settingsDraft.headless });
-          setSettingsError(null);
-          return;
-        }
-        if (picked.value === "showMemory") {
-          setSettingsDraft({ ...settingsDraft, showMemory: !settingsDraft.showMemory });
-          setSettingsError(null);
-          return;
-        }
-        if (picked.value === "autoNext") {
-          setSettingsDraft({ ...settingsDraft, autoNext: !settingsDraft.autoNext });
-          setSettingsError(null);
-          return;
-        }
-        if (picked.value === "clearCache") {
-          void handleShellAction({ action: "clear-cache", container });
-          return;
-        }
-        if (picked.value === "clearHistory") {
-          void handleShellAction({ action: "clear-history", container });
-          return;
-        }
-        setSettingsChoice(picked.value as SettingsChoiceValue);
-        setSettingsParentIndex(selectedIndex);
-        setFilterQuery("");
-        setSelectedIndex(0);
-        setSettingsError(null);
-        return;
-      }
-      if (overlay.type === "provider_picker") {
-        const picked = filteredProviderOptions[selectedIndex]?.value;
-        if (picked && picked !== state.provider) {
-          container.stateManager.dispatch({ type: "SET_PROVIDER", provider: picked });
-        }
-      } else if (
-        overlay.type === "season_picker" ||
-        overlay.type === "episode_picker" ||
-        overlay.type === "subtitle_picker"
-      ) {
-        const picked = filteredGenericPickerOptions[selectedIndex]?.value ?? null;
-        resolveRootPicker(picked);
-      }
-      container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
-      return;
-    }
-    if (key.upArrow) {
-      if (
-        overlay.type === "provider_picker" ||
-        overlay.type === "settings" ||
-        overlay.type === "season_picker" ||
-        overlay.type === "episode_picker" ||
-        overlay.type === "subtitle_picker"
-      ) {
-        setSelectedIndex((current) => Math.max(0, current - 1));
-      } else {
-        setScrollIndex((current) => Math.max(0, current - 1));
-      }
-      return;
-    }
-    if (key.downArrow) {
-      if (
-        overlay.type === "provider_picker" ||
-        overlay.type === "settings" ||
-        overlay.type === "season_picker" ||
-        overlay.type === "episode_picker" ||
-        overlay.type === "subtitle_picker"
-      ) {
-        const optionCount =
-          overlay.type === "provider_picker"
-            ? filteredProviderOptions.length
-            : overlay.type === "settings"
-              ? filteredSettingsOptions.length
-              : filteredGenericPickerOptions.length;
-        setSelectedIndex((current) => Math.min(Math.max(optionCount - 1, 0), current + 1));
-      } else {
-        setScrollIndex((current) => Math.min(Math.max(lines.length - maxLines, 0), current + 1));
-      }
-      return;
-    }
-    if (
-      overlay.type === "provider_picker" ||
-      overlay.type === "settings" ||
-      overlay.type === "season_picker" ||
-      overlay.type === "episode_picker" ||
-      overlay.type === "subtitle_picker"
-    ) {
-      if (overlay.type === "settings" && input.toLowerCase() === "s") {
-        if (
-          !settingsDraft ||
-          settingsBusy ||
-          settingsEqual(settingsDraft, container.config.getRaw())
-        ) {
-          return;
-        }
-        setSettingsBusy(true);
-        setSettingsError(null);
-        void applySettingsToRuntime({
-          container,
-          next: settingsDraft,
-          previous: container.config.getRaw(),
-        })
-          .then(() => {
-            container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
-          })
-          .catch((error) => {
-            setSettingsBusy(false);
-            setSettingsError(`Failed to save settings: ${String(error)}`);
-          });
-        return;
-      }
-      if (input === "/") {
-        return;
-      }
-      if (filterEditor.handleInput(input, key)) {
-        return;
-      }
-    }
-  });
-
-  const overlayPanel: BrowseOverlay =
-    overlay.type === "provider_picker"
-      ? {
-          type: "provider",
-          title,
-          subtitle,
-          options: filteredProviderOptions,
-          filterQuery,
-          selectedIndex: Math.min(selectedIndex, Math.max(filteredProviderOptions.length - 1, 0)),
-          busy: false,
-        }
-      : overlay.type === "settings" && settingsPanel
-        ? {
-            ...settingsPanel,
-            subtitle,
-            options: filteredSettingsOptions,
-            filterQuery,
-            selectedIndex: Math.min(selectedIndex, Math.max(filteredSettingsOptions.length - 1, 0)),
-            busy: settingsBusy,
-          }
-        : overlay.type === "season_picker" ||
-            overlay.type === "episode_picker" ||
-            overlay.type === "subtitle_picker"
-          ? {
-              type: "episode-picker",
-              title,
-              subtitle,
-              options: filteredGenericPickerOptions,
-              filterQuery,
-              selectedIndex: Math.min(
-                selectedIndex,
-                Math.max(filteredGenericPickerOptions.length - 1, 0),
-              ),
-              busy: false,
-            }
-          : overlay.type === "help" ||
-              overlay.type === "about" ||
-              overlay.type === "diagnostics" ||
-              overlay.type === "history"
-            ? {
-                type: overlay.type,
-                title,
-                subtitle,
-                lines,
-                loading: overlay.type === "history" ? loadingAsyncLines : undefined,
-                scrollIndex,
-              }
-            : {
-                type: "help",
-                title: "Help",
-                subtitle: "Global commands, editing, filtering, and shell behavior",
-                lines: buildHelpPanelLines(),
-                scrollIndex: 0,
-              };
-
-  return (
-    <Box flexDirection="column" flexGrow={1} justifyContent="space-between">
-      <Box flexDirection="column" flexGrow={1}>
-        <Box>
-          <InlineBadge
-            label={`panel ${overlay.type === "provider_picker" ? "provider" : overlay.type}`}
-            tone="success"
-          />
-          {overlay.type === "provider_picker" || overlay.type === "settings" ? (
-            <InlineBadge
-              label={`${
-                overlay.type === "provider_picker"
-                  ? filteredProviderOptions.length
-                  : filteredSettingsOptions.length
-              } options`}
-              tone="neutral"
-            />
-          ) : overlay.type === "season_picker" ||
-            overlay.type === "episode_picker" ||
-            overlay.type === "subtitle_picker" ? (
-            <InlineBadge label={`${filteredGenericPickerOptions.length} options`} tone="neutral" />
-          ) : (
-            <InlineBadge
-              label={`${Math.min(scrollIndex + maxLines, lines.length)}/${lines.length} lines`}
-              tone="neutral"
-            />
-          )}
-        </Box>
-        <OverlayPanel
-          overlay={overlayPanel}
-          width={Math.max(24, (stdout.columns ?? 80) - 8)}
-          maxLinesOverride={maxLines}
-        />
-      </Box>
-
-      <Box flexDirection="column">
-        {commandMode ? (
-          <CommandPalette
-            input={commandInput}
-            cursor={commandCursor}
-            commands={commands}
-            highlightedIndex={highlightedIndex}
-          />
-        ) : null}
-        <ShellFooter
-          taskLabel={
-            overlay.type === "provider_picker"
-              ? "Provider picker  ·  Type to filter, Enter to switch, Esc closes"
-              : overlay.type === "settings"
-                ? settingsChoice
-                  ? "Settings choice  ·  Type to filter, Enter to apply, Esc returns"
-                  : "Settings  ·  Type to filter, Enter to edit, S saves, Esc closes"
-                : overlay.type === "season_picker" ||
-                    overlay.type === "episode_picker" ||
-                    overlay.type === "subtitle_picker"
-                  ? `${title}  ·  Type to filter, Enter to select, Esc closes`
-                  : `${title}  ·  Esc closes and returns to the previous shell state`
-          }
-          actions={footerActions}
-          mode="detailed"
-          commandMode={commandMode}
-        />
-      </Box>
-    </Box>
-  );
-}
 
 function AppRoot({ container }: { container: Container }) {
   const { stateManager } = container;
@@ -1340,7 +536,12 @@ function AppRoot({ container }: { container: Container }) {
                 {rootContent.element}
               </Box>
             ) : rootSurface === "root-overlay" && rootOverlay ? (
-              <RootOverlayShell overlay={rootOverlay} state={state} container={container} />
+              <RootOverlayShell
+                overlay={rootOverlay}
+                state={state}
+                container={container}
+                onRedraw={clearShellScreen}
+              />
             ) : screen ? (
               <Box key={screen.id}>{screen.element}</Box>
             ) : (
@@ -1350,7 +551,12 @@ function AppRoot({ container }: { container: Container }) {
 
           {rootSurface === "root-content" && rootOverlay ? (
             <Box marginTop={1}>
-              <RootOverlayShell overlay={rootOverlay} state={state} container={container} />
+              <RootOverlayShell
+                overlay={rootOverlay}
+                state={state}
+                container={container}
+                onRedraw={clearShellScreen}
+              />
             </Box>
           ) : null}
         </Box>
@@ -1358,7 +564,6 @@ function AppRoot({ container }: { container: Container }) {
     </Box>
   );
 }
-
 
 /**
  * Launches the persistent state-driven app shell.
@@ -1778,16 +983,6 @@ function PlaybackShell({
   );
 }
 
-function fallbackCommandState(allowed: readonly AppCommandId[]): readonly ResolvedAppCommand[] {
-  return allowed
-    .map((id) => COMMANDS.find((command) => command.id === id))
-    .filter((command): command is ResolvedAppCommand => Boolean(command))
-    .map((command) => ({
-      ...command,
-      enabled: true,
-    }));
-}
-
 function footerActionFromCommand(
   commands: readonly ResolvedAppCommand[],
   id: AppCommandId,
@@ -1810,7 +1005,6 @@ function getCommandLabel(
 ): string {
   return commands.find((command) => command.id === id)?.label.toLowerCase() ?? fallback;
 }
-
 
 export function openPlaybackShell({
   state,
@@ -2292,36 +1486,6 @@ type BrowseOverlay =
       scrollIndex?: number;
     }
   | {
-      type: "provider";
-      title: string;
-      subtitle: string;
-      options: readonly ShellPickerOption<string>[];
-      filterQuery: string;
-      selectedIndex: number;
-      busy?: boolean;
-    }
-  | {
-      type: "settings";
-      title: string;
-      subtitle: string;
-      options: readonly ShellPickerOption<string>[];
-      filterQuery: string;
-      selectedIndex: number;
-      dirty: boolean;
-      busy?: boolean;
-    }
-  | {
-      type: "settings-choice";
-      title: string;
-      subtitle: string;
-      setting: SettingsChoiceValue;
-      options: readonly ShellPickerOption<string>[];
-      filterQuery: string;
-      selectedIndex: number;
-      parentSelectedIndex?: number;
-      busy?: boolean;
-    }
-  | {
       type: "episode-picker";
       title: string;
       subtitle: string;
@@ -2330,218 +1494,6 @@ type BrowseOverlay =
       selectedIndex: number;
       busy?: boolean;
     };
-
-type SettingsAction =
-  | "defaultMode"
-  | "provider"
-  | "animeProvider"
-  | "subLang"
-  | "animeLang"
-  | "headless"
-  | "showMemory"
-  | "autoNext"
-  | "footerHints"
-  | "clearCache"
-  | "clearHistory";
-
-type SettingsChoiceValue = SettingsAction;
-
-const SUBTITLE_SETTINGS_OPTIONS: readonly ShellPickerOption<string>[] = [
-  { value: "en", label: "English" },
-  { value: "fzf", label: "Pick interactively" },
-  { value: "none", label: "None" },
-  { value: "ar", label: "Arabic" },
-  { value: "fr", label: "French" },
-  { value: "de", label: "German" },
-  { value: "es", label: "Spanish" },
-  { value: "ja", label: "Japanese" },
-];
-
-const ANIME_AUDIO_SETTINGS_OPTIONS: readonly ShellPickerOption<"sub" | "dub">[] = [
-  { value: "sub", label: "Sub", detail: "Original audio with subtitles" },
-  { value: "dub", label: "Dub", detail: "Dubbed audio when available" },
-];
-
-const FOOTER_HINT_OPTIONS: readonly ShellPickerOption<"detailed" | "minimal">[] = [
-  {
-    value: "detailed",
-    label: "Detailed",
-    detail: "Current task plus a second line of active shortcuts",
-  },
-  {
-    value: "minimal",
-    label: "Minimal",
-    detail: "Keep the task visible and trim the shortcut strip down",
-  },
-];
-
-function buildSettingsSummary(config: KitsuneConfig): string {
-  return `${config.defaultMode} default  ·  series ${config.provider}  ·  anime ${config.animeProvider}  ·  footer ${config.footerHints}`;
-}
-
-function buildSettingsOptions(config: KitsuneConfig): readonly ShellPickerOption<SettingsAction>[] {
-  return [
-    {
-      value: "defaultMode",
-      label: `Default startup mode  ·  ${config.defaultMode}`,
-      detail: "Series or anime when the app launches",
-    },
-    {
-      value: "provider",
-      label: `Default provider  ·  ${config.provider}`,
-      detail: "Movies and series provider",
-    },
-    {
-      value: "animeProvider",
-      label: `Anime provider  ·  ${config.animeProvider}`,
-      detail: "Default anime source",
-    },
-    {
-      value: "subLang",
-      label: `Subtitles  ·  ${config.subLang}`,
-      detail: "Preferred subtitle behavior",
-    },
-    {
-      value: "animeLang",
-      label: `Anime audio  ·  ${config.animeLang}`,
-      detail: "Sub or dub preference",
-    },
-    {
-      value: "headless",
-      label: `Browser mode  ·  ${config.headless ? "headless" : "visible"}`,
-      detail: "Playwright browser visibility",
-    },
-    {
-      value: "showMemory",
-      label: `Memory line  ·  ${config.showMemory ? "shown" : "hidden"}`,
-      detail: "Show memory usage in playback shell",
-    },
-    {
-      value: "autoNext",
-      label: `Autoplay next  ·  ${config.autoNext ? "on" : "off"}`,
-      detail: "Close mpv on EOF and continue through the next available released episode",
-    },
-    {
-      value: "footerHints",
-      label: `Footer hints  ·  ${config.footerHints}`,
-      detail: "Detailed keeps two lines, minimal keeps only the task line",
-    },
-    {
-      value: "clearCache",
-      label: "Clear stream cache",
-      detail: "Wipe the local URL cache (stream_cache.json)",
-    },
-    {
-      value: "clearHistory",
-      label: "Clear watch history",
-      detail: "Reset all watch progress and history",
-    },
-  ];
-}
-
-function buildSettingsProviderOptions({
-  providers,
-  currentProvider,
-}: {
-  providers: readonly import("@/domain/types").ProviderMetadata[];
-  currentProvider: string;
-}): readonly ShellPickerOption<string>[] {
-  return providers.map((provider) => ({
-    value: provider.id,
-    label: provider.id === currentProvider ? `${provider.name}  ·  current` : provider.name,
-    detail: provider.description,
-  }));
-}
-
-function buildSettingsChoiceOverlay({
-  config,
-  setting,
-  seriesProviderOptions,
-  animeProviderOptions,
-  parentSelectedIndex = 0,
-}: {
-  config: KitsuneConfig;
-  setting: SettingsChoiceValue;
-  seriesProviderOptions: readonly ShellPickerOption<string>[];
-  animeProviderOptions: readonly ShellPickerOption<string>[];
-  parentSelectedIndex?: number;
-}): Extract<BrowseOverlay, { type: "settings-choice" }> {
-  let title = "Choose setting";
-  let subtitle = "Select a value";
-  let options: readonly ShellPickerOption<string>[] = [];
-
-  if (setting === "defaultMode") {
-    title = "Default startup mode";
-    subtitle = `Current ${config.defaultMode}`;
-    options = [
-      { value: "series", label: "Series mode", detail: "Browse movies and TV on launch" },
-      { value: "anime", label: "Anime mode", detail: "Browse anime on launch" },
-    ].map((option) => ({
-      ...option,
-      label: option.value === config.defaultMode ? `${option.label}  ·  current` : option.label,
-    }));
-  } else if (setting === "provider") {
-    title = "Default provider";
-    subtitle = `Current ${config.provider}`;
-    options = seriesProviderOptions.map((option) => ({
-      ...option,
-      label:
-        option.value === config.provider
-          ? `${option.label.replace(/  ·  current$/, "")}  ·  current`
-          : option.label.replace(/  ·  current$/, ""),
-    }));
-  } else if (setting === "animeProvider") {
-    title = "Anime provider";
-    subtitle = `Current ${config.animeProvider}`;
-    options = animeProviderOptions.map((option) => ({
-      ...option,
-      label:
-        option.value === config.animeProvider
-          ? `${option.label.replace(/  ·  current$/, "")}  ·  current`
-          : option.label.replace(/  ·  current$/, ""),
-    }));
-  } else if (setting === "subLang") {
-    title = "Subtitle preference";
-    subtitle = `Current ${config.subLang}`;
-    options = SUBTITLE_SETTINGS_OPTIONS.map((option) => ({
-      ...option,
-      label: option.value === config.subLang ? `${option.label}  ·  current` : option.label,
-    }));
-  } else if (setting === "animeLang") {
-    title = "Anime audio";
-    subtitle = `Current ${config.animeLang}`;
-    options = ANIME_AUDIO_SETTINGS_OPTIONS.map((option) => ({
-      ...option,
-      label: option.value === config.animeLang ? `${option.label}  ·  current` : option.label,
-    })) as readonly ShellPickerOption<string>[];
-  } else if (setting === "footerHints") {
-    title = "Footer hint density";
-    subtitle = `Current ${config.footerHints}`;
-    options = FOOTER_HINT_OPTIONS.map((option) => ({
-      ...option,
-      label: option.value === config.footerHints ? `${option.label}  ·  current` : option.label,
-    })) as readonly ShellPickerOption<string>[];
-  }
-
-  return {
-    type: "settings-choice",
-    title,
-    subtitle,
-    setting,
-    options,
-    filterQuery: "",
-    selectedIndex: 0,
-    parentSelectedIndex,
-    busy: false,
-  };
-}
-
-function settingsEqual(
-  left: KitsuneConfig | null | undefined,
-  right: KitsuneConfig | null | undefined,
-): boolean {
-  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
-}
 
 function resolvePanelTone(tone: ShellPanelLine["tone"]): string {
   switch (tone) {
@@ -2567,26 +1519,13 @@ function OverlayPanel({
   maxLinesOverride?: number;
 }) {
   const contentWidth = Math.max(24, width - 4);
-  const maxLines =
-    maxLinesOverride ??
-    (overlay.type === "provider" ||
-    overlay.type === "settings" ||
-    overlay.type === "settings-choice" ||
-    overlay.type === "episode-picker"
-      ? 8
-      : 6);
+  const maxLines = maxLinesOverride ?? (overlay.type === "episode-picker" ? 8 : 6);
   const optionWindowStart =
-    overlay.type === "provider" ||
-    overlay.type === "settings" ||
-    overlay.type === "settings-choice" ||
     overlay.type === "episode-picker"
       ? getWindowStart(overlay.selectedIndex, overlay.options.length, maxLines)
       : 0;
   const optionWindowEnd = optionWindowStart + maxLines;
   const visibleOptions =
-    overlay.type === "provider" ||
-    overlay.type === "settings" ||
-    overlay.type === "settings-choice" ||
     overlay.type === "episode-picker"
       ? overlay.options.slice(optionWindowStart, optionWindowEnd)
       : [];
@@ -2596,41 +1535,18 @@ function OverlayPanel({
       marginTop={1}
       flexDirection="column"
       borderStyle="round"
-      borderColor={
-        overlay.type === "settings" || overlay.type === "settings-choice"
-          ? palette.green
-          : overlay.type === "provider"
-            ? palette.amber
-            : palette.cyan
-      }
+      borderColor={palette.cyan}
       paddingX={1}
     >
-      <Text
-        color={
-          overlay.type === "settings" || overlay.type === "settings-choice"
-            ? palette.green
-            : overlay.type === "provider"
-              ? palette.amber
-              : palette.cyan
-        }
-      >
-        {overlay.title}
-      </Text>
+      <Text color={palette.cyan}>{overlay.title}</Text>
       <Text color={palette.gray}>{overlay.subtitle}</Text>
-      {overlay.type === "provider" ||
-      overlay.type === "settings" ||
-      overlay.type === "settings-choice" ||
-      overlay.type === "episode-picker" ? (
+      {overlay.type === "episode-picker" ? (
         <>
           <Box marginTop={1}>
             <Text color={palette.gray}>
               {overlay.filterQuery.length > 0
                 ? `Filter: ${overlay.filterQuery}`
-                : overlay.type === "provider"
-                  ? "Type to narrow providers"
-                  : overlay.type === "episode-picker"
-                    ? "Type to narrow episodes"
-                    : "Type to narrow this list"}
+                : "Type to narrow episodes"}
             </Text>
           </Box>
           <Box marginTop={1} flexDirection="column">
@@ -2662,27 +1578,10 @@ function OverlayPanel({
           <Box marginTop={1}>
             <Text color={overlay.busy ? palette.amber : palette.gray}>
               {overlay.busy
-                ? overlay.type === "provider"
-                  ? "Updating provider…"
-                  : "Saving settings…"
-                : overlay.type === "provider"
-                  ? "Type to filter, ↑↓ to choose, Enter to switch, Esc to close"
-                  : overlay.type === "episode-picker"
-                    ? "Type to filter, ↑↓ to choose, Enter to jump, Esc to close"
-                    : overlay.type === "settings"
-                      ? "Type to filter, ↑↓ to choose, Enter to edit"
-                      : "Type to filter, ↑↓ to choose, Enter to apply, Esc to go back"}
+                ? "Updating picker…"
+                : "Type to filter, ↑↓ to choose, Enter to jump, Esc to close"}
             </Text>
           </Box>
-          {overlay.type === "settings" ? (
-            <Box marginTop={1}>
-              <Badge
-                label={overlay.dirty ? "s save changes" : "s close"}
-                tone={overlay.dirty ? "success" : "neutral"}
-              />
-              <Badge label={overlay.dirty ? "esc discard" : "esc close"} tone="warning" />
-            </Box>
-          ) : null}
         </>
       ) : overlay.loading ? (
         <Box marginTop={1}>
