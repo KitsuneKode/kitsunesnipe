@@ -5,6 +5,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 
 import type { PlaybackResult } from "@/domain/types";
+import type { ActivePlayerControl } from "@/infra/player/PlayerControlService";
 import type { MpvIpcSession } from "@/infra/player/mpv-ipc";
 import {
   applyEndFileEvent,
@@ -23,6 +24,7 @@ export async function launchMpv(opts: {
   displayTitle: string;
   startAt?: number;
   attach?: boolean;
+  onControlReady?: (control: ActivePlayerControl | null) => void;
 }): Promise<PlaybackResult> {
   const nonce = `${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   const ipcPath = process.platform === "win32" ? null : join(tmpdir(), `kunai-mpv-${nonce}.sock`);
@@ -39,6 +41,22 @@ export async function launchMpv(opts: {
     stdio: opts.attach ? "inherit" : ["ignore", "ignore", "ignore"],
     env: process.env as Record<string, string>,
   });
+
+  let ipcSession: MpvIpcSession | null = null;
+  let stopRequested = false;
+  const control: ActivePlayerControl = {
+    id: nonce,
+    async stop() {
+      if (stopRequested) return;
+      stopRequested = true;
+      if (ipcSession) {
+        ipcSession.send(["quit"]);
+        return;
+      }
+      mpv.kill("SIGTERM");
+    },
+  };
+  opts.onControlReady?.(control);
 
   const exitPromise = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
     (resolve) => {
@@ -57,7 +75,6 @@ export async function launchMpv(opts: {
     },
   );
 
-  let ipcSession: MpvIpcSession | null = null;
   const ipcBootstrap = (async () => {
     if (!ipcPath) return;
     const ready = await waitForMpvIpcSocket(ipcPath, 5_000);
@@ -89,6 +106,8 @@ export async function launchMpv(opts: {
 
   await closeIpcSession(ipcSession);
   const socketPathCleanedUp = ipcPath ? await cleanupSocket(ipcPath) : true;
+
+  opts.onControlReady?.(null);
 
   return finalizePlaybackResult(telemetry, { socketPathCleanedUp });
 }

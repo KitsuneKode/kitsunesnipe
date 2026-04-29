@@ -10,6 +10,7 @@ import type { Logger } from "@/infra/logger/Logger";
 import type { Tracer } from "@/infra/tracer/Tracer";
 import type { DiagnosticsStore } from "@/services/diagnostics/DiagnosticsStore";
 import { launchMpv } from "@/mpv";
+import type { PlayerControlService } from "./PlayerControlService";
 
 export class PlayerServiceImpl implements PlayerService {
   constructor(
@@ -17,6 +18,7 @@ export class PlayerServiceImpl implements PlayerService {
       logger: Logger;
       tracer: Tracer;
       diagnosticsStore: DiagnosticsStore;
+      playerControl: PlayerControlService;
     },
   ) {}
 
@@ -54,6 +56,7 @@ export class PlayerServiceImpl implements PlayerService {
         displayTitle: options.displayTitle,
         startAt: options.startAt,
         attach: options.attach,
+        onControlReady: (control) => this.deps.playerControl.setActive(control),
       });
 
       this.deps.logger.info("MPV playback complete", {

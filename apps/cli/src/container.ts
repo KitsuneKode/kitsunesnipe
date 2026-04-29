@@ -13,6 +13,7 @@ import type { SearchRegistry } from "./services/search/SearchRegistry";
 import type { ShellService } from "./infra/shell/ShellService";
 import type { BrowserService } from "./infra/browser/BrowserService";
 import type { PlayerService } from "./infra/player/PlayerService";
+import type { PlayerControlService } from "./infra/player/PlayerControlService";
 import type { StorageService } from "./infra/storage/StorageService";
 import type { HistoryStore } from "./services/persistence/HistoryStore";
 import type { ConfigStore } from "./services/persistence/ConfigStore";
@@ -41,6 +42,7 @@ import { SessionStateManagerImpl } from "./domain/session/SessionStateManager";
 import { ShellServiceImpl } from "./infra/shell/ShellServiceImpl";
 import { BrowserServiceImpl } from "./infra/browser/BrowserServiceImpl";
 import { PlayerServiceImpl } from "./infra/player/PlayerServiceImpl";
+import { PlayerControlServiceImpl } from "./infra/player/PlayerControlServiceImpl";
 import { ProviderRegistryImpl } from "./services/providers/ProviderRegistry";
 import { PROVIDER_DEFINITIONS } from "./services/providers/definitions";
 import { SearchRegistryImpl } from "./services/search/SearchRegistry";
@@ -64,6 +66,7 @@ export interface Container {
   readonly shell: ShellService;
   readonly browser: BrowserService;
   readonly player: PlayerService;
+  readonly playerControl: PlayerControlService;
   readonly storage: StorageService;
 
   // Persistence stores
@@ -123,7 +126,8 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   // Infrastructure services
   const shell = new ShellServiceImpl({ logger, tracer, stateManager });
   const browser = new BrowserServiceImpl({ logger, tracer, config, cacheStore, diagnosticsStore });
-  const player = new PlayerServiceImpl({ logger, tracer, diagnosticsStore });
+  const playerControl = new PlayerControlServiceImpl({ logger, diagnosticsStore });
+  const player = new PlayerServiceImpl({ logger, tracer, diagnosticsStore, playerControl });
 
   // Registries (depend on infrastructure)
   const providerRegistry = new ProviderRegistryImpl(
@@ -142,6 +146,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     shell,
     browser,
     player,
+    playerControl,
     storage,
     historyStore,
     configStore,

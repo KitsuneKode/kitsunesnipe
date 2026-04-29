@@ -319,7 +319,7 @@ Phase 3B wiring, after the package foundation:
 
 Extract one simple provider path first. Prefer a 0-RAM or low-risk provider before Playwright-heavy providers.
 
-Status: Phase 4D started.
+Status: Phase 4D.5 playback control gate in progress.
 
 Phase 4A foundation:
 
@@ -351,14 +351,23 @@ Phase 4D provider resolve-result wiring:
 - preserve honest runtime attribution: Playwright providers use `playwright-lease`; Braflix direct media uses `node-fetch`; AllAnime is marked `node-fetch` until the hidden embed-scraper branch is split into an explicit runtime port
 - keep diagnostics reading attached resolve traces from streams instead of forcing app code to know provider internals
 
+Phase 4D.5 playback control gate:
+
+- add a `PlayerControlService` that owns the currently active player control handle
+- expose an active `mpv` stop command through the IPC session when available, with process termination as a fallback before IPC is ready
+- let the mounted playback shell stop active playback with `q` without forcing the user to kill the whole Kunai process
+- keep `Esc` reserved for close/back/control-panel semantics instead of making it a destructive playback stop
+- treat reload, same-provider refresh, fallback hot-swap, and subtitle reload as the next control-port increments after stop is proven
+
 Provider move order:
 
 1. Manifest-only for each provider: id, domain, media kinds, capabilities, runtime ports, cache policy, browser/relay safety. Phase 4C.
 2. Adapter wiring for each provider: attach `ProviderResolveResult` while preserving current `StreamInfo` callers. Phase 4D.
-3. Resolver orchestration: introduce a core resolver that ranks providers, calls runtime ports, and returns `ProviderResolveResult`. Phase 4E.
-4. Implementation extraction: move only pure/provider-local logic into `@kunai/core`; keep Playwright, `mpv`, config, history, and storage wiring in `apps/cli`. Phase 4F.
-5. Runtime-port split: replace direct browser imports with injected ports so CLI, future daemon, and future web can safely choose allowed runtimes. Phase 4G.
-6. Remove legacy provider shape only after every production provider emits core results and fallback/autoplay/history are green. Phase 4H.
+3. Playback control gate: prove active `mpv` stop/control from the TUI before moving more orchestration. Phase 4D.5.
+4. Resolver orchestration: introduce a core resolver that ranks providers, calls runtime ports, and returns `ProviderResolveResult`. Phase 4E.
+5. Implementation extraction: move only pure/provider-local logic into `@kunai/core`; keep Playwright, `mpv`, config, history, and storage wiring in `apps/cli`. Phase 4F.
+6. Runtime-port split: replace direct browser imports with injected ports so CLI, future daemon, and future web can safely choose allowed runtimes. Phase 4G.
+7. Remove legacy provider shape only after every production provider emits core results and fallback/autoplay/history are green. Phase 4H.
 
 Do not move all providers at once. The first full implementation extraction should be a low-risk provider path after every provider has a manifest and at least VidKing has proven trace wiring in production flow.
 

@@ -76,9 +76,11 @@ function renderPhaseRail(active: LoadingShellState["operation"]): readonly {
 export function LoadingShell({
   state,
   onCancel,
+  onStop,
 }: {
   state: LoadingShellState;
   onCancel?: () => void;
+  onStop?: () => void;
 }) {
   const spinner = useSpinner();
   const elapsed = useElapsed();
@@ -92,6 +94,9 @@ export function LoadingShell({
     }
     if (key.escape && state.cancellable && onCancel) {
       onCancel();
+    }
+    if (input.toLowerCase() === "q" && state.operation === "playing" && onStop) {
+      onStop();
     }
   });
 
@@ -219,6 +224,13 @@ export function LoadingShell({
             </Text>
           </Box>
         )}
+        {state.stopHint ? (
+          <Box marginTop={1}>
+            <Text color={palette.gray} dimColor>
+              {state.stopHint}
+            </Text>
+          </Box>
+        ) : null}
       </Box>
     </Box>
   );

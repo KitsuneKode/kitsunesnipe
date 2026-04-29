@@ -89,6 +89,7 @@ export async function waitForMpvIpcSocket(socketPath: string, timeoutMs = 3_000)
 }
 
 export interface MpvIpcSession {
+  send(command: readonly unknown[]): void;
   close(): Promise<void>;
 }
 
@@ -129,6 +130,9 @@ export async function openMpvIpcSession(options: SessionOptions): Promise<MpvIpc
   }
 
   return {
+    send(command) {
+      send(command);
+    },
     async close() {
       await closeSocket(socket);
     },

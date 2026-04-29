@@ -367,11 +367,18 @@ function AppRoot({ container }: { container: Container }) {
                     state.playbackStatus === "playing" ? playbackSubtitleStatus : undefined,
                   trace:
                     state.playbackStatus === "playing"
-                      ? "mpv is open; Kunai is waiting for playback to finish"
+                      ? "mpv is open; press q to stop playback and return to Kunai"
                       : undefined,
                   showMemory: state.playbackStatus === "playing",
+                  stopHint:
+                    state.playbackStatus === "playing"
+                      ? "q stop playback  ·  Ctrl+C hard exit"
+                      : undefined,
                 }}
                 onCancel={() => {}}
+                onStop={() => {
+                  void container.playerControl.stopCurrentPlayback("playback-shell-q");
+                }}
               />
             ) : rootSurface === "root-content" && rootContent ? (
               <Box key={rootContent.id} flexGrow={1}>
