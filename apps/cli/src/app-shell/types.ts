@@ -13,6 +13,7 @@ export type ShellAction =
   | "help"
   | "about"
   | "image-pane"
+  | "resume"
   | "replay"
   | "pick-episode"
   | "next"
@@ -50,6 +51,7 @@ export type PlaybackShellState = {
   episode: number;
   posterUrl?: string;
   subtitleStatus?: string;
+  resumeLabel?: string;
   showMemory: boolean;
   memoryUsage?: string;
   status?: ShellStatus;

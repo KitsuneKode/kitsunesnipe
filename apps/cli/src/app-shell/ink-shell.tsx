@@ -596,6 +596,11 @@ function PlaybackShell({
     ]);
   const footerActions: readonly FooterAction[] = [
     { key: "/", label: "commands", action: "command-mode" },
+    ...(state.resumeLabel
+      ? ([
+          { key: "c", label: state.resumeLabel, action: "resume" as const },
+        ] satisfies readonly FooterAction[])
+      : []),
     footerActionFromCommand(commands, "replay", { key: "r", label: "replay" }, toShellAction),
     footerActionFromCommand(commands, "search", { key: "f", label: "search" }, toShellAction),
     footerActionFromCommand(
@@ -801,7 +806,11 @@ function PlaybackShell({
                 />
                 <DetailLine
                   label="Next step"
-                  value="Replay, move episodes, or start a fresh search"
+                  value={
+                    state.resumeLabel
+                      ? "Resume from your last stop, restart from the beginning, or move between episodes"
+                      : "Replay, move episodes, or start a fresh search"
+                  }
                 />
                 {state.showMemory && state.memoryUsage ? (
                   <DetailLine label="Memory" value={state.memoryUsage} />

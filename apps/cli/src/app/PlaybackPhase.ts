@@ -30,6 +30,7 @@ import { buildPlaybackEpisodePickerOptions } from "@/app/playback-episode-picker
 import { shouldPersistHistory, toHistoryTimestamp } from "@/app/playback-history";
 import { createResolveTraceStub } from "@/app/resolve-trace";
 import { choosePlaybackSubtitle } from "@/app/subtitle-selection";
+import { formatTimestamp } from "@/services/persistence/HistoryStore";
 import { fetchEpisodes, fetchSeasons } from "@/tmdb";
 import { resolveWithFallback } from "@kunai/core";
 
@@ -414,6 +415,11 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         const shellRuntime = buildShellRuntimeBindings(container);
 
         postPlayback: while (true) {
+          const resumeSeconds = toHistoryTimestamp(result);
+          const canResumePlayback =
+            result.endReason !== "eof" &&
+            resumeSeconds > 10 &&
+            (result.duration <= 0 || resumeSeconds < Math.max(0, result.duration - 5));
           const postAction = await openPlaybackShell({
             state: {
               type: title.type,
@@ -428,6 +434,9 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               ),
               showMemory: config.showMemory,
               mode: stateManager.getState().mode,
+              resumeLabel: canResumePlayback
+                ? `resume ${formatTimestamp(resumeSeconds)}`
+                : undefined,
               status: { label: "Ready for next action", tone: "success" },
               footerMode: config.getRaw().footerHints,
               commands: resolveCommands(stateManager.getState(), [
@@ -483,6 +492,9 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             };
           } else if (routedAction === "mode-switch") {
             return { status: "success", value: "back_to_search" };
+          } else if (routedAction === "resume") {
+            pendingStartAt = resumeSeconds;
+            break postPlayback;
           } else if (routedAction === "replay") {
             break postPlayback;
           } else if (routedAction === "back-to-search") {

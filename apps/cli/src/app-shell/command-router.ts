@@ -12,6 +12,7 @@ type RoutedActionResult =
   | "mode-switch"
   | "back-to-search"
   | "back-to-results"
+  | "resume"
   | "replay"
   | { type: "history-entry"; title: TitleInfo }
   | "unhandled";
@@ -123,6 +124,7 @@ export async function routePlaybackShellAction({
   }
   if (action === "search") return "back-to-search";
   if (action === "back-to-results") return "back-to-results";
+  if (action === "resume") return "resume";
   if (action === "replay") return "replay";
   if (action === "help") {
     await openRootOwnedOverlay(container, { type: "help" });

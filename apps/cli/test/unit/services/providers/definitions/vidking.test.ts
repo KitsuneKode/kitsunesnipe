@@ -79,3 +79,100 @@ test("vidking resolves through the core provider result adapter", async () => {
   expect(stream?.providerResolveResult?.trace.runtime).toBe("playwright-lease");
   expect(stream?.providerResolveResult?.cachePolicy?.keyParts).toContain("english");
 });
+
+test("vidking prefers the direct decode path before browser scraping", async () => {
+  let browserCalls = 0;
+  const deps: ProviderDeps = {
+    browser: {
+      async scrape() {
+        browserCalls += 1;
+        return null;
+      },
+      async isAvailable() {
+        return true;
+      },
+    },
+    logger: {
+      debug() {},
+      info() {},
+      warn() {},
+      error() {},
+      fatal() {},
+      child() {
+        return this;
+      },
+    },
+    tracer: {
+      async span(_name, fn) {
+        return fn({
+          id: "span-1",
+          name: "test",
+          startTime: 0,
+          setAttribute() {},
+          addEvent() {},
+          end() {},
+        });
+      },
+      getCurrentTrace() {
+        return null;
+      },
+      getCurrentSpan() {
+        return null;
+      },
+    },
+    config: {
+      defaultMode: "series",
+      provider: "vidking",
+      animeProvider: "allanime",
+      subLang: "en",
+      animeLang: "sub",
+      headless: true,
+      showMemory: false,
+      autoNext: true,
+      footerHints: "minimal",
+      getRaw() {
+        return this;
+      },
+      async update() {},
+      async save() {},
+      async reset() {},
+    },
+    playerDomains: ["vidking.net"],
+  };
+
+  const provider = createVidKingProvider(deps, {
+    resolveDirect: async () => ({
+      url: "https://fast.speedzy.net/example/index.m3u8",
+      headers: {
+        referer: "https://www.vidking.net/",
+        origin: "https://www.vidking.net",
+        "user-agent": "Mozilla/5.0",
+      },
+      subtitle: "https://cc.boopigcdn.com/example/eng-2.vtt",
+      subtitleList: [
+        { url: "https://cc.boopigcdn.com/example/eng-2.vtt", language: "en", display: "English" },
+        { url: "https://cc.boopigcdn.com/example/spa.vtt", language: "es", display: "Spanish" },
+      ],
+      subtitleSource: "provider",
+      subtitleEvidence: {
+        directSubtitleObserved: true,
+        wyzieSearchObserved: false,
+        reason: "provider-default",
+      },
+      title: "Friends",
+      timestamp: 1,
+    }),
+  });
+
+  const stream = await provider.resolveStream({
+    title: { id: "1668", type: "series", name: "Friends", year: "1994" },
+    episode: { season: 1, episode: 3 },
+    subLang: "en",
+  });
+
+  expect(browserCalls).toBe(0);
+  expect(stream?.subtitleSource).toBe("provider");
+  expect(stream?.subtitle).toBe("https://cc.boopigcdn.com/example/eng-2.vtt");
+  expect(stream?.providerResolveResult?.subtitles).toHaveLength(2);
+  expect(stream?.providerResolveResult?.trace.runtime).toBe("node-fetch");
+});
