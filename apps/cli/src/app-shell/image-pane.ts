@@ -34,6 +34,19 @@ export async function isChafaAvailable(): Promise<boolean> {
   return _chafaAvailable;
 }
 
+let _magickAvailable: boolean | null = null;
+async function isMagickAvailable(): Promise<boolean> {
+  if (_magickAvailable !== null) return _magickAvailable;
+  try {
+    const proc = Bun.spawn(["which", "magick"], { stdout: "pipe", stderr: "pipe" });
+    const code = await proc.exited;
+    _magickAvailable = code === 0;
+  } catch {
+    _magickAvailable = false;
+  }
+  return _magickAvailable;
+}
+
 export function deleteKittyImage(imageId: number): void {
   process.stdout.write(`\x1b_Ga=d,d=I,i=${imageId};\x1b\\`);
 }
@@ -118,6 +131,50 @@ async function uploadKitty(
   }
 }
 
+function isPng(data: ArrayBuffer): boolean {
+  const bytes = new Uint8Array(data, 0, Math.min(data.byteLength, 8));
+  return (
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  );
+}
+
+async function ensureKittyPng(data: ArrayBuffer): Promise<ArrayBuffer | null> {
+  if (isPng(data)) return data;
+  if (!(await isMagickAvailable())) return null;
+
+  const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const inputPath = join(tmpdir(), `kunai-poster-${id}.image`);
+  const outputPath = join(tmpdir(), `kunai-poster-${id}.png`);
+
+  try {
+    await Bun.write(inputPath, data);
+    const proc = Bun.spawn(["magick", inputPath, "png:" + outputPath], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const code = await proc.exited;
+    if (code !== 0) return null;
+    return await Bun.file(outputPath).arrayBuffer();
+  } catch {
+    return null;
+  } finally {
+    for (const path of [inputPath, outputPath]) {
+      try {
+        await unlink(path);
+      } catch {
+        // cleanup best-effort
+      }
+    }
+  }
+}
+
 const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
 
 export function resolvePosterUrl(url: string): string {
@@ -127,7 +184,8 @@ export function resolvePosterUrl(url: string): string {
 async function fetchKitty(url: string, rows: number, cols: number): Promise<PosterResult> {
   const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) return { kind: "none" };
-  const data = await res.arrayBuffer();
+  const data = await ensureKittyPng(await res.arrayBuffer());
+  if (!data) return { kind: "none" };
   const imageId = allocId();
   await uploadKitty(data, imageId, rows, cols);
   const placeholder = buildPlaceholder(imageId, rows, cols);
@@ -181,14 +239,13 @@ export async function fetchPoster(
   const task = (async (): Promise<PosterResult> => {
     let result: PosterResult;
     try {
-      const chafaAvailable = await isChafaAvailable();
-      if (chafaAvailable) {
-        result = await fetchChafa(resolved, rows, cols);
-        if (result.kind === "none" && isKittyCompatible()) {
-          result = await fetchKitty(resolved, rows, cols);
-        }
-      } else if (isKittyCompatible()) {
+      if (isKittyCompatible()) {
         result = await fetchKitty(resolved, rows, cols);
+        if (result.kind === "none" && (await isChafaAvailable())) {
+          result = await fetchChafa(resolved, rows, cols);
+        }
+      } else if (await isChafaAvailable()) {
+        result = await fetchChafa(resolved, rows, cols);
       } else {
         result = { kind: "none" };
       }
