@@ -90,6 +90,7 @@ export interface SessionState {
   readonly currentTitle: TitleInfo | null;
   readonly currentEpisode: EpisodeInfo | null;
   readonly episodeNavigation: EpisodeNavigationState;
+  readonly autoplaySessionPaused: boolean;
 
   readonly stream: StreamInfo | null;
   readonly playbackStatus: PlaybackStatus;
@@ -126,6 +127,7 @@ export type StateTransition =
       type: "SET_EPISODE_NAVIGATION";
       navigation: Partial<EpisodeNavigationState>;
     }
+  | { type: "SET_SESSION_AUTOPLAY_PAUSED"; paused: boolean }
   | { type: "SET_STREAM"; stream: StreamInfo | null }
   | { type: "SET_PLAYBACK_STATUS"; status: PlaybackStatus; error?: string }
   | { type: "OPEN_OVERLAY"; overlay: OverlayState }
@@ -174,6 +176,7 @@ export function createInitialState(
     currentTitle: null,
     currentEpisode: null,
     episodeNavigation: DEFAULT_EPISODE_NAVIGATION,
+    autoplaySessionPaused: false,
     stream: null,
     playbackStatus: "idle",
     playbackError: null,
@@ -266,6 +269,7 @@ export function reduceState(state: SessionState, transition: StateTransition): S
         currentTitle: transition.title,
         currentEpisode: null,
         episodeNavigation: DEFAULT_EPISODE_NAVIGATION,
+        autoplaySessionPaused: false,
         stream: null,
         playbackStatus: "idle",
       };
@@ -284,6 +288,12 @@ export function reduceState(state: SessionState, transition: StateTransition): S
           ...state.episodeNavigation,
           ...transition.navigation,
         },
+      };
+
+    case "SET_SESSION_AUTOPLAY_PAUSED":
+      return {
+        ...state,
+        autoplaySessionPaused: transition.paused,
       };
 
     case "SET_STREAM":
@@ -419,6 +429,7 @@ export function reduceState(state: SessionState, transition: StateTransition): S
         currentTitle: null,
         currentEpisode: null,
         episodeNavigation: DEFAULT_EPISODE_NAVIGATION,
+        autoplaySessionPaused: false,
         stream: null,
         playbackStatus: "idle",
         playbackError: null,

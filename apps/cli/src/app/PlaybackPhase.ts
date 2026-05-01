@@ -59,6 +59,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       string,
       readonly EpisodePickerOption[] | undefined
     >();
+    let autoplayPauseReason: "user" | "interrupted" | null = null;
 
     try {
       // Episode selection (for series)
@@ -324,6 +325,12 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         }
 
         const playbackControlAction = playerControl.consumeLastAction();
+        if (result.endReason === "quit" || playbackControlAction === "stop") {
+          if (autoplayPauseReason !== "user") {
+            autoplayPauseReason = "interrupted";
+          }
+          stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: true });
+        }
         if (playbackControlAction === "refresh") {
           pendingStartAt = toHistoryTimestamp(result);
           diagnosticsStore.record({
@@ -380,7 +387,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           result,
           title,
           currentEpisode,
-          config.autoNext,
+          config.autoNext && autoplayPauseReason === null,
           episodeAvailability,
         );
         if (nextEpisode) {
@@ -416,6 +423,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
 
         postPlayback: while (true) {
           const resumeSeconds = toHistoryTimestamp(result);
+          const autoplaySessionPaused: boolean = autoplayPauseReason !== null;
           const canResumePlayback =
             result.endReason !== "eof" &&
             resumeSeconds > 10 &&
@@ -432,6 +440,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 preparedStream,
                 stateManager.getState().subLang,
               ),
+              autoplayPaused: autoplaySessionPaused,
               showMemory: config.showMemory,
               mode: stateManager.getState().mode,
               resumeLabel: canResumePlayback
@@ -445,6 +454,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 "toggle-mode",
                 "provider",
                 "history",
+                "toggle-autoplay",
                 "replay",
                 "pick-episode",
                 "next",
@@ -492,10 +502,25 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             };
           } else if (routedAction === "mode-switch") {
             return { status: "success", value: "back_to_search" };
+          } else if (routedAction === "toggle-autoplay") {
+            autoplayPauseReason = autoplaySessionPaused ? null : "user";
+            stateManager.dispatch({
+              type: "SET_SESSION_AUTOPLAY_PAUSED",
+              paused: autoplayPauseReason !== null,
+            });
+            continue postPlayback;
           } else if (routedAction === "resume") {
             pendingStartAt = resumeSeconds;
+            if (autoplayPauseReason === "interrupted") {
+              autoplayPauseReason = null;
+              stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
+            }
             break postPlayback;
           } else if (routedAction === "replay") {
+            if (autoplayPauseReason === "interrupted") {
+              autoplayPauseReason = null;
+              stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
+            }
             break postPlayback;
           } else if (routedAction === "back-to-search") {
             return { status: "success", value: "back_to_search" };

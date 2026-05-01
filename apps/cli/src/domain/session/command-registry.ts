@@ -12,6 +12,7 @@ export type AppCommandId =
   | "help"
   | "about"
   | "image-pane"
+  | "toggle-autoplay"
   | "replay"
   | "pick-episode"
   | "next"
@@ -98,6 +99,12 @@ export const COMMANDS: readonly AppCommand[] = [
     label: "Image Pane",
     aliases: ["image", "preview", "poster"],
     description: "Toggle the image and details companion pane",
+  },
+  {
+    id: "toggle-autoplay",
+    label: "Pause Autoplay",
+    aliases: ["autoplay", "pause-autoplay", "resume-autoplay"],
+    description: "Temporarily pause or resume autoplay for this playback chain",
   },
   {
     id: "replay",
@@ -207,6 +214,16 @@ function resolveCommandPresentation(command: AppCommand, state: SessionState): A
     };
   }
 
+  if (command.id === "toggle-autoplay") {
+    return {
+      ...command,
+      label: state.autoplaySessionPaused ? "Resume Autoplay" : "Pause Autoplay",
+      description: state.autoplaySessionPaused
+        ? "Resume autoplay for this playback chain"
+        : "Pause autoplay for this playback chain",
+    };
+  }
+
   return command;
 }
 
@@ -268,6 +285,21 @@ function resolveCommandState(
         return {
           enabled: false,
           reason: "Terminal too small for image preview.",
+        };
+      }
+      return { enabled: true };
+
+    case "toggle-autoplay":
+      if (state.currentTitle?.type !== "series" || !hasEpisode) {
+        return {
+          enabled: false,
+          reason: "Autoplay controls are only available for episodic playback.",
+        };
+      }
+      if (resolving) {
+        return {
+          enabled: false,
+          reason: "Wait for stream resolution to finish first.",
         };
       }
       return { enabled: true };

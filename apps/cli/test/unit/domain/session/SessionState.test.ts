@@ -40,6 +40,33 @@ describe("SessionState overlays", () => {
     expect(state.provider).toBe("vidking");
   });
 
+  test("resets session-only autoplay pause when a new title is selected or content is cleared", () => {
+    let state = createInitialState("vidking", "allanime");
+
+    state = reduceState(state, {
+      type: "SET_SESSION_AUTOPLAY_PAUSED",
+      paused: true,
+    });
+    state = reduceState(state, {
+      type: "SELECT_TITLE",
+      title: {
+        id: "1668",
+        type: "series",
+        name: "Friends",
+      },
+    });
+
+    expect(state.autoplaySessionPaused).toBe(false);
+
+    state = reduceState(state, {
+      type: "SET_SESSION_AUTOPLAY_PAUSED",
+      paused: true,
+    });
+    state = reduceState(state, { type: "RESET_CONTENT" });
+
+    expect(state.autoplaySessionPaused).toBe(false);
+  });
+
   test("Esc closes command entry before it closes the overlay stack", () => {
     let state = createInitialState("vidking", "allanime");
 
@@ -162,6 +189,8 @@ describe("command availability", () => {
     const byId = new Map(commands.map((command) => [command.id, command]));
 
     expect(byId.get("provider")?.enabled).toBe(true);
+    expect(byId.get("toggle-autoplay")?.enabled).toBe(true);
+    expect(byId.get("toggle-autoplay")?.label).toBe("Pause Autoplay");
     expect(byId.get("replay")?.enabled).toBe(true);
     expect(byId.get("previous")?.enabled).toBe(true);
     expect(byId.get("next")?.enabled).toBe(false);
@@ -169,6 +198,15 @@ describe("command availability", () => {
     expect(byId.get("quit")?.enabled).toBe(false);
     expect(byId.get("quit")?.reason).toContain("overlay");
     expect(byId.get("image-pane")?.enabled).toBe(true);
+
+    state = reduceState(state, {
+      type: "SET_SESSION_AUTOPLAY_PAUSED",
+      paused: true,
+    });
+
+    const pausedCommands = resolveCommands(state);
+    const pausedById = new Map(pausedCommands.map((command) => [command.id, command]));
+    expect(pausedById.get("toggle-autoplay")?.label).toBe("Resume Autoplay");
   });
 });
 

@@ -585,6 +585,7 @@ function PlaybackShell({
       "toggle-mode",
       "provider",
       "history",
+      "toggle-autoplay",
       "replay",
       "pick-episode",
       "next",
@@ -601,6 +602,12 @@ function PlaybackShell({
           { key: "c", label: state.resumeLabel, action: "resume" as const },
         ] satisfies readonly FooterAction[])
       : []),
+    footerActionFromCommand(
+      commands,
+      "toggle-autoplay",
+      { key: "a", label: getCommandLabel(commands, "toggle-autoplay", "autoplay") },
+      toShellAction,
+    ),
     footerActionFromCommand(commands, "replay", { key: "r", label: "replay" }, toShellAction),
     footerActionFromCommand(commands, "search", { key: "f", label: "search" }, toShellAction),
     footerActionFromCommand(
@@ -766,6 +773,10 @@ function PlaybackShell({
                   }
                 />
               ) : null}
+              <Badge
+                label={state.autoplayPaused ? "autoplay paused" : "autoplay ready"}
+                tone={state.autoplayPaused ? "warning" : "success"}
+              />
               {activeOverlay ? (
                 <Badge label={`${activeOverlay.title.toLowerCase()} panel`} tone="success" />
               ) : null}
@@ -811,6 +822,15 @@ function PlaybackShell({
                       ? "Resume from your last stop, restart from the beginning, or move between episodes"
                       : "Replay, move episodes, or start a fresh search"
                   }
+                />
+                <DetailLine
+                  label="Autoplay"
+                  value={
+                    state.autoplayPaused
+                      ? "Paused for this playback chain only"
+                      : "Ready to continue through the next available episode"
+                  }
+                  tone={state.autoplayPaused ? "warning" : "success"}
                 />
                 {state.showMemory && state.memoryUsage ? (
                   <DetailLine label="Memory" value={state.memoryUsage} />

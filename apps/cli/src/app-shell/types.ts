@@ -13,6 +13,7 @@ export type ShellAction =
   | "help"
   | "about"
   | "image-pane"
+  | "toggle-autoplay"
   | "resume"
   | "replay"
   | "pick-episode"
@@ -51,6 +52,7 @@ export type PlaybackShellState = {
   episode: number;
   posterUrl?: string;
   subtitleStatus?: string;
+  autoplayPaused?: boolean;
   resumeLabel?: string;
   showMemory: boolean;
   memoryUsage?: string;
@@ -129,6 +131,7 @@ export function toShellAction(commandId: AppCommandId): ShellAction {
     case "help":
     case "about":
     case "image-pane":
+    case "toggle-autoplay":
     case "provider":
     case "replay":
     case "pick-episode":

@@ -12,6 +12,7 @@ type RoutedActionResult =
   | "mode-switch"
   | "back-to-search"
   | "back-to-results"
+  | "toggle-autoplay"
   | "resume"
   | "replay"
   | { type: "history-entry"; title: TitleInfo }
@@ -124,6 +125,7 @@ export async function routePlaybackShellAction({
   }
   if (action === "search") return "back-to-search";
   if (action === "back-to-results") return "back-to-results";
+  if (action === "toggle-autoplay") return "toggle-autoplay";
   if (action === "resume") return "resume";
   if (action === "replay") return "replay";
   if (action === "help") {
