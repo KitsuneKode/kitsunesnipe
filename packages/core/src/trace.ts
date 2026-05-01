@@ -18,6 +18,7 @@ export interface ResolveTraceInput {
   readonly startedAt?: string;
   readonly endedAt?: string;
   readonly steps?: readonly ResolveTraceStep[];
+  readonly events?: ResolveTrace["events"];
   readonly failures?: readonly ProviderFailure[];
 }
 
@@ -35,6 +36,7 @@ export function createResolveTrace(input: ResolveTraceInput): ResolveTrace {
     cacheHit: input.cacheHit ?? false,
     runtime: input.runtime,
     steps: input.steps ?? [],
+    events: input.events,
     failures: input.failures ?? [],
   };
 }

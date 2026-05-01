@@ -33,7 +33,7 @@ export const providerResearchProfiles = [
     migrationRank: 10,
     dossierPath: ".docs/provider-dossiers/vidking.md",
     evidencePaths: [
-      "apps/cli/src/services/providers/definitions/vidking-direct.ts",
+      "packages/providers/src/vidking/direct.ts",
       "apps/experiments/scratchpads/provider-vidking/HDTODAY_VIDKING_DECRYPT_REPORT.md",
       "apps/experiments/scratchpads/provider-vidking/VIDKING_NETWORK_ANALYSIS.md",
     ],

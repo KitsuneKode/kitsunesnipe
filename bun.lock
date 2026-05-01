@@ -21,6 +21,7 @@
         "@clack/prompts": "^1.2.0",
         "@kitsunekode/run-cli": "^0.1.0",
         "@kunai/core": "workspace:*",
+        "@kunai/providers": "workspace:*",
         "@kunai/storage": "workspace:*",
         "@kunai/types": "workspace:*",
         "@types/crypto-js": "^4.2.2",
@@ -82,8 +83,11 @@
       "name": "@kunai/providers",
       "version": "0.1.0",
       "dependencies": {
+        "@assemblyscript/loader": "^0.28.16",
         "@kunai/core": "workspace:*",
         "@kunai/types": "workspace:*",
+        "@types/crypto-js": "^4.2.2",
+        "crypto-js": "^4.2.0",
       },
       "devDependencies": {
         "@types/bun": "latest",

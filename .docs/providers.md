@@ -244,7 +244,7 @@ Recommended workflow:
 
 | ID             | Kind       | Notes                                  |
 | -------------- | ---------- | -------------------------------------- |
-| `vidking`      | Playwright | Primary movie/series provider          |
+| `vidking`      | API        | Direct Videasy resolver with Playwright fallback |
 | `cineby`       | Playwright | Needs click                            |
 | `bitcine`      | Playwright | Similar to Cineby                      |
 | `braflix`      | API        | HTTP metadata plus embed scrape        |

@@ -14,8 +14,11 @@
     "test": "bun test test"
   },
   "dependencies": {
+    "@assemblyscript/loader": "^0.28.16",
     "@kunai/core": "workspace:*",
-    "@kunai/types": "workspace:*"
+    "@kunai/types": "workspace:*",
+    "@types/crypto-js": "^4.2.2",
+    "crypto-js": "^4.2.0"
   },
   "devDependencies": {
     "@types/bun": "latest"

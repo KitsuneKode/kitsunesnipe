@@ -2,6 +2,7 @@ import type { CoreProviderModule } from "@kunai/core";
 import type { ProviderId } from "@kunai/types";
 
 export * from "./research";
+export * from "./vidking";
 
 export interface ProviderModuleRegistry {
   readonly modules: readonly CoreProviderModule[];

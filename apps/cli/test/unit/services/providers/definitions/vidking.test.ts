@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 
 import type { ProviderDeps } from "@/services/providers/Provider";
 import { createVidKingProvider } from "@/services/providers/definitions/vidking";
+import { createVidkingResultFromPayload } from "@kunai/providers";
 
 test("vidking resolves through the core provider result adapter", async () => {
   const deps: ProviderDeps = {
@@ -147,27 +148,26 @@ test("vidking prefers the direct decode path before browser scraping", async () 
   };
 
   const provider = createVidKingProvider(deps, {
-    resolveDirect: async () => ({
-      url: "https://fast.speedzy.net/example/index.m3u8",
-      headers: {
-        referer: "https://www.vidking.net/",
-        origin: "https://www.vidking.net",
-        "user-agent": "Mozilla/5.0",
-      },
-      subtitle: "https://cc.boopigcdn.com/example/eng-2.vtt",
-      subtitleList: [
-        { url: "https://cc.boopigcdn.com/example/eng-2.vtt", language: "en", display: "English" },
-        { url: "https://cc.boopigcdn.com/example/spa.vtt", language: "es", display: "Spanish" },
-      ],
-      subtitleSource: "provider",
-      subtitleEvidence: {
-        directSubtitleObserved: true,
-        wyzieSearchObserved: false,
-        reason: "provider-default",
-      },
-      title: "Friends",
-      timestamp: 1,
-    }),
+    resolveDirect: async (input) =>
+      createVidkingResultFromPayload({
+        input,
+        payload: {
+          sources: [{ url: "https://fast.speedzy.net/example/index.m3u8", quality: "1080p" }],
+          subtitles: [
+            {
+              url: "https://cc.boopigcdn.com/example/eng-2.vtt",
+              language: "English",
+              label: "English",
+            },
+            {
+              url: "https://cc.boopigcdn.com/example/spa.vtt",
+              language: "Spanish",
+              label: "Spanish",
+            },
+          ],
+        },
+        server: "mb-flix",
+      })!,
   });
 
   const stream = await provider.resolveStream({

@@ -2,16 +2,25 @@
 // VidKing Provider Adapter
 // =============================================================================
 
-import type { ProviderCapabilities, ProviderMetadata, StreamInfo, TitleInfo } from "@/domain/types";
-import { buildVidkingEmbedUrl, vidkingManifest } from "@kunai/core";
+import type {
+  ProviderCapabilities,
+  ProviderMetadata,
+  StreamInfo,
+  SubtitleTrack,
+  TitleInfo,
+} from "@/domain/types";
+import { buildVidkingEmbedUrl, createProviderRuntimeContext, vidkingManifest } from "@kunai/core";
+import type { ProviderResolveInput, ProviderResolveResult, SubtitleCandidate } from "@kunai/types";
+import { resolveVidkingDirect } from "@kunai/providers";
 import { mergeSubtitleTracks, resolveSubtitlesByTmdbId, selectSubtitle } from "@/subtitle";
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import {
   attachProviderResolveResult,
+  episodeToCoreIdentity,
   manifestToProviderCapabilities,
   manifestToProviderMetadata,
+  titleToCoreIdentity,
 } from "../core-manifest-adapter";
-import { resolveVidkingDirect } from "./vidking-direct";
 
 export class VidKingProvider implements Provider {
   readonly metadata: ProviderMetadata = manifestToProviderMetadata(vidkingManifest);
@@ -40,12 +49,13 @@ export class VidKingProvider implements Provider {
       episode: request.episode?.episode,
     });
 
-    let stream = await resolveDirect({
-      title: request.title,
-      episode: request.episode,
-      preferredSubLang: request.subLang,
-      signal,
-    });
+    let stream = providerResolveResultToStream(
+      await resolveDirect(
+        createVidkingResolveInput(request),
+        createProviderRuntimeContext({ signal }),
+      ),
+      request,
+    );
     const resolvedDirect = Boolean(stream);
 
     if (
@@ -96,14 +106,16 @@ export class VidKingProvider implements Provider {
       return null;
     }
 
-    const runtime = resolvedDirect ? "node-fetch" : "playwright-lease";
+    if (resolvedDirect) {
+      return stream;
+    }
 
     return attachProviderResolveResult({
       manifest: vidkingManifest,
       request,
       stream,
       mode: "series",
-      runtime,
+      runtime: "playwright-lease",
     });
   }
 }
@@ -114,4 +126,68 @@ export function createVidKingProvider(
   internals?: ConstructorParameters<typeof VidKingProvider>[1],
 ): Provider {
   return new VidKingProvider(deps, internals);
+}
+
+function createVidkingResolveInput(request: StreamRequest): ProviderResolveInput {
+  return {
+    title: titleToCoreIdentity(request.title, "series"),
+    episode: episodeToCoreIdentity(request.episode),
+    mediaKind: request.title.type,
+    preferredSubtitleLanguage: request.subLang,
+    intent: "play",
+    allowedRuntimes: ["node-fetch"],
+  };
+}
+
+function providerResolveResultToStream(
+  result: ProviderResolveResult | null,
+  request: StreamRequest,
+): StreamInfo | null {
+  if (!result?.streams.length) {
+    return null;
+  }
+
+  const selected =
+    result.streams.find((stream) => stream.id === result.selectedStreamId) ?? result.streams[0];
+  if (!selected?.url) {
+    return null;
+  }
+
+  const subtitleList = result.subtitles.map(subtitleCandidateToTrack);
+  const pickedSubtitle =
+    request.subLang === "none" ? null : selectSubtitle(subtitleList, request.subLang);
+
+  return {
+    url: selected.url,
+    headers: selected.headers ?? {},
+    subtitle: pickedSubtitle?.url,
+    subtitleList,
+    subtitleSource: subtitleList.length > 0 ? "provider" : "none",
+    subtitleEvidence: {
+      directSubtitleObserved: subtitleList.length > 0,
+      wyzieSearchObserved: false,
+      reason: subtitleList.length > 0 ? "provider-default" : "not-observed",
+    },
+    title: request.title.name,
+    timestamp: Date.now(),
+    providerResolveResult: result,
+  };
+}
+
+function subtitleCandidateToTrack(candidate: SubtitleCandidate): SubtitleTrack {
+  return {
+    url: candidate.url,
+    display: candidate.label,
+    language: candidate.language,
+    release: candidate.syncEvidence,
+    sourceKind:
+      candidate.source === "provider" || candidate.source === "embedded" ? "embedded" : "external",
+    sourceName: candidate.source,
+    isHearingImpaired: looksLikeHiSubtitle(candidate),
+  };
+}
+
+function looksLikeHiSubtitle(candidate: SubtitleCandidate): boolean {
+  const raw = `${candidate.label ?? ""} ${candidate.syncEvidence ?? ""}`.toLowerCase();
+  return raw.includes("sdh") || /\bhi\b/.test(raw) || raw.includes("hearing");
 }
