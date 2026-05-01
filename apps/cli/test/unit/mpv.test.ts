@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { buildMpvArgs, collectAdditionalSubtitleUrls } from "@/mpv";
+import { buildMpvArgs, collectAdditionalSubtitleTracks } from "@/mpv";
 
 test("buildMpvArgs only attaches the primary subtitle during initial launch", () => {
   const args = buildMpvArgs(
@@ -8,7 +8,7 @@ test("buildMpvArgs only attaches the primary subtitle during initial launch", ()
       url: "https://cdn.example/master.m3u8",
       headers: { referer: "https://www.vidking.net/", "user-agent": "Mozilla/5.0" },
       subtitle: "https://sub.example/en.srt",
-      subtitleUrls: ["https://sub.example/ar.srt"],
+      subtitleTracks: [{ url: "https://sub.example/ar.srt", language: "ar" }],
       displayTitle: "Friends - S01E03",
     },
     "/tmp/kunai-test.sock",
@@ -22,13 +22,16 @@ test("buildMpvArgs only attaches the primary subtitle during initial launch", ()
   expect(args).not.toContain("--sub-file=https://sub.example/ar.srt");
 });
 
-test("collectAdditionalSubtitleUrls excludes the primary subtitle and dedupes extras", () => {
+test("collectAdditionalSubtitleTracks excludes the primary subtitle and dedupes extras", () => {
   expect(
-    collectAdditionalSubtitleUrls("https://sub.example/en.srt", [
-      "https://sub.example/en.srt",
-      "https://sub.example/ar.srt",
-      "https://sub.example/ar.srt",
-      "https://sub.example/fr.srt",
+    collectAdditionalSubtitleTracks("https://sub.example/en.srt", [
+      { url: "https://sub.example/en.srt", language: "en" },
+      { url: "https://sub.example/ar.srt", language: "ar" },
+      { url: "https://sub.example/ar.srt", language: "ar" },
+      { url: "https://sub.example/fr.srt", language: "fr" },
     ]),
-  ).toEqual(["https://sub.example/ar.srt", "https://sub.example/fr.srt"]);
+  ).toEqual([
+    { url: "https://sub.example/ar.srt", language: "ar" },
+    { url: "https://sub.example/fr.srt", language: "fr" },
+  ]);
 });

@@ -51,6 +51,18 @@ describe("selectSubtitle", () => {
     expect(selectSubtitle([english, arabic], "ar")?.url).toBe(arabic.url);
     expect(selectSubtitle([english], "fr")?.url).toBe(english.url);
   });
+
+  test("matches configured language against display-style labels like English SDH", () => {
+    const entry = {
+      id: "en-sdh",
+      url: "https://sub.wyzie.io/c/demo/id/en-sdh?format=srt",
+      language: "und",
+      display: "English SDH",
+      release: "Demo",
+    };
+
+    expect(selectSubtitle([entry], "en")?.url).toBe(entry.url);
+  });
 });
 
 describe("fetchSubtitlesFromWyzie", () => {
@@ -129,6 +141,7 @@ describe("resolveSubtitlesByTmdbId", () => {
     expect(requestedUrl).toContain("id=127529");
     expect(requestedUrl).toContain("season=1");
     expect(requestedUrl).toContain("episode=2");
+    expect(requestedUrl).toContain("language=en");
     expect(result.failed).toBe(false);
     expect(result.selected).toBe("https://sub.wyzie.io/c/demo/id/99?format=srt");
   });

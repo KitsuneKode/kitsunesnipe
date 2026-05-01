@@ -72,6 +72,13 @@ function langMatches(entryLang: string, preferred: string): boolean {
   return false;
 }
 
+function subtitleHints(entry: SubtitleEntry): string[] {
+  const values = [entry.language, entry.display, entry.release, entry.url]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.toLowerCase().trim());
+  return Array.from(new Set(values));
+}
+
 // Among a filtered set, prefer non-hearing-impaired entries with the most downloads.
 function bestFrom(candidates: SubtitleEntry[]): SubtitleEntry | null {
   if (candidates.length === 0) return null;
@@ -88,12 +95,16 @@ function bestFrom(candidates: SubtitleEntry[]): SubtitleEntry | null {
 
 export function selectSubtitle(list: SubtitleEntry[], preferredLang: string): SubtitleEntry | null {
   // 1. Exact-language match (with locale variant tolerance)
-  const exactMatches = list.filter((s) => langMatches(s.language, preferredLang));
+  const exactMatches = list.filter((subtitle) =>
+    subtitleHints(subtitle).some((hint) => langMatches(hint, preferredLang)),
+  );
   if (exactMatches.length > 0) return bestFrom(exactMatches);
 
   // 2. English fallback when a non-English language was requested
   if (!langMatches(preferredLang, "en")) {
-    const englishMatches = list.filter((s) => langMatches(s.language, "en"));
+    const englishMatches = list.filter((subtitle) =>
+      subtitleHints(subtitle).some((hint) => langMatches(hint, "en")),
+    );
     if (englishMatches.length > 0) return bestFrom(englishMatches);
   }
 
@@ -225,6 +236,9 @@ export async function resolveSubtitlesByTmdbId(opts: {
     const params = new URLSearchParams({ id: tmdbId, key: WYZIE_KEY });
     if (type === "series" && season != null) params.set("season", String(season));
     if (type === "series" && episode != null) params.set("episode", String(episode));
+    if (preferredLang && preferredLang !== "none" && preferredLang !== "fzf") {
+      params.set("language", preferredLang);
+    }
 
     const url = `${WYZIE_SEARCH}?${params.toString()}`;
     dbg("subtitle", "active wyzie fetch", {

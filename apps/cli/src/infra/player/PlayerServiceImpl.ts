@@ -52,7 +52,7 @@ export class PlayerServiceImpl implements PlayerService {
         url: stream.url,
         headers: stream.headers ?? {},
         subtitle: stream.subtitle ?? null,
-        subtitleUrls: stream.subtitleList?.map((t) => t.url),
+        subtitleTracks: stream.subtitleList,
         displayTitle: options.displayTitle,
         startAt: options.startAt,
         attach: options.attach,

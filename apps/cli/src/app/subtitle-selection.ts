@@ -48,26 +48,29 @@ export async function choosePlaybackSubtitle({
     };
   }
 
-  // Provider already resolved a subtitle — use it as the default.
-  if (stream.subtitle) {
-    return {
-      subtitle: stream.subtitle,
-      reason: "provider-default",
-      availableTracks: stream.subtitleList?.length ?? 0,
-    };
-  }
-
-  // No pre-selected subtitle, but tracks are available — auto-select using the
-  // same language-matching logic used in the scraper. This covers the case where
-  // BrowserServiceImpl resolved the full list but couldn't pick a track, or where
-  // the cached stream has a list but the previous selection didn't persist.
   if (stream.subtitleList?.length) {
     const tracks = stream.subtitleList as unknown as SubtitleEntry[];
     const pick = selectSubtitle(tracks, subLang);
     return {
-      subtitle: pick?.url ?? null,
-      reason: pick ? "auto-selected" : "no-tracks",
+      subtitle: pick?.url ?? stream.subtitle ?? null,
+      reason:
+        pick?.url && pick.url === stream.subtitle
+          ? "provider-default"
+          : pick
+            ? "auto-selected"
+            : stream.subtitle
+              ? "provider-default"
+              : "no-tracks",
       availableTracks: stream.subtitleList.length,
+    };
+  }
+
+  // Provider already resolved a subtitle, but we did not receive the full inventory.
+  if (stream.subtitle) {
+    return {
+      subtitle: stream.subtitle,
+      reason: "provider-default",
+      availableTracks: 0,
     };
   }
 

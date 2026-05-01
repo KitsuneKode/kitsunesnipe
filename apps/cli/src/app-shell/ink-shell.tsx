@@ -8,12 +8,8 @@ import type { SessionStateManager } from "@/domain/session/SessionStateManager";
 import { useLineEditor } from "@/app-shell/line-editor";
 
 import { buildBrowseDetailsPanel } from "./details-panel";
-import {
-  fetchPoster,
-  deleteAllKittyImages,
-  isChafaAvailable,
-  type PosterResult,
-} from "./image-pane";
+import { deleteAllKittyImages, isChafaAvailable } from "./image-pane";
+import { usePosterPreview } from "./use-poster-preview";
 import { LoadingShell, useSpinner } from "./loading-shell";
 import { RootOverlayShell } from "./root-overlay-shell";
 import {
@@ -529,13 +525,14 @@ function PlaybackShell({
     },
     onRedraw: clearShellScreen,
   });
-  const [poster, setPoster] = useState<PosterResult>({ kind: "none" });
-  const [posterState, setPosterState] = useState<"idle" | "loading" | "ready" | "unavailable">(
-    "idle",
-  );
   const { stdout } = useStdout();
   const playbackViewport = getShellViewportPolicy("playback", stdout.columns, stdout.rows);
   const playbackWide = (stdout.columns ?? 0) >= 150;
+  const { poster, posterState } = usePosterPreview(state.posterUrl, {
+    rows: 8,
+    cols: 18,
+    enabled: true,
+  });
   const showPosterCompanion =
     playbackWide &&
     Boolean(
@@ -545,26 +542,6 @@ function PlaybackShell({
       posterState === "unavailable",
     );
 
-  useEffect(() => {
-    const url = state.posterUrl;
-    if (!url) {
-      setPosterState("idle");
-      setPoster({ kind: "none" });
-      return;
-    }
-    setPosterState("loading");
-    fetchPoster(url, { rows: 8, cols: 18 })
-      .then((next) => {
-        setPosterState(next.kind === "none" ? "unavailable" : "ready");
-        setPoster(next);
-      })
-      .catch(() => {
-        setPosterState("unavailable");
-      });
-    return () => {
-      setPoster({ kind: "none" });
-    };
-  }, [state.posterUrl]);
   const commands =
     state.commands ??
     fallbackCommandState([
@@ -1445,47 +1422,13 @@ function BrowseShell<T>({
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [emptyMessage, setEmptyMessage] = useState("Type a title and press Enter to search.");
-  const [poster, setPoster] = useState<PosterResult>({ kind: "none" });
-  const [posterState, setPosterState] = useState<"idle" | "loading" | "ready" | "unavailable">(
-    "idle",
-  );
   const requestIdRef = useRef(0);
-
-  // Debounced poster fetch so result navigation stays responsive while posters swap.
-  useEffect(() => {
-    const isWide = getShellViewportPolicy("browse", stdout.columns, stdout.rows).wideBrowse;
-    const url = options[selectedIndex]?.previewImageUrl;
-    if (!url || !isWide) {
-      setPosterState(url ? "unavailable" : "idle");
-      setPoster({ kind: "none" });
-      return;
-    }
-    let cancelled = false;
-    setPosterState("loading");
-    const timer = setTimeout(() => {
-      fetchPoster(url, { rows: 8, cols: 18 })
-        .then((r) => {
-          if (!cancelled) {
-            setPosterState(r.kind === "none" ? "unavailable" : "ready");
-            setPoster(r);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setPosterState("unavailable");
-        });
-    }, 120);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [options[selectedIndex]?.previewImageUrl, stdout.columns, stdout.rows]);
-
-  // Cleanup Kitty image on unmount
-  useEffect(() => {
-    return () => {
-      setPoster({ kind: "none" });
-    };
-  }, []);
+  const { poster, posterState } = usePosterPreview(options[selectedIndex]?.previewImageUrl, {
+    rows: 8,
+    cols: 18,
+    enabled: getShellViewportPolicy("browse", stdout.columns, stdout.rows).wideBrowse,
+    debounceMs: 120,
+  });
 
   const clearResults = () => {
     setOptions([]);

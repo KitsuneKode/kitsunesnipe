@@ -5,6 +5,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 
 import type { PlaybackResult } from "@/domain/types";
+import type { SubtitleTrack } from "@/domain/types";
 import type { ActivePlayerControl } from "@/infra/player/PlayerControlService";
 import type { MpvIpcSession } from "@/infra/player/mpv-ipc";
 import {
@@ -20,7 +21,7 @@ export async function launchMpv(opts: {
   url: string;
   headers: Record<string, string>;
   subtitle: string | null;
-  subtitleUrls?: readonly string[];
+  subtitleTracks?: readonly SubtitleTrack[];
   displayTitle: string;
   startAt?: number;
   attach?: boolean;
@@ -104,7 +105,7 @@ export async function launchMpv(opts: {
     });
 
     notifyPlayerReady();
-    void attachAdditionalSubtitles(ipcSession, opts.subtitle, opts.subtitleUrls);
+    void attachAdditionalSubtitles(ipcSession, opts.subtitle, opts.subtitleTracks);
   })().catch(() => {});
 
   const exit = await exitPromise;
@@ -133,7 +134,7 @@ export function buildMpvArgs(
     url: string;
     headers: Record<string, string>;
     subtitle: string | null;
-    subtitleUrls?: readonly string[];
+    subtitleTracks?: readonly SubtitleTrack[];
     displayTitle: string;
     startAt?: number;
   },
@@ -148,10 +149,8 @@ export function buildMpvArgs(
   if (userAgent) args.push(`--user-agent=${userAgent}`);
   if (origin) args.push(`--http-header-fields=Origin: ${origin}`);
 
-  const subtitleUrls: string[] = [];
-  if (opts.subtitle) subtitleUrls.push(opts.subtitle);
-  for (const url of subtitleUrls) {
-    args.push(`--sub-file=${url}`);
+  if (opts.subtitle) {
+    args.push(`--sub-file=${opts.subtitle}`);
   }
 
   if (opts.startAt && opts.startAt > 5) args.push(`--start=${opts.startAt}`);
@@ -164,16 +163,20 @@ export function buildMpvArgs(
   return args;
 }
 
-export function collectAdditionalSubtitleUrls(
+export function collectAdditionalSubtitleTracks(
   primarySubtitle: string | null,
-  subtitleUrls?: readonly string[],
-): string[] {
-  const collected: string[] = [];
-  for (const url of subtitleUrls ?? []) {
-    if (!url || url === primarySubtitle || collected.includes(url)) {
+  subtitleTracks?: readonly SubtitleTrack[],
+): SubtitleTrack[] {
+  const collected: SubtitleTrack[] = [];
+  for (const track of subtitleTracks ?? []) {
+    if (
+      !track.url ||
+      track.url === primarySubtitle ||
+      collected.some((item) => item.url === track.url)
+    ) {
       continue;
     }
-    collected.push(url);
+    collected.push(track);
   }
   return collected;
 }
@@ -201,12 +204,12 @@ async function closeIpcSession(ipcSession: MpvIpcSession | null): Promise<void> 
 async function attachAdditionalSubtitles(
   ipcSession: MpvIpcSession | null,
   primarySubtitle: string | null,
-  subtitleUrls?: readonly string[],
+  subtitleTracks?: readonly SubtitleTrack[],
 ): Promise<void> {
   if (!ipcSession) return;
-  for (const url of collectAdditionalSubtitleUrls(primarySubtitle, subtitleUrls)) {
+  for (const track of collectAdditionalSubtitleTracks(primarySubtitle, subtitleTracks)) {
     try {
-      ipcSession.send(["sub-add", url]);
+      ipcSession.send(["sub-add", track.url, "auto", track.display ?? "", track.language ?? ""]);
     } catch {
       return;
     }

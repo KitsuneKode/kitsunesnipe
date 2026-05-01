@@ -27,15 +27,29 @@ describe("choosePlaybackSubtitle", () => {
     expect(result.reason).toBe("disabled");
   });
 
-  test("keeps the provider default subtitle for normal language modes", async () => {
+  test("prefers the configured language from subtitle inventory for normal language modes", async () => {
     const result = await choosePlaybackSubtitle({
       stream: BASE_STREAM,
       subLang: "en",
       pickSubtitle: async () => null,
     });
 
-    expect(result.subtitle).toBe("https://cdn.example/default.vtt");
-    expect(result.reason).toBe("provider-default");
+    expect(result.subtitle).toBe("https://cdn.example/en.vtt");
+    expect(result.reason).toBe("auto-selected");
+  });
+
+  test("prefers the configured language from subtitle inventory over a stale provider default", async () => {
+    const result = await choosePlaybackSubtitle({
+      stream: {
+        ...BASE_STREAM,
+        subtitle: "https://cdn.example/ar.vtt",
+      },
+      subLang: "en",
+      pickSubtitle: async () => null,
+    });
+
+    expect(result.subtitle).toBe("https://cdn.example/en.vtt");
+    expect(result.reason).toBe("auto-selected");
   });
 
   test("uses interactive picking when fzf mode is enabled", async () => {
