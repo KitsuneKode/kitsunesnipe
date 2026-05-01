@@ -23,5 +23,8 @@ export const DEFAULT_CONFIG: KitsuneConfig = {
   headless: true,
   showMemory: false,
   autoNext: true,
+  skipRecap: true,
+  skipIntro: true,
+  skipPreview: true,
   footerHints: "detailed",
 };

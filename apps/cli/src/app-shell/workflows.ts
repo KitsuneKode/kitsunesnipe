@@ -833,6 +833,21 @@ export async function openSettingsShell({
             "Close mpv on episode EOF, then continue through the next available released episode automatically",
         },
         {
+          value: "skipRecap" as const,
+          label: `Skip recaps  ·  ${next.skipRecap ? "on" : "off"}`,
+          detail: "Auto-skip recap segments when IntroDB timing exists",
+        },
+        {
+          value: "skipIntro" as const,
+          label: `Skip intros  ·  ${next.skipIntro ? "on" : "off"}`,
+          detail: "Auto-skip intro segments when IntroDB timing exists",
+        },
+        {
+          value: "skipPreview" as const,
+          label: `Skip previews  ·  ${next.skipPreview ? "on" : "off"}`,
+          detail: "Auto-skip preview segments when IntroDB timing exists",
+        },
+        {
           value: "footerHints" as const,
           label: `Footer hints  ·  ${next.footerHints}`,
           detail: "Detailed keeps a two-line footer, minimal keeps only the task line",
@@ -990,6 +1005,24 @@ export async function openSettingsShell({
 
     if (action === "autoNext") {
       next.autoNext = !next.autoNext;
+      changed = true;
+      continue;
+    }
+
+    if (action === "skipRecap") {
+      next.skipRecap = !next.skipRecap;
+      changed = true;
+      continue;
+    }
+
+    if (action === "skipIntro") {
+      next.skipIntro = !next.skipIntro;
+      changed = true;
+      continue;
+    }
+
+    if (action === "skipPreview") {
+      next.skipPreview = !next.skipPreview;
       changed = true;
       continue;
     }

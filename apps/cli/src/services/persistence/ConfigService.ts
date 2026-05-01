@@ -13,6 +13,9 @@ export interface KitsuneConfig {
   headless: boolean;
   showMemory: boolean;
   autoNext: boolean;
+  skipRecap: boolean;
+  skipIntro: boolean;
+  skipPreview: boolean;
   footerHints: "detailed" | "minimal";
 }
 

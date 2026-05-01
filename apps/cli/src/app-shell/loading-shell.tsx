@@ -82,6 +82,7 @@ export function LoadingShell({
   onReloadSubtitles,
   onNext,
   onPrevious,
+  onSkipSegment,
   onToggleAutoplay,
   onStopAfterCurrent,
 }: {
@@ -93,6 +94,7 @@ export function LoadingShell({
   onReloadSubtitles?: () => void;
   onNext?: () => void;
   onPrevious?: () => void;
+  onSkipSegment?: () => void;
   onToggleAutoplay?: () => void;
   onStopAfterCurrent?: () => void;
 }) {
@@ -126,6 +128,9 @@ export function LoadingShell({
     }
     if (input.toLowerCase() === "p" && state.operation === "playing" && onPrevious) {
       onPrevious();
+    }
+    if (input.toLowerCase() === "i" && state.operation === "playing" && onSkipSegment) {
+      onSkipSegment();
     }
     if (input.toLowerCase() === "a" && state.operation === "playing" && onToggleAutoplay) {
       onToggleAutoplay();

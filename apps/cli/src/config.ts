@@ -11,6 +11,9 @@ export type KitsuneConfig = {
   headless: boolean;
   showMemory: boolean;
   autoNext: boolean;
+  skipRecap: boolean;
+  skipIntro: boolean;
+  skipPreview: boolean;
   footerHints: "detailed" | "minimal";
 };
 
@@ -23,6 +26,9 @@ export const DEFAULT_CONFIG: KitsuneConfig = {
   headless: true,
   showMemory: false,
   autoNext: true,
+  skipRecap: true,
+  skipIntro: true,
+  skipPreview: true,
   footerHints: "detailed",
 };
 

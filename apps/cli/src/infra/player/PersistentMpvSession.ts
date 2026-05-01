@@ -4,11 +4,17 @@ import { unlink } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 
-import type { PlaybackResult, StreamInfo, SubtitleTrack } from "@/domain/types";
+import type {
+  PlaybackResult,
+  PlaybackTimingMetadata,
+  StreamInfo,
+  SubtitleTrack,
+} from "@/domain/types";
 import { buildMpvArgs, collectAdditionalSubtitleTracks } from "@/mpv";
 import type { ActivePlayerControl } from "./PlayerControlService";
 import type { MpvIpcSession } from "./mpv-ipc";
 import { openMpvIpcSession, waitForMpvIpcSocket } from "./mpv-ipc";
+import { findActivePlaybackSkip, type PlaybackSkipConfig } from "./playback-skip";
 import {
   applyEndFileEvent,
   applyObservedPropertySample,
@@ -23,6 +29,10 @@ type PlayerCycleOptions = {
   primarySubtitle: string | null;
   subtitleTracks?: readonly SubtitleTrack[];
   startAt?: number;
+  timing?: PlaybackTimingMetadata | null;
+  skipRecap?: boolean;
+  skipIntro?: boolean;
+  skipPreview?: boolean;
   onPlayerReady?: () => void;
 };
 
@@ -46,6 +56,9 @@ export class PersistentMpvSession {
   private currentHeadersKey = "";
   private currentControl: ActivePlayerControl;
   private hasLoadedFile = false;
+  private currentPositionSeconds = 0;
+  private skippedSegments = new Set<string>();
+  private currentOptions: PlayerCycleOptions;
 
   private constructor(
     private readonly initialStream: StreamInfo,
@@ -53,6 +66,7 @@ export class PersistentMpvSession {
     private readonly onControlReady: (control: ActivePlayerControl | null) => void,
   ) {
     this.currentHeadersKey = this.buildHeadersKey(initialStream.headers ?? {});
+    this.currentOptions = initialOptions;
     this.currentControl = {
       id: this.id,
       stop: async () => {
@@ -68,6 +82,7 @@ export class PersistentMpvSession {
       reloadSubtitles: async () => {
         await this.reloadSubtitles();
       },
+      skipCurrentSegment: async () => this.skipCurrentSegment(),
     };
   }
 
@@ -92,6 +107,7 @@ export class PersistentMpvSession {
 
     this.currentHeadersKey = this.buildHeadersKey(stream.headers ?? {});
     const cycle = this.beginCycle(options);
+    this.resetCycleState();
 
     if (!this.hasLoadedFile) {
       this.hasLoadedFile = true;
@@ -173,6 +189,7 @@ export class PersistentMpvSession {
     });
     this.alive = true;
     this.hasLoadedFile = true;
+    this.resetCycleState();
     this.onControlReady(this.currentControl);
 
     this.mpv.once("close", async (code, signal) => {
@@ -216,6 +233,10 @@ export class PersistentMpvSession {
             if (name === "track-list") {
               this.lastTrackList = value;
             }
+            if ((name === "time-pos" || name === "playback-time") && typeof value === "number") {
+              this.currentPositionSeconds = value;
+              void this.maybeAutoSkip(this.currentCycleOptions());
+            }
             if (
               !active.playerReadyNotified &&
               (name === "filename" ||
@@ -256,7 +277,13 @@ export class PersistentMpvSession {
       onPlayerReady: options.onPlayerReady,
     };
     this.activeCycle = cycle;
+    this.currentOptions = options;
     return cycle;
+  }
+
+  private resetCycleState(): void {
+    this.currentPositionSeconds = 0;
+    this.skippedSegments = new Set<string>();
   }
 
   private scheduleReadyWork(options: PlayerCycleOptions): void {
@@ -275,6 +302,7 @@ export class PersistentMpvSession {
       }
 
       await this.replaceSubtitleInventory(options.primarySubtitle, options.subtitleTracks);
+      await this.maybeAutoSkip(options);
     };
 
     setTimeout(() => {
@@ -309,6 +337,36 @@ export class PersistentMpvSession {
     const active = this.activeCycle;
     if (!active || !this.ipcSession) return;
     this.ipcSession.send(["sub-reload"]);
+  }
+
+  private currentCycleOptions(): PlayerCycleOptions {
+    return this.currentOptions;
+  }
+
+  private skipConfig(options: PlayerCycleOptions): PlaybackSkipConfig {
+    return {
+      skipRecap: options.skipRecap ?? true,
+      skipIntro: options.skipIntro ?? true,
+      skipPreview: options.skipPreview ?? true,
+    };
+  }
+
+  private async maybeAutoSkip(options: PlayerCycleOptions): Promise<boolean> {
+    const activeSkip = findActivePlaybackSkip(
+      options.timing,
+      this.currentPositionSeconds,
+      this.skipConfig(options),
+    );
+    if (!activeSkip || !this.ipcSession || this.skippedSegments.has(activeSkip.key)) {
+      return false;
+    }
+    this.skippedSegments.add(activeSkip.key);
+    this.ipcSession.send(["seek", activeSkip.endSeconds, "absolute"]);
+    return true;
+  }
+
+  private async skipCurrentSegment(): Promise<boolean> {
+    return await this.maybeAutoSkip(this.currentCycleOptions());
   }
 
   private async removeExternalSubtitles(): Promise<void> {

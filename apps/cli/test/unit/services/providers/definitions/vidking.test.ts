@@ -56,6 +56,9 @@ test("vidking resolves through the core provider result adapter", async () => {
       headless: true,
       showMemory: false,
       autoNext: true,
+      skipRecap: true,
+      skipIntro: true,
+      skipPreview: true,
       footerHints: "minimal",
       getRaw() {
         return this;
@@ -129,6 +132,9 @@ test("vidking prefers the direct decode path before browser scraping", async () 
       headless: true,
       showMemory: false,
       autoNext: true,
+      skipRecap: true,
+      skipIntro: true,
+      skipPreview: true,
       footerHints: "minimal",
       getRaw() {
         return this;

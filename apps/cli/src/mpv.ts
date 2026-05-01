@@ -16,6 +16,7 @@ import {
   recordPlayerExit,
 } from "@/infra/player/mpv-telemetry";
 import { openMpvIpcSession, waitForMpvIpcSocket } from "@/infra/player/mpv-ipc";
+import { findActivePlaybackSkip, type PlaybackSkipConfig } from "@/infra/player/playback-skip";
 
 export async function launchMpv(opts: {
   url: string;
@@ -25,6 +26,10 @@ export async function launchMpv(opts: {
   displayTitle: string;
   startAt?: number;
   attach?: boolean;
+  timing?: import("@/domain/types").PlaybackTimingMetadata | null;
+  skipRecap?: boolean;
+  skipIntro?: boolean;
+  skipPreview?: boolean;
   onControlReady?: (control: ActivePlayerControl | null) => void;
   onPlayerReady?: () => void;
 }): Promise<PlaybackResult> {
@@ -47,10 +52,26 @@ export async function launchMpv(opts: {
   let ipcSession: MpvIpcSession | null = null;
   let stopRequested = false;
   let playerReadyNotified = false;
+  let currentPositionSeconds = 0;
+  const skippedSegments = new Set<string>();
+  const skipConfig: PlaybackSkipConfig = {
+    skipRecap: opts.skipRecap ?? true,
+    skipIntro: opts.skipIntro ?? true,
+    skipPreview: opts.skipPreview ?? true,
+  };
   const notifyPlayerReady = () => {
     if (playerReadyNotified) return;
     playerReadyNotified = true;
     opts.onPlayerReady?.();
+  };
+  const trySkipSegment = () => {
+    const activeSkip = findActivePlaybackSkip(opts.timing, currentPositionSeconds, skipConfig);
+    if (!activeSkip || !ipcSession || skippedSegments.has(activeSkip.key)) {
+      return false;
+    }
+    skippedSegments.add(activeSkip.key);
+    ipcSession.send(["seek", activeSkip.endSeconds, "absolute"]);
+    return true;
   };
   const control: ActivePlayerControl = {
     id: nonce,
@@ -65,6 +86,9 @@ export async function launchMpv(opts: {
     },
     async reloadSubtitles() {
       ipcSession?.send(["sub-reload"]);
+    },
+    async skipCurrentSegment() {
+      return trySkipSegment();
     },
   };
   opts.onControlReady?.(control);
@@ -98,6 +122,10 @@ export async function launchMpv(opts: {
       socketPath: ipcPath,
       onPropertyUpdate: ({ name, value, observedAt }) => {
         applyObservedPropertySample(telemetry, { name, value, observedAt });
+        if ((name === "time-pos" || name === "playback-time") && typeof value === "number") {
+          currentPositionSeconds = value;
+          trySkipSegment();
+        }
       },
       onEndFile: ({ reason, observedAt }) => {
         applyEndFileEvent(telemetry, reason, observedAt);

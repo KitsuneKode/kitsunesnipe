@@ -67,6 +67,9 @@ type SettingsAction =
   | "headless"
   | "showMemory"
   | "autoNext"
+  | "skipRecap"
+  | "skipIntro"
+  | "skipPreview"
   | "footerHints"
   | "clearCache"
   | "clearHistory";
@@ -149,6 +152,21 @@ export function buildSettingsOptions(
       value: "autoNext",
       label: `Autoplay next  ·  ${config.autoNext ? "on" : "off"}`,
       detail: "Close mpv on EOF and continue through the next available released episode",
+    },
+    {
+      value: "skipRecap",
+      label: `Skip recaps  ·  ${config.skipRecap ? "on" : "off"}`,
+      detail: "Auto-skip recap segments when IntroDB timing exists",
+    },
+    {
+      value: "skipIntro",
+      label: `Skip intros  ·  ${config.skipIntro ? "on" : "off"}`,
+      detail: "Auto-skip intro segments when IntroDB timing exists",
+    },
+    {
+      value: "skipPreview",
+      label: `Skip previews  ·  ${config.skipPreview ? "on" : "off"}`,
+      detail: "Auto-skip preview segments when IntroDB timing exists",
     },
     {
       value: "footerHints",

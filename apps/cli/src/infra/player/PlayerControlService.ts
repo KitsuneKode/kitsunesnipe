@@ -11,6 +11,7 @@ export interface ActivePlayerControl {
   stop(reason?: string): Promise<void>;
   stopCurrentFile?(reason?: string): Promise<void>;
   reloadSubtitles?(): Promise<void>;
+  skipCurrentSegment?(): Promise<boolean>;
 }
 
 export interface PlayerControlService {
@@ -21,6 +22,7 @@ export interface PlayerControlService {
   refreshCurrentPlayback(reason?: string): Promise<boolean>;
   fallbackCurrentPlayback(reason?: string): Promise<boolean>;
   reloadCurrentSubtitles(reason?: string): Promise<boolean>;
+  skipCurrentSegment(reason?: string): Promise<boolean>;
   nextCurrentPlayback(reason?: string): Promise<boolean>;
   previousCurrentPlayback(reason?: string): Promise<boolean>;
 }

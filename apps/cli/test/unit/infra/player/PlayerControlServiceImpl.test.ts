@@ -90,6 +90,25 @@ test("PlayerControlServiceImpl reloads subtitles without stopping playback", asy
   expect(reloaded).toBe(1);
 });
 
+test("PlayerControlServiceImpl skips the active timing segment without stopping playback", async () => {
+  let skipped = 0;
+  const service = makeService();
+
+  service.setActive({
+    id: "player-1",
+    async stop() {
+      throw new Error("stop should not be called");
+    },
+    async skipCurrentSegment() {
+      skipped += 1;
+      return true;
+    },
+  });
+
+  expect(await service.skipCurrentSegment("skip-key")).toBe(true);
+  expect(skipped).toBe(1);
+});
+
 test("PlayerControlServiceImpl records next and previous episode intents as stop-backed actions", async () => {
   const stoppedCurrentReasons: string[] = [];
   const service = makeService();

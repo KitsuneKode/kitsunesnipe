@@ -64,6 +64,18 @@ export class ConfigServiceImpl implements ConfigService {
     return this.config.autoNext;
   }
 
+  get skipRecap(): boolean {
+    return this.config.skipRecap;
+  }
+
+  get skipIntro(): boolean {
+    return this.config.skipIntro;
+  }
+
+  get skipPreview(): boolean {
+    return this.config.skipPreview;
+  }
+
   get footerHints(): "detailed" | "minimal" {
     return this.config.footerHints;
   }

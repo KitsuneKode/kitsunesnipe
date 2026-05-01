@@ -77,6 +77,35 @@ export class PlayerControlServiceImpl implements PlayerControlService {
     return true;
   }
 
+  async skipCurrentSegment(reason = "user-requested"): Promise<boolean> {
+    const active = this.active;
+    if (!active) {
+      this.deps.diagnosticsStore.record({
+        category: "playback",
+        message: "Segment skip requested without active player",
+        context: { reason },
+      });
+      return false;
+    }
+
+    if (!active.skipCurrentSegment) {
+      this.deps.diagnosticsStore.record({
+        category: "playback",
+        message: "Segment skip unavailable for active player",
+        context: { id: active.id, reason },
+      });
+      return false;
+    }
+
+    this.deps.logger.info("Skipping active playback segment", { id: active.id, reason });
+    this.deps.diagnosticsStore.record({
+      category: "playback",
+      message: "Skipping active playback segment",
+      context: { id: active.id, reason },
+    });
+    return await active.skipCurrentSegment();
+  }
+
   async nextCurrentPlayback(reason = "user-requested"): Promise<boolean> {
     this.lastAction = "next";
     return this.stopWithAction("next", reason, true);

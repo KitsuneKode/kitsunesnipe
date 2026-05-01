@@ -64,6 +64,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       diagnosticsStore,
       playerControl,
       player,
+      workControl,
     } = container;
     const animeEpisodeCatalogByProvider = new Map<
       string,
@@ -155,247 +156,235 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         const currentEpisode = stateManager.getState().currentEpisode;
         if (!currentEpisode) break;
 
-        const currentProvider = providerRegistry.get(stateManager.getState().provider);
-        const playbackTiming = await this.getPlaybackTimingMetadata(
-          title,
-          currentEpisode,
-          playbackTimingByEpisode,
-          context.signal,
-        );
-        const watchedEntries = await historyStore.listByTitle(title.id);
-        const currentAnimeEpisodes = await this.getAnimeEpisodeOptions({
-          title,
-          mode: stateManager.getState().mode,
-          provider: currentProvider,
-          cache: animeEpisodeCatalogByProvider,
-          signal: context.signal,
-        });
-        const shellEpisodePicker = await buildPlaybackEpisodePickerOptions({
-          title,
-          currentEpisode,
-          isAnime: stateManager.getState().mode === "anime",
-          animeEpisodeCount: title.episodeCount,
-          animeEpisodes: currentAnimeEpisodes,
-          watchedEntries,
-        });
-        const episodeAvailability = await resolveEpisodeAvailability({
-          title,
-          currentEpisode,
-          isAnime: stateManager.getState().mode === "anime",
-          animeEpisodeCount: title.episodeCount,
-          animeEpisodes: currentAnimeEpisodes,
-          loaders: {
-            loadSeasons: fetchSeasons,
-            loadEpisodes: fetchEpisodes,
-          },
+        const resolveController = new AbortController();
+        const abortOnSessionStop = () => resolveController.abort();
+        context.signal.addEventListener("abort", abortOnSessionStop, { once: true });
+        workControl.setActive({
+          id: `playback-resolve:${title.id}:${currentEpisode.season}:${currentEpisode.episode}`,
+          label: `${title.name} S${String(currentEpisode.season).padStart(2, "0")}E${String(currentEpisode.episode).padStart(2, "0")}`,
+          cancel: () => resolveController.abort(),
         });
 
-        stateManager.dispatch({
-          type: "SET_EPISODE_NAVIGATION",
-          navigation: toEpisodeNavigationState(title.type, episodeAvailability),
-        });
-
-        // Resolve stream with loading UI
-        if (!currentProvider) {
-          return {
-            status: "error",
-            error: {
-              code: "PROVIDER_UNAVAILABLE",
-              message: `Provider ${stateManager.getState().provider} not found`,
-              retryable: false,
-            },
-          };
-        }
-
-        stateManager.dispatch({
-          type: "SET_PLAYBACK_STATUS",
-          status: "loading",
-        });
-
-        let stream: StreamInfo | null = null;
-        let resolvedProviderId = currentProvider.metadata.id;
-        const resolveTrace = createResolveTraceStub({
-          title,
-          episode: currentEpisode,
-          providerId: currentProvider.metadata.id,
-          mode: stateManager.getState().mode,
-        });
-        diagnosticsStore.record({
-          category: "provider",
-          message: "Resolve trace started",
-          context: {
-            trace: resolveTrace,
-          },
-        });
-        const compatibleProviders = providerRegistry.getCompatible(title);
-        const resolveResult = await resolveWithFallback<StreamInfo>({
-          candidates: compatibleProviders.map((provider) => ({
-            providerId: provider.metadata.id,
-            preferred: provider.metadata.id === currentProvider.metadata.id,
-            resolve: () =>
-              provider.resolveStream(
-                {
-                  title,
-                  episode: currentEpisode,
-                  subLang: stateManager.getState().subLang,
-                },
-                context.signal,
-              ),
-          })),
-        });
-
-        stream = resolveResult.stream;
-        resolvedProviderId = resolveResult.providerId ?? currentProvider.metadata.id;
-
-        for (const attempt of resolveResult.attempts) {
-          diagnosticsStore.record({
-            category: "provider",
-            message: attempt.stream
-              ? "Provider resolve attempt succeeded"
-              : "Provider resolve attempt failed",
-            context: {
-              provider: attempt.providerId,
-              titleId: title.id,
-              season: currentEpisode.season,
-              episode: currentEpisode.episode,
-              hasTrace: Boolean(attempt.result?.trace),
-              failure: attempt.failure ?? null,
+        try {
+          const currentProvider = providerRegistry.get(stateManager.getState().provider);
+          const playbackTiming = await this.getPlaybackTimingMetadata(
+            title,
+            currentEpisode,
+            playbackTimingByEpisode,
+            resolveController.signal,
+          );
+          const watchedEntries = await historyStore.listByTitle(title.id);
+          const currentAnimeEpisodes = await this.getAnimeEpisodeOptions({
+            title,
+            mode: stateManager.getState().mode,
+            provider: currentProvider,
+            cache: animeEpisodeCatalogByProvider,
+            signal: resolveController.signal,
+          });
+          const shellEpisodePicker = await buildPlaybackEpisodePickerOptions({
+            title,
+            currentEpisode,
+            isAnime: stateManager.getState().mode === "anime",
+            animeEpisodeCount: title.episodeCount,
+            animeEpisodes: currentAnimeEpisodes,
+            watchedEntries,
+          });
+          const episodeAvailability = await resolveEpisodeAvailability({
+            title,
+            currentEpisode,
+            isAnime: stateManager.getState().mode === "anime",
+            animeEpisodeCount: title.episodeCount,
+            animeEpisodes: currentAnimeEpisodes,
+            loaders: {
+              loadSeasons: fetchSeasons,
+              loadEpisodes: fetchEpisodes,
             },
           });
-        }
 
-        if (resolvedProviderId !== currentProvider.metadata.id) {
-          logger.info("Resolved stream with fallback provider", {
-            from: currentProvider.metadata.id,
-            fallback: resolvedProviderId,
-          });
-          stateManager.dispatch({ type: "SET_PROVIDER", provider: resolvedProviderId });
-        }
-
-        if (!stream) {
-          return {
-            status: "error",
-            error: {
-              code: "STREAM_NOT_FOUND",
-              message: "Could not resolve stream from any provider",
-              retryable: true,
-              provider: currentProvider.metadata.id,
-            },
-          };
-        }
-
-        if (stream.providerResolveResult) {
-          diagnosticsStore.record({
-            category: "provider",
-            message: "Provider resolve trace completed",
-            context: {
-              trace: stream.providerResolveResult.trace,
-              streamCandidates: stream.providerResolveResult.streams.length,
-              subtitleCandidates: stream.providerResolveResult.subtitles.length,
-              cachePolicy: stream.providerResolveResult.cachePolicy,
-            },
-          });
-        }
-
-        const preparedStream = await this.preparePlaybackStream(
-          stream,
-          title,
-          currentEpisode,
-          context,
-        );
-        stateManager.dispatch({ type: "SET_STREAM", stream: preparedStream });
-        stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "ready" });
-
-        // Play in MPV — consume the pending resume position on the first play only.
-        // Pass loading handle so playStream can update it in-place (no shell flicker).
-        const startAt = pendingStartAt;
-        pendingStartAt = 0;
-        const result = await this.playStream(
-          preparedStream,
-          title,
-          currentEpisode,
-          context,
-          startAt,
-          playbackSession.mode,
-        );
-
-        // Save history
-        if (shouldPersistHistory(result, playbackTiming)) {
-          const historyTimestamp = toHistoryTimestamp(result, playbackTiming);
-          await historyStore.save(title.id, {
-            title: title.name,
-            type: title.type,
-            season: currentEpisode.season,
-            episode: currentEpisode.episode,
-            timestamp: historyTimestamp,
-            duration: result.duration,
-            completed: didPlaybackReachCompletionThreshold(result, playbackTiming),
-            provider: resolvedProviderId,
-            watchedAt: new Date().toISOString(),
-          });
-        } else {
-          diagnosticsStore.record({
-            category: "playback",
-            message: "Skipped history save",
-            context: {
-              titleId: title.id,
-              season: currentEpisode.season,
-              episode: currentEpisode.episode,
-              watchedSeconds: result.watchedSeconds,
-              duration: result.duration,
-              endReason: result.endReason,
-            },
-          });
-        }
-
-        const playbackControlAction = playerControl.consumeLastAction();
-        playbackSession = syncPlaybackSessionState(playbackSession, {
-          autoplaySessionPaused: stateManager.getState().autoplaySessionPaused,
-          stopAfterCurrent: stateManager.getState().stopAfterCurrent,
-        });
-        const playbackDecision = resolvePlaybackResultDecision({
-          result,
-          controlAction: playbackControlAction,
-          session: playbackSession,
-          timing: playbackTiming,
-        });
-        playbackSession = playbackDecision.session;
-        if (playbackDecision.shouldTreatAsInterrupted) {
           stateManager.dispatch({
-            type: "SET_SESSION_AUTOPLAY_PAUSED",
-            paused: playbackDecision.session.autoplayPaused,
+            type: "SET_EPISODE_NAVIGATION",
+            navigation: toEpisodeNavigationState(title.type, episodeAvailability),
           });
-        }
-        if (playbackDecision.shouldRefreshSource) {
-          pendingStartAt = toHistoryTimestamp(result);
+
+          // Resolve stream with loading UI
+          if (!currentProvider) {
+            return {
+              status: "error",
+              error: {
+                code: "PROVIDER_UNAVAILABLE",
+                message: `Provider ${stateManager.getState().provider} not found`,
+                retryable: false,
+              },
+            };
+          }
+
+          stateManager.dispatch({
+            type: "SET_PLAYBACK_STATUS",
+            status: "loading",
+          });
+
+          let stream: StreamInfo | null = null;
+          let resolvedProviderId = currentProvider.metadata.id;
+          const resolveTrace = createResolveTraceStub({
+            title,
+            episode: currentEpisode,
+            providerId: currentProvider.metadata.id,
+            mode: stateManager.getState().mode,
+          });
           diagnosticsStore.record({
-            category: "playback",
-            message: "Refreshing current provider source",
+            category: "provider",
+            message: "Resolve trace started",
             context: {
-              provider: resolvedProviderId,
-              titleId: title.id,
-              season: currentEpisode.season,
-              episode: currentEpisode.episode,
-              resumeSeconds: pendingStartAt,
+              trace: resolveTrace,
             },
           });
-          continue;
-        }
+          const compatibleProviders = providerRegistry.getCompatible(title);
+          const resolveResult = await resolveWithFallback<StreamInfo>({
+            candidates: compatibleProviders.map((provider) => ({
+              providerId: provider.metadata.id,
+              preferred: provider.metadata.id === currentProvider.metadata.id,
+              resolve: () =>
+                provider.resolveStream(
+                  {
+                    title,
+                    episode: currentEpisode,
+                    subLang: stateManager.getState().subLang,
+                  },
+                  resolveController.signal,
+                ),
+            })),
+          });
 
-        if (playbackDecision.shouldFallbackProvider) {
-          pendingStartAt = toHistoryTimestamp(result);
-          const fallback = providerRegistry
-            .getCompatible(title)
-            .find((candidate) => candidate.metadata.id !== resolvedProviderId);
+          stream = resolveResult.stream;
+          resolvedProviderId = resolveResult.providerId ?? currentProvider.metadata.id;
 
-          if (fallback) {
-            stateManager.dispatch({ type: "SET_PROVIDER", provider: fallback.metadata.id });
+          for (const attempt of resolveResult.attempts) {
+            diagnosticsStore.record({
+              category: "provider",
+              message: attempt.stream
+                ? "Provider resolve attempt succeeded"
+                : "Provider resolve attempt failed",
+              context: {
+                provider: attempt.providerId,
+                titleId: title.id,
+                season: currentEpisode.season,
+                episode: currentEpisode.episode,
+                hasTrace: Boolean(attempt.result?.trace),
+                failure: attempt.failure ?? null,
+              },
+            });
+          }
+
+          if (resolvedProviderId !== currentProvider.metadata.id) {
+            logger.info("Resolved stream with fallback provider", {
+              from: currentProvider.metadata.id,
+              fallback: resolvedProviderId,
+            });
+            stateManager.dispatch({ type: "SET_PROVIDER", provider: resolvedProviderId });
+          }
+
+          if (!stream) {
+            return {
+              status: "error",
+              error: {
+                code: "STREAM_NOT_FOUND",
+                message: "Could not resolve stream from any provider",
+                retryable: true,
+                provider: currentProvider.metadata.id,
+              },
+            };
+          }
+
+          if (stream.providerResolveResult) {
+            diagnosticsStore.record({
+              category: "provider",
+              message: "Provider resolve trace completed",
+              context: {
+                trace: stream.providerResolveResult.trace,
+                streamCandidates: stream.providerResolveResult.streams.length,
+                subtitleCandidates: stream.providerResolveResult.subtitles.length,
+                cachePolicy: stream.providerResolveResult.cachePolicy,
+              },
+            });
+          }
+
+          const preparedStream = await this.preparePlaybackStream(
+            stream,
+            title,
+            currentEpisode,
+            context,
+          );
+          stateManager.dispatch({ type: "SET_STREAM", stream: preparedStream });
+          stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "ready" });
+
+          // Play in MPV — consume the pending resume position on the first play only.
+          // Pass loading handle so playStream can update it in-place (no shell flicker).
+          const startAt = pendingStartAt;
+          pendingStartAt = 0;
+          const result = await this.playStream(
+            preparedStream,
+            title,
+            currentEpisode,
+            context,
+            startAt,
+            playbackSession.mode,
+            playbackTiming,
+          );
+
+          // Save history
+          if (shouldPersistHistory(result, playbackTiming)) {
+            const historyTimestamp = toHistoryTimestamp(result, playbackTiming);
+            await historyStore.save(title.id, {
+              title: title.name,
+              type: title.type,
+              season: currentEpisode.season,
+              episode: currentEpisode.episode,
+              timestamp: historyTimestamp,
+              duration: result.duration,
+              completed: didPlaybackReachCompletionThreshold(result, playbackTiming),
+              provider: resolvedProviderId,
+              watchedAt: new Date().toISOString(),
+            });
+          } else {
             diagnosticsStore.record({
               category: "playback",
-              message: "Switching to fallback provider after playback control request",
+              message: "Skipped history save",
               context: {
-                from: resolvedProviderId,
-                fallback: fallback.metadata.id,
+                titleId: title.id,
+                season: currentEpisode.season,
+                episode: currentEpisode.episode,
+                watchedSeconds: result.watchedSeconds,
+                duration: result.duration,
+                endReason: result.endReason,
+              },
+            });
+          }
+
+          const playbackControlAction = playerControl.consumeLastAction();
+          playbackSession = syncPlaybackSessionState(playbackSession, {
+            autoplaySessionPaused: stateManager.getState().autoplaySessionPaused,
+            stopAfterCurrent: stateManager.getState().stopAfterCurrent,
+          });
+          const playbackDecision = resolvePlaybackResultDecision({
+            result,
+            controlAction: playbackControlAction,
+            session: playbackSession,
+            timing: playbackTiming,
+          });
+          playbackSession = playbackDecision.session;
+          if (playbackDecision.shouldTreatAsInterrupted) {
+            stateManager.dispatch({
+              type: "SET_SESSION_AUTOPLAY_PAUSED",
+              paused: playbackDecision.session.autoplayPaused,
+            });
+          }
+          if (playbackDecision.shouldRefreshSource) {
+            pendingStartAt = toHistoryTimestamp(result);
+            diagnosticsStore.record({
+              category: "playback",
+              message: "Refreshing current provider source",
+              context: {
+                provider: resolvedProviderId,
                 titleId: title.id,
                 season: currentEpisode.season,
                 episode: currentEpisode.episode,
@@ -405,273 +394,317 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             continue;
           }
 
-          diagnosticsStore.record({
-            category: "playback",
-            message: "Fallback playback control requested but no compatible provider was available",
-            context: {
-              provider: resolvedProviderId,
-              titleId: title.id,
-              season: currentEpisode.season,
-              episode: currentEpisode.episode,
-            },
-          });
-        }
+          if (playbackDecision.shouldFallbackProvider) {
+            pendingStartAt = toHistoryTimestamp(result);
+            const fallback = providerRegistry
+              .getCompatible(title)
+              .find((candidate) => candidate.metadata.id !== resolvedProviderId);
 
-        if (playbackControlAction === "next" && title.type === "series") {
-          if (episodeAvailability.nextEpisode) {
-            stateManager.dispatch({
-              type: "SELECT_EPISODE",
-              episode: episodeAvailability.nextEpisode,
-            });
-            stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
-            playbackSession = {
-              ...playbackSession,
-              stopAfterCurrent: false,
-            };
-            continue;
-          }
-        }
-
-        if (playbackControlAction === "previous" && title.type === "series") {
-          if (episodeAvailability.previousEpisode) {
-            stateManager.dispatch({
-              type: "SELECT_EPISODE",
-              episode: episodeAvailability.previousEpisode,
-            });
-            stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
-            playbackSession = {
-              ...playbackSession,
-              stopAfterCurrent: false,
-            };
-            continue;
-          }
-        }
-
-        // Handle post-playback
-        const nextEpisode = await resolveAutoplayAdvanceEpisode({
-          result,
-          title,
-          currentEpisode,
-          session: playbackSession,
-          availability: episodeAvailability,
-          timing: playbackTiming,
-        });
-        if (nextEpisode) {
-          logger.info("Auto-next advancing to next episode", {
-            titleId: title.id,
-            season: currentEpisode.season,
-            episode: currentEpisode.episode,
-            nextSeason: nextEpisode.season,
-            nextEpisode: nextEpisode.episode,
-          });
-          diagnosticsStore.record({
-            category: "playback",
-            message: "Auto-next advancing to next episode",
-            context: {
-              titleId: title.id,
-              season: currentEpisode.season,
-              episode: currentEpisode.episode,
-              nextSeason: nextEpisode.season,
-              nextEpisode: nextEpisode.episode,
-            },
-          });
-          stateManager.dispatch({
-            type: "SELECT_EPISODE",
-            episode: nextEpisode,
-          });
-          stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
-          playbackSession = {
-            ...playbackSession,
-            stopAfterCurrent: false,
-          };
-          continue;
-        }
-
-        if (playbackSession.stopAfterCurrent) {
-          stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
-          playbackSession = {
-            ...playbackSession,
-            stopAfterCurrent: false,
-          };
-        }
-
-        await player.releasePersistentSession();
-
-        // Post-playback menu — inner loop so unavailable navigation
-        // actions stay in the menu instead of re-resolving the stream.
-        const { openPlaybackShell } = await import("../app-shell/ink-shell");
-        const shellRuntime = buildShellRuntimeBindings(container);
-
-        postPlayback: while (true) {
-          const resumeSeconds = toHistoryTimestamp(result);
-          const autoplaySessionPaused = playbackSession.autoplayPaused;
-          const canResumePlayback =
-            result.endReason !== "eof" &&
-            resumeSeconds > 10 &&
-            (result.duration <= 0 || resumeSeconds < Math.max(0, result.duration - 5));
-          const postAction = await openPlaybackShell({
-            state: {
-              type: title.type,
-              title: title.name,
-              season: currentEpisode.season,
-              episode: currentEpisode.episode,
-              posterUrl: title.posterUrl,
-              provider: resolvedProviderId,
-              subtitleStatus: describeSubtitleStatus(
-                preparedStream,
-                stateManager.getState().subLang,
-              ),
-              autoplayPaused: autoplaySessionPaused,
-              showMemory: config.showMemory,
-              mode: stateManager.getState().mode,
-              resumeLabel: canResumePlayback
-                ? `resume ${formatTimestamp(resumeSeconds)}`
-                : undefined,
-              status: { label: "Ready for next action", tone: "success" },
-              footerMode: config.getRaw().footerHints,
-              commands: resolveCommands(stateManager.getState(), [
-                "search",
-                "settings",
-                "toggle-mode",
-                "provider",
-                "history",
-                "toggle-autoplay",
-                "replay",
-                "pick-episode",
-                "next",
-                "previous",
-                "next-season",
-                "diagnostics",
-                "help",
-                "about",
-                "quit",
-              ]),
-            },
-            providerOptions: shellRuntime.providerOptions,
-            episodePickerOptions: shellEpisodePicker.options,
-            episodePickerSubtitle: shellEpisodePicker.subtitle,
-            settings: shellRuntime.settings,
-            settingsSeriesProviderOptions: shellRuntime.settingsSeriesProviderOptions,
-            settingsAnimeProviderOptions: shellRuntime.settingsAnimeProviderOptions,
-            onChangeProvider: shellRuntime.onChangeProvider,
-            onSaveSettings: shellRuntime.onSaveSettings,
-            loadHelpPanel: shellRuntime.loadHelpPanel,
-            loadAboutPanel: shellRuntime.loadAboutPanel,
-            loadDiagnosticsPanel: shellRuntime.loadDiagnosticsPanel,
-            loadHistoryPanel: shellRuntime.loadHistoryPanel,
-          });
-
-          if (typeof postAction !== "string") {
-            stateManager.dispatch({
-              type: "SELECT_EPISODE",
-              episode: { season: postAction.season, episode: postAction.episode },
-            });
-            break postPlayback;
-          }
-
-          const routedAction = await routePlaybackShellAction({
-            action: postAction,
-            container,
-          });
-
-          if (routedAction === "quit") {
-            return { status: "quit" };
-          } else if (typeof routedAction === "object" && routedAction.type === "history-entry") {
-            return {
-              status: "success",
-              value: { type: "history_entry", title: routedAction.title },
-            };
-          } else if (routedAction === "mode-switch") {
-            return { status: "success", value: "back_to_search" };
-          } else if (routedAction === "toggle-autoplay") {
-            const playbackAction = resolvePostPlaybackSessionAction(
-              "toggle-autoplay",
-              playbackSession,
-            );
-            playbackSession = playbackAction.session;
-            stateManager.dispatch({
-              type: "SET_SESSION_AUTOPLAY_PAUSED",
-              paused: playbackAction.session.autoplayPaused,
-            });
-            continue postPlayback;
-          } else if (routedAction === "resume") {
-            pendingStartAt = resumeSeconds;
-            const playbackAction = resolvePostPlaybackSessionAction("resume", playbackSession);
-            playbackSession = playbackAction.session;
-            if (!playbackAction.session.autoplayPaused) {
-              stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
+            if (fallback) {
+              stateManager.dispatch({ type: "SET_PROVIDER", provider: fallback.metadata.id });
+              diagnosticsStore.record({
+                category: "playback",
+                message: "Switching to fallback provider after playback control request",
+                context: {
+                  from: resolvedProviderId,
+                  fallback: fallback.metadata.id,
+                  titleId: title.id,
+                  season: currentEpisode.season,
+                  episode: currentEpisode.episode,
+                  resumeSeconds: pendingStartAt,
+                },
+              });
+              continue;
             }
-            break postPlayback;
-          } else if (routedAction === "replay") {
-            const playbackAction = resolvePostPlaybackSessionAction("replay", playbackSession);
-            playbackSession = playbackAction.session;
-            if (!playbackAction.session.autoplayPaused) {
-              stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
-            }
-            break postPlayback;
-          } else if (routedAction === "back-to-search") {
-            return { status: "success", value: "back_to_search" };
-          } else if (routedAction === "back-to-results") {
-            return { status: "success", value: "back_to_results" };
-          } else if (routedAction === "handled") {
-            continue postPlayback;
-          } else if (postAction === "clear-cache" || postAction === "clear-history") {
-            await handleShellAction({ action: postAction, container });
-            continue postPlayback;
-          } else if (postAction === "pick-episode" && title.type === "series") {
-            const { chooseEpisodeFromMetadata } = await import("@/session-flow");
-            const selection = await chooseEpisodeFromMetadata({
-              currentId: title.id,
-              isAnime: stateManager.getState().mode === "anime",
-              currentSeason: currentEpisode.season,
-              currentEpisode: currentEpisode.episode,
-              animeEpisodeCount: title.episodeCount,
-              animeEpisodes: currentAnimeEpisodes,
-              container,
-            });
-            if (!selection) {
-              logger.info("Episode picker cancelled", {
+
+            diagnosticsStore.record({
+              category: "playback",
+              message:
+                "Fallback playback control requested but no compatible provider was available",
+              context: {
+                provider: resolvedProviderId,
                 titleId: title.id,
                 season: currentEpisode.season,
                 episode: currentEpisode.episode,
-              });
-              continue postPlayback;
-            }
-            stateManager.dispatch({
-              type: "SELECT_EPISODE",
-              episode: { season: selection.season, episode: selection.episode },
+              },
             });
-            break postPlayback;
-          } else if (postAction === "next" && title.type === "series") {
+          }
+
+          if (playbackControlAction === "next" && title.type === "series") {
             if (episodeAvailability.nextEpisode) {
               stateManager.dispatch({
                 type: "SELECT_EPISODE",
                 episode: episodeAvailability.nextEpisode,
               });
-              break postPlayback;
+              stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
+              playbackSession = {
+                ...playbackSession,
+                stopAfterCurrent: false,
+              };
+              continue;
             }
-            continue postPlayback;
-          } else if (postAction === "previous" && title.type === "series") {
+          }
+
+          if (playbackControlAction === "previous" && title.type === "series") {
             if (episodeAvailability.previousEpisode) {
               stateManager.dispatch({
                 type: "SELECT_EPISODE",
                 episode: episodeAvailability.previousEpisode,
               });
-              break postPlayback;
+              stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
+              playbackSession = {
+                ...playbackSession,
+                stopAfterCurrent: false,
+              };
+              continue;
             }
-            continue postPlayback;
-          } else if (postAction === "next-season" && title.type === "series") {
-            if (episodeAvailability.nextSeasonEpisode) {
+          }
+
+          // Handle post-playback
+          const nextEpisode = await resolveAutoplayAdvanceEpisode({
+            result,
+            title,
+            currentEpisode,
+            session: playbackSession,
+            availability: episodeAvailability,
+            timing: playbackTiming,
+          });
+          if (nextEpisode) {
+            logger.info("Auto-next advancing to next episode", {
+              titleId: title.id,
+              season: currentEpisode.season,
+              episode: currentEpisode.episode,
+              nextSeason: nextEpisode.season,
+              nextEpisode: nextEpisode.episode,
+            });
+            diagnosticsStore.record({
+              category: "playback",
+              message: "Auto-next advancing to next episode",
+              context: {
+                titleId: title.id,
+                season: currentEpisode.season,
+                episode: currentEpisode.episode,
+                nextSeason: nextEpisode.season,
+                nextEpisode: nextEpisode.episode,
+              },
+            });
+            stateManager.dispatch({
+              type: "SELECT_EPISODE",
+              episode: nextEpisode,
+            });
+            stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
+            playbackSession = {
+              ...playbackSession,
+              stopAfterCurrent: false,
+            };
+            continue;
+          }
+
+          if (playbackSession.stopAfterCurrent) {
+            stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
+            playbackSession = {
+              ...playbackSession,
+              stopAfterCurrent: false,
+            };
+          }
+
+          await player.releasePersistentSession();
+
+          // Post-playback menu — inner loop so unavailable navigation
+          // actions stay in the menu instead of re-resolving the stream.
+          const { openPlaybackShell } = await import("../app-shell/ink-shell");
+          const shellRuntime = buildShellRuntimeBindings(container);
+
+          postPlayback: while (true) {
+            const resumeSeconds = toHistoryTimestamp(result);
+            const autoplaySessionPaused = playbackSession.autoplayPaused;
+            const canResumePlayback =
+              result.endReason !== "eof" &&
+              resumeSeconds > 10 &&
+              (result.duration <= 0 || resumeSeconds < Math.max(0, result.duration - 5));
+            const postAction = await openPlaybackShell({
+              state: {
+                type: title.type,
+                title: title.name,
+                season: currentEpisode.season,
+                episode: currentEpisode.episode,
+                posterUrl: title.posterUrl,
+                provider: resolvedProviderId,
+                subtitleStatus: describeSubtitleStatus(
+                  preparedStream,
+                  stateManager.getState().subLang,
+                ),
+                autoplayPaused: autoplaySessionPaused,
+                showMemory: config.showMemory,
+                mode: stateManager.getState().mode,
+                resumeLabel: canResumePlayback
+                  ? `resume ${formatTimestamp(resumeSeconds)}`
+                  : undefined,
+                status: { label: "Ready for next action", tone: "success" },
+                footerMode: config.getRaw().footerHints,
+                commands: resolveCommands(stateManager.getState(), [
+                  "search",
+                  "settings",
+                  "toggle-mode",
+                  "provider",
+                  "history",
+                  "toggle-autoplay",
+                  "replay",
+                  "pick-episode",
+                  "next",
+                  "previous",
+                  "next-season",
+                  "diagnostics",
+                  "help",
+                  "about",
+                  "quit",
+                ]),
+              },
+              providerOptions: shellRuntime.providerOptions,
+              episodePickerOptions: shellEpisodePicker.options,
+              episodePickerSubtitle: shellEpisodePicker.subtitle,
+              settings: shellRuntime.settings,
+              settingsSeriesProviderOptions: shellRuntime.settingsSeriesProviderOptions,
+              settingsAnimeProviderOptions: shellRuntime.settingsAnimeProviderOptions,
+              onChangeProvider: shellRuntime.onChangeProvider,
+              onSaveSettings: shellRuntime.onSaveSettings,
+              loadHelpPanel: shellRuntime.loadHelpPanel,
+              loadAboutPanel: shellRuntime.loadAboutPanel,
+              loadDiagnosticsPanel: shellRuntime.loadDiagnosticsPanel,
+              loadHistoryPanel: shellRuntime.loadHistoryPanel,
+            });
+
+            if (typeof postAction !== "string") {
               stateManager.dispatch({
                 type: "SELECT_EPISODE",
-                episode: episodeAvailability.nextSeasonEpisode,
+                episode: { season: postAction.season, episode: postAction.episode },
               });
               break postPlayback;
             }
-            continue postPlayback;
-          } else {
-            return { status: "success", value: "back_to_search" };
+
+            const routedAction = await routePlaybackShellAction({
+              action: postAction,
+              container,
+            });
+
+            if (routedAction === "quit") {
+              return { status: "quit" };
+            } else if (typeof routedAction === "object" && routedAction.type === "history-entry") {
+              return {
+                status: "success",
+                value: { type: "history_entry", title: routedAction.title },
+              };
+            } else if (routedAction === "mode-switch") {
+              return { status: "success", value: "back_to_search" };
+            } else if (routedAction === "toggle-autoplay") {
+              const playbackAction = resolvePostPlaybackSessionAction(
+                "toggle-autoplay",
+                playbackSession,
+              );
+              playbackSession = playbackAction.session;
+              stateManager.dispatch({
+                type: "SET_SESSION_AUTOPLAY_PAUSED",
+                paused: playbackAction.session.autoplayPaused,
+              });
+              continue postPlayback;
+            } else if (routedAction === "resume") {
+              pendingStartAt = resumeSeconds;
+              const playbackAction = resolvePostPlaybackSessionAction("resume", playbackSession);
+              playbackSession = playbackAction.session;
+              if (!playbackAction.session.autoplayPaused) {
+                stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
+              }
+              break postPlayback;
+            } else if (routedAction === "replay") {
+              const playbackAction = resolvePostPlaybackSessionAction("replay", playbackSession);
+              playbackSession = playbackAction.session;
+              if (!playbackAction.session.autoplayPaused) {
+                stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
+              }
+              break postPlayback;
+            } else if (routedAction === "back-to-search") {
+              return { status: "success", value: "back_to_search" };
+            } else if (routedAction === "back-to-results") {
+              return { status: "success", value: "back_to_results" };
+            } else if (routedAction === "handled") {
+              continue postPlayback;
+            } else if (postAction === "clear-cache" || postAction === "clear-history") {
+              await handleShellAction({ action: postAction, container });
+              continue postPlayback;
+            } else if (postAction === "pick-episode" && title.type === "series") {
+              const { chooseEpisodeFromMetadata } = await import("@/session-flow");
+              const selection = await chooseEpisodeFromMetadata({
+                currentId: title.id,
+                isAnime: stateManager.getState().mode === "anime",
+                currentSeason: currentEpisode.season,
+                currentEpisode: currentEpisode.episode,
+                animeEpisodeCount: title.episodeCount,
+                animeEpisodes: currentAnimeEpisodes,
+                container,
+              });
+              if (!selection) {
+                logger.info("Episode picker cancelled", {
+                  titleId: title.id,
+                  season: currentEpisode.season,
+                  episode: currentEpisode.episode,
+                });
+                continue postPlayback;
+              }
+              stateManager.dispatch({
+                type: "SELECT_EPISODE",
+                episode: { season: selection.season, episode: selection.episode },
+              });
+              break postPlayback;
+            } else if (postAction === "next" && title.type === "series") {
+              if (episodeAvailability.nextEpisode) {
+                stateManager.dispatch({
+                  type: "SELECT_EPISODE",
+                  episode: episodeAvailability.nextEpisode,
+                });
+                break postPlayback;
+              }
+              continue postPlayback;
+            } else if (postAction === "previous" && title.type === "series") {
+              if (episodeAvailability.previousEpisode) {
+                stateManager.dispatch({
+                  type: "SELECT_EPISODE",
+                  episode: episodeAvailability.previousEpisode,
+                });
+                break postPlayback;
+              }
+              continue postPlayback;
+            } else if (postAction === "next-season" && title.type === "series") {
+              if (episodeAvailability.nextSeasonEpisode) {
+                stateManager.dispatch({
+                  type: "SELECT_EPISODE",
+                  episode: episodeAvailability.nextSeasonEpisode,
+                });
+                break postPlayback;
+              }
+              continue postPlayback;
+            } else {
+              return { status: "success", value: "back_to_search" };
+            }
           }
+        } catch (e) {
+          if (resolveController.signal.aborted && !context.signal.aborted) {
+            stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" });
+            stateManager.dispatch({ type: "SET_STREAM", stream: null });
+            diagnosticsStore.record({
+              category: "playback",
+              message: "Playback resolve cancelled",
+              context: {
+                titleId: title.id,
+                season: currentEpisode.season,
+                episode: currentEpisode.episode,
+              },
+            });
+            return { status: "success", value: "back_to_results" };
+          }
+          throw e;
+        } finally {
+          workControl.setActive(null);
+          context.signal.removeEventListener("abort", abortOnSessionStop);
         }
       }
     } catch (e) {
@@ -787,8 +820,9 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     context: PhaseContext,
     startAt = 0,
     playbackMode: "manual" | "autoplay-chain" = "manual",
+    timing: Awaited<ReturnType<typeof fetchPlaybackTimingMetadata>> = null,
   ): Promise<PlaybackResult> {
-    const { player, stateManager } = context.container;
+    const { player, stateManager, config } = context.container;
 
     const displayTitle =
       title.type === "movie"
@@ -808,6 +842,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         startAt,
         attach: false,
         playbackMode,
+        timing,
+        skipRecap: config.skipRecap,
+        skipIntro: config.skipIntro,
+        skipPreview: config.skipPreview,
         onPlayerReady: () => {
           stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "playing" });
         },

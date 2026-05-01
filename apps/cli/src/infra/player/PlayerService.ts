@@ -5,6 +5,7 @@
 // =============================================================================
 
 import type { StreamInfo, PlaybackResult } from "@/domain/types";
+import type { PlaybackTimingMetadata } from "@/domain/types";
 
 export interface PlayerOptions {
   url: string;
@@ -15,6 +16,10 @@ export interface PlayerOptions {
   startAt?: number;
   attach?: boolean;
   playbackMode?: "manual" | "autoplay-chain";
+  timing?: PlaybackTimingMetadata | null;
+  skipRecap?: boolean;
+  skipIntro?: boolean;
+  skipPreview?: boolean;
   onProgress?: (seconds: number) => void;
   onPlayerReady?: () => void;
 }

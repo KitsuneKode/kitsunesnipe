@@ -371,6 +371,21 @@ export function RootOverlayShell({
           setSettingsError(null);
           return;
         }
+        if (picked.value === "skipRecap") {
+          setSettingsDraft({ ...settingsDraft, skipRecap: !settingsDraft.skipRecap });
+          setSettingsError(null);
+          return;
+        }
+        if (picked.value === "skipIntro") {
+          setSettingsDraft({ ...settingsDraft, skipIntro: !settingsDraft.skipIntro });
+          setSettingsError(null);
+          return;
+        }
+        if (picked.value === "skipPreview") {
+          setSettingsDraft({ ...settingsDraft, skipPreview: !settingsDraft.skipPreview });
+          setSettingsError(null);
+          return;
+        }
         if (picked.value === "clearCache") {
           void handleShellAction({ action: "clear-cache", container });
           return;

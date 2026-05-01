@@ -140,6 +140,10 @@ export class PlayerServiceImpl implements PlayerService {
       displayTitle: options.displayTitle,
       startAt: options.startAt,
       attach: options.attach,
+      timing: options.timing,
+      skipRecap: options.skipRecap,
+      skipIntro: options.skipIntro,
+      skipPreview: options.skipPreview,
       onControlReady: (control) => this.deps.playerControl.setActive(control),
       onPlayerReady: options.onPlayerReady,
     });
@@ -166,6 +170,10 @@ export class PlayerServiceImpl implements PlayerService {
           primarySubtitle: stream.subtitle ?? null,
           subtitleTracks: stream.subtitleList,
           startAt: options.startAt,
+          timing: options.timing,
+          skipRecap: options.skipRecap,
+          skipIntro: options.skipIntro,
+          skipPreview: options.skipPreview,
           onPlayerReady: options.onPlayerReady,
         },
         onControlReady: (control) => this.deps.playerControl.setActive(control),
@@ -183,6 +191,10 @@ export class PlayerServiceImpl implements PlayerService {
       primarySubtitle: stream.subtitle ?? null,
       subtitleTracks: stream.subtitleList,
       startAt: options.startAt,
+      timing: options.timing,
+      skipRecap: options.skipRecap,
+      skipIntro: options.skipIntro,
+      skipPreview: options.skipPreview,
       onPlayerReady: options.onPlayerReady,
     });
 

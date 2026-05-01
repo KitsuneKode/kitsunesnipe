@@ -20,6 +20,7 @@ import type { ConfigStore } from "./services/persistence/ConfigStore";
 import type { CacheStore } from "./services/persistence/CacheStore";
 import type { DiagnosticsStore } from "./services/diagnostics/DiagnosticsStore";
 import type { SessionStateManager } from "./domain/session/SessionStateManager";
+import type { WorkControlService } from "./infra/work/WorkControlService";
 import { initLogger } from "@/logger";
 import {
   getKunaiPaths,
@@ -39,6 +40,7 @@ import { SqliteHistoryStoreImpl } from "./services/persistence/SqliteHistoryStor
 import { SqliteCacheStoreImpl } from "./services/persistence/SqliteCacheStoreImpl";
 import { DiagnosticsStoreImpl } from "./services/diagnostics/DiagnosticsStoreImpl";
 import { SessionStateManagerImpl } from "./domain/session/SessionStateManager";
+import { WorkControlServiceImpl } from "./infra/work/WorkControlServiceImpl";
 import { ShellServiceImpl } from "./infra/shell/ShellServiceImpl";
 import { BrowserServiceImpl } from "./infra/browser/BrowserServiceImpl";
 import { PlayerServiceImpl } from "./infra/player/PlayerServiceImpl";
@@ -67,6 +69,7 @@ export interface Container {
   readonly browser: BrowserService;
   readonly player: PlayerService;
   readonly playerControl: PlayerControlService;
+  readonly workControl: WorkControlService;
   readonly storage: StorageService;
 
   // Persistence stores
@@ -127,6 +130,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   const shell = new ShellServiceImpl({ logger, tracer, stateManager });
   const browser = new BrowserServiceImpl({ logger, tracer, config, cacheStore, diagnosticsStore });
   const playerControl = new PlayerControlServiceImpl({ logger, diagnosticsStore });
+  const workControl = new WorkControlServiceImpl({ logger, diagnosticsStore });
   const player = new PlayerServiceImpl({ logger, tracer, diagnosticsStore, playerControl });
 
   // Registries (depend on infrastructure)
@@ -147,6 +151,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     browser,
     player,
     playerControl,
+    workControl,
     storage,
     historyStore,
     configStore,

@@ -393,6 +393,7 @@ function AppRoot({ container }: { container: Container }) {
                   details: `Provider: ${state.provider}`,
                   subtitleStatus:
                     state.playbackStatus === "playing" ? playbackSubtitleStatus : undefined,
+                  cancellable: state.playbackStatus === "loading",
                   trace:
                     state.playbackStatus === "playing"
                       ? "mpv is open; press q to stop playback and return to Kunai"
@@ -406,10 +407,12 @@ function AppRoot({ container }: { container: Container }) {
                       : undefined,
                   controlHint:
                     state.playbackStatus === "playing"
-                      ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  s reload subtitles  ·  r refresh  ·  f fallback  ·  Ctrl+C hard exit`
+                      ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  i skip segment  ·  s reload subtitles  ·  r refresh  ·  f fallback  ·  Ctrl+C hard exit`
                       : undefined,
                 }}
-                onCancel={() => {}}
+                onCancel={() => {
+                  void container.workControl.cancelActive("playback-loading-esc");
+                }}
                 onStop={() => {
                   void container.playerControl.stopCurrentPlayback("playback-shell-q");
                 }}
@@ -435,6 +438,9 @@ function AppRoot({ container }: { container: Container }) {
                 }}
                 onReloadSubtitles={() => {
                   void container.playerControl.reloadCurrentSubtitles("playback-shell-s");
+                }}
+                onSkipSegment={() => {
+                  void container.playerControl.skipCurrentSegment("playback-shell-i");
                 }}
                 onToggleAutoplay={
                   canToggleAutoplay

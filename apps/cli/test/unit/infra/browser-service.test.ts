@@ -49,6 +49,9 @@ function createConfig(overrides: Partial<KitsuneConfig> = {}): ConfigService {
     headless: true,
     showMemory: false,
     autoNext: false,
+    skipRecap: true,
+    skipIntro: true,
+    skipPreview: true,
     footerHints: "detailed",
     ...overrides,
   };
