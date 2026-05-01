@@ -339,6 +339,14 @@ function AppRoot({ container }: { container: Container }) {
     hasRootContent: Boolean(rootContent),
     hasMountedScreen: Boolean(screen),
   });
+  const isSeriesPlayback =
+    rootSurface === "playback" &&
+    state.currentTitle?.type === "series" &&
+    state.currentEpisode !== null;
+  const canGoNext = Boolean(isSeriesPlayback && state.episodeNavigation.hasNext);
+  const canGoPrevious = Boolean(isSeriesPlayback && state.episodeNavigation.hasPrevious);
+  const canToggleAutoplay = Boolean(isSeriesPlayback);
+  const canStopAfterCurrent = Boolean(isSeriesPlayback);
 
   return (
     <Box flexDirection="column" width={shellWidth} height={shellHeight} paddingX={1} paddingY={0}>
@@ -393,24 +401,32 @@ function AppRoot({ container }: { container: Container }) {
                   stopHint:
                     state.playbackStatus === "playing"
                       ? state.currentTitle?.type === "series"
-                        ? `q stop  ·  n next  ·  p previous  ·  ${state.stopAfterCurrent ? "x resume chain" : "x stop after current"}`
-                        : "q stop  ·  x stop after current"
+                        ? `q stop  ·  ${canGoNext ? "n next" : "n unavailable"}  ·  ${canGoPrevious ? "p previous" : "p unavailable"}  ·  ${state.stopAfterCurrent ? "x resume chain" : "x stop after current"}`
+                        : "q stop"
                       : undefined,
                   controlHint:
                     state.playbackStatus === "playing"
-                      ? `${state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay"}  ·  s reload subtitles  ·  r refresh  ·  f fallback  ·  Ctrl+C hard exit`
+                      ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  s reload subtitles  ·  r refresh  ·  f fallback  ·  Ctrl+C hard exit`
                       : undefined,
                 }}
                 onCancel={() => {}}
                 onStop={() => {
                   void container.playerControl.stopCurrentPlayback("playback-shell-q");
                 }}
-                onNext={() => {
-                  void container.playerControl.nextCurrentPlayback("playback-shell-n");
-                }}
-                onPrevious={() => {
-                  void container.playerControl.previousCurrentPlayback("playback-shell-p");
-                }}
+                onNext={
+                  canGoNext
+                    ? () => {
+                        void container.playerControl.nextCurrentPlayback("playback-shell-n");
+                      }
+                    : undefined
+                }
+                onPrevious={
+                  canGoPrevious
+                    ? () => {
+                        void container.playerControl.previousCurrentPlayback("playback-shell-p");
+                      }
+                    : undefined
+                }
                 onRefresh={() => {
                   void container.playerControl.refreshCurrentPlayback("playback-shell-r");
                 }}
@@ -420,18 +436,26 @@ function AppRoot({ container }: { container: Container }) {
                 onReloadSubtitles={() => {
                   void container.playerControl.reloadCurrentSubtitles("playback-shell-s");
                 }}
-                onToggleAutoplay={() => {
-                  container.stateManager.dispatch({
-                    type: "SET_SESSION_AUTOPLAY_PAUSED",
-                    paused: !container.stateManager.getState().autoplaySessionPaused,
-                  });
-                }}
-                onStopAfterCurrent={() => {
-                  container.stateManager.dispatch({
-                    type: "SET_SESSION_STOP_AFTER_CURRENT",
-                    enabled: !container.stateManager.getState().stopAfterCurrent,
-                  });
-                }}
+                onToggleAutoplay={
+                  canToggleAutoplay
+                    ? () => {
+                        container.stateManager.dispatch({
+                          type: "SET_SESSION_AUTOPLAY_PAUSED",
+                          paused: !container.stateManager.getState().autoplaySessionPaused,
+                        });
+                      }
+                    : undefined
+                }
+                onStopAfterCurrent={
+                  canStopAfterCurrent
+                    ? () => {
+                        container.stateManager.dispatch({
+                          type: "SET_SESSION_STOP_AFTER_CURRENT",
+                          enabled: !container.stateManager.getState().stopAfterCurrent,
+                        });
+                      }
+                    : undefined
+                }
               />
             ) : rootSurface === "root-content" && rootContent ? (
               <Box key={rootContent.id} flexGrow={1}>
