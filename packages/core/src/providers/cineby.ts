@@ -5,7 +5,7 @@ export const CINEBY_PROVIDER_ID = "cineby" as const;
 export const cinebyManifest = defineProviderManifest({
   id: CINEBY_PROVIDER_ID,
   displayName: "Cineby",
-  description: "Cineby",
+  description: "Cineby legacy wrapper provider",
   domain: "cineby.sc",
   recommended: false,
   mediaKinds: ["movie", "series"],
@@ -35,7 +35,9 @@ export const cinebyManifest = defineProviderManifest({
   },
   browserSafe: false,
   relaySafe: false,
+  status: "experimental",
   notes: [
-    "Current production path uses Playwright because Cineby requires interactive player scraping.",
+    "Dossier marks this as superseded by the VidKing/Videasy direct path.",
+    "Keep available as a fallback while provider migration is in progress, but do not use it as the model for the SDK provider shape.",
   ],
 });

@@ -5,7 +5,7 @@ export const BITCINE_PROVIDER_ID = "bitcine" as const;
 export const bitcineManifest = defineProviderManifest({
   id: BITCINE_PROVIDER_ID,
   displayName: "BitCine",
-  description: "BitCine (Cineby mirror)",
+  description: "BitCine legacy Cineby mirror provider",
   domain: "bitcine.net",
   recommended: false,
   mediaKinds: ["movie", "series"],
@@ -35,7 +35,9 @@ export const bitcineManifest = defineProviderManifest({
   },
   browserSafe: false,
   relaySafe: false,
+  status: "experimental",
   notes: [
-    "Cineby mirror; keep runtime policy aligned with Cineby unless research proves divergence.",
+    "Dossier marks this as superseded by the VidKing/Videasy direct path.",
+    "Keep runtime policy aligned with Cineby unless research proves divergence.",
   ],
 });

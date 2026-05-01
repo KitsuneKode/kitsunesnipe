@@ -5,7 +5,7 @@ export const CINEBY_ANIME_PROVIDER_ID = "cineby-anime" as const;
 export const cinebyAnimeManifest = defineProviderManifest({
   id: CINEBY_ANIME_PROVIDER_ID,
   displayName: "Cineby Anime",
-  description: "Cineby Anime (HiAnime via anime-db.videasy.net)",
+  description: "Cineby Anime legacy wrapper provider",
   domain: "cineby.sc",
   recommended: false,
   mediaKinds: ["anime", "series"],
@@ -27,5 +27,9 @@ export const cinebyAnimeManifest = defineProviderManifest({
   },
   browserSafe: false,
   relaySafe: false,
-  notes: ["Current path builds a Cineby anime URL and resolves it with Playwright interception."],
+  status: "experimental",
+  notes: [
+    "Dossier marks this path as superseded by stronger anime providers such as AllAnime and future Miruro/Anikai work.",
+    "Keep available as a fallback while provider migration is in progress.",
+  ],
 });

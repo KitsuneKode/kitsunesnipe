@@ -124,10 +124,21 @@ Use:
 - [.docs/provider-agent-workflow.md](./provider-agent-workflow.md) for repo-local agent instructions
 - [.docs/provider-examples.md](./provider-examples.md) for concrete implementation patterns
 - [.plans/provider-hardening.md](../.plans/provider-hardening.md) for the broader hardening roadmap
+- `packages/providers/src/research.ts` for the current dossier-backed migration queue
 
 When the site behavior is unclear, gather evidence first and keep knowns vs unknowns separate.
 
 Use `apps/experiments/scratchpads/provider-*` as the research lab. The reports and probes there are evidence for dossiers and implementation handoffs, not production imports.
+
+## Migration Order From Current Dossiers
+
+The current Provider SDK migration follows the updated dossiers, not the older legacy provider classes:
+
+1. `vidking` first: production direct Videasy payload/decryption path, with Playwright fallback only.
+2. `allanime` second: production GraphQL/AES client with ani-cli parity discipline.
+3. `rivestream` and `miruro` next: candidate 0-RAM providers proven in scratchpads, pending fixtures.
+4. `anikai` after the runtime-browser package: it needs harvest-and-fetch/JIT Playwright boundaries.
+5. `braflix`, `cineby`, `bitcine`, and `cineby-anime` remain fallback/reference paths unless new research proves they are better than the direct routes.
 
 ## Design Guidance
 

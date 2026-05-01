@@ -27,9 +27,13 @@ test("vidking manifest declares capability, cache, and runtime boundaries", () =
   expect(vidkingManifest.capabilities).toContain("source-resolve");
   expect(vidkingManifest.cachePolicy.ttlClass).toBe("stream-manifest");
 
-  const port = assertManifestHasRuntimePort(vidkingManifest, "playwright-lease");
-  expect(port.localOnly).toBe(true);
-  expect(port.browserSafe).toBe(false);
+  const directPort = assertManifestHasRuntimePort(vidkingManifest, "node-fetch");
+  expect(directPort.operations).toContain("resolve-stream");
+  expect(directPort.localOnly).toBe(true);
+  expect(directPort.browserSafe).toBe(false);
+
+  const fallbackPort = assertManifestHasRuntimePort(vidkingManifest, "playwright-lease");
+  expect(fallbackPort.operations).toContain("refresh-source");
 });
 
 test("provider embed URL builders preserve production playback routes", () => {
