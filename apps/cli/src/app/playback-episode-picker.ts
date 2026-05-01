@@ -50,10 +50,7 @@ export async function buildPlaybackEpisodePickerOptions({
           value: `${1}:${entry.index}`,
           label:
             entry.index === currentEpisode.episode ? `${entry.label}  ·  current` : entry.label,
-          detail: mergeEpisodeDetail(
-            watchedByEpisode.get(`1:${entry.index}`),
-            entry.detail,
-          ),
+          detail: mergeEpisodeDetail(watchedByEpisode.get(`1:${entry.index}`), entry.detail),
         })),
       };
     }

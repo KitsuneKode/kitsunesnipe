@@ -21,7 +21,10 @@ function createLogger(): Logger {
 
 function createTracer(): Tracer {
   return {
-    async span<T>(_name: string, fn: (span: Parameters<Parameters<Tracer["span"]>[1]>[0]) => Promise<T>): Promise<T> {
+    async span<T>(
+      _name: string,
+      fn: (span: Parameters<Parameters<Tracer["span"]>[1]>[0]) => Promise<T>,
+    ): Promise<T> {
       return await fn({
         id: "span",
         name: "span",

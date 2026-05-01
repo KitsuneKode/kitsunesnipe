@@ -353,9 +353,9 @@ export function OverlayPanel({
                   ? "Type to narrow providers"
                   : overlay.type === "history-picker"
                     ? "Type to narrow history"
-                  : overlay.type === "episode-picker"
-                    ? "Type to narrow episodes"
-                    : "Type to narrow this list"}
+                    : overlay.type === "episode-picker"
+                      ? "Type to narrow episodes"
+                      : "Type to narrow this list"}
             </Text>
           </Box>
           <Box marginTop={1} flexDirection="column">
@@ -391,16 +391,16 @@ export function OverlayPanel({
                   ? "Updating provider…"
                   : overlay.type === "history-picker"
                     ? "Loading history…"
-                  : "Saving settings…"
+                    : "Saving settings…"
                 : overlay.type === "provider"
                   ? "Type to filter, ↑↓ to choose, Enter to switch, Esc to close"
                   : overlay.type === "history-picker"
                     ? "Type to filter, ↑↓ to choose, Enter to resume, Esc to close"
-                  : overlay.type === "episode-picker"
-                    ? "Type to filter, ↑↓ to choose, Enter to jump, Esc to close"
-                    : overlay.type === "settings"
-                      ? "Type to filter, ↑↓ to choose, Enter to edit"
-                      : "Type to filter, ↑↓ to choose, Enter to apply, Esc to go back"}
+                    : overlay.type === "episode-picker"
+                      ? "Type to filter, ↑↓ to choose, Enter to jump, Esc to close"
+                      : overlay.type === "settings"
+                        ? "Type to filter, ↑↓ to choose, Enter to edit"
+                        : "Type to filter, ↑↓ to choose, Enter to apply, Esc to go back"}
             </Text>
           </Box>
           {overlay.type === "settings" ? (

@@ -436,8 +436,8 @@ export function RootOverlayShell({
             : overlay.type === "history"
               ? filteredHistoryOptions.length
               : overlay.type === "settings"
-              ? filteredSettingsOptions.length
-              : filteredGenericPickerOptions.length;
+                ? filteredSettingsOptions.length
+                : filteredGenericPickerOptions.length;
         setSelectedIndex((current) => Math.min(Math.max(optionCount - 1, 0), current + 1));
       } else {
         setScrollIndex((current) => Math.min(Math.max(lines.length - maxLines, 0), current + 1));
@@ -507,46 +507,47 @@ export function RootOverlayShell({
             busy: loadingAsyncLines,
           }
         : overlay.type === "settings" && settingsPanel
-        ? {
-            ...settingsPanel,
-            subtitle,
-            options: filteredSettingsOptions,
-            filterQuery,
-            selectedIndex: Math.min(selectedIndex, Math.max(filteredSettingsOptions.length - 1, 0)),
-            busy: settingsBusy,
-          }
-        : overlay.type === "season_picker" ||
-            overlay.type === "episode_picker" ||
-            overlay.type === "subtitle_picker"
           ? {
-              type: "episode-picker",
-              title,
+              ...settingsPanel,
               subtitle,
-              options: filteredGenericPickerOptions,
+              options: filteredSettingsOptions,
               filterQuery,
               selectedIndex: Math.min(
                 selectedIndex,
-                Math.max(filteredGenericPickerOptions.length - 1, 0),
+                Math.max(filteredSettingsOptions.length - 1, 0),
               ),
-              busy: false,
+              busy: settingsBusy,
             }
-          : overlay.type === "help" ||
-              overlay.type === "about" ||
-              overlay.type === "diagnostics"
+          : overlay.type === "season_picker" ||
+              overlay.type === "episode_picker" ||
+              overlay.type === "subtitle_picker"
             ? {
-                type: overlay.type,
+                type: "episode-picker",
                 title,
                 subtitle,
-                lines,
-                scrollIndex,
+                options: filteredGenericPickerOptions,
+                filterQuery,
+                selectedIndex: Math.min(
+                  selectedIndex,
+                  Math.max(filteredGenericPickerOptions.length - 1, 0),
+                ),
+                busy: false,
               }
-            : {
-                type: "help",
-                title: "Help",
-                subtitle: "Global commands, editing, filtering, and shell behavior",
-                lines: buildHelpPanelLines(),
-                scrollIndex: 0,
-              };
+            : overlay.type === "help" || overlay.type === "about" || overlay.type === "diagnostics"
+              ? {
+                  type: overlay.type,
+                  title,
+                  subtitle,
+                  lines,
+                  scrollIndex,
+                }
+              : {
+                  type: "help",
+                  title: "Help",
+                  subtitle: "Global commands, editing, filtering, and shell behavior",
+                  lines: buildHelpPanelLines(),
+                  scrollIndex: 0,
+                };
 
   return (
     <Box flexDirection="column" flexGrow={1} justifyContent="space-between">
@@ -565,7 +566,7 @@ export function RootOverlayShell({
                   ? filteredProviderOptions.length
                   : overlay.type === "history"
                     ? filteredHistoryOptions.length
-                  : filteredSettingsOptions.length
+                    : filteredSettingsOptions.length
               } options`}
               tone="neutral"
             />
@@ -602,15 +603,15 @@ export function RootOverlayShell({
               ? "Provider picker  ·  Type to filter, Enter to switch, Esc closes"
               : overlay.type === "history"
                 ? "History picker  ·  Type to filter, Enter to resume, Esc closes"
-              : overlay.type === "settings"
-                ? settingsChoice
-                  ? "Settings choice  ·  Type to filter, Enter to apply, Esc returns"
-                  : "Settings  ·  Type to filter, Enter to edit, S saves, Esc closes"
-                : overlay.type === "season_picker" ||
-                    overlay.type === "episode_picker" ||
-                    overlay.type === "subtitle_picker"
-                  ? `${title}  ·  Type to filter, Enter to select, Esc closes`
-                  : `${title}  ·  Esc closes and returns to the previous shell state`
+                : overlay.type === "settings"
+                  ? settingsChoice
+                    ? "Settings choice  ·  Type to filter, Enter to apply, Esc returns"
+                    : "Settings  ·  Type to filter, Enter to edit, S saves, Esc closes"
+                  : overlay.type === "season_picker" ||
+                      overlay.type === "episode_picker" ||
+                      overlay.type === "subtitle_picker"
+                    ? `${title}  ·  Type to filter, Enter to select, Esc closes`
+                    : `${title}  ·  Esc closes and returns to the previous shell state`
           }
           actions={footerActions}
           mode="detailed"
