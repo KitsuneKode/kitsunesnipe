@@ -21,11 +21,13 @@ import {
 } from "@/app-shell/workflows";
 import { resolveCommands } from "@/app-shell/commands";
 import { buildShellRuntimeBindings } from "@/app-shell/runtime-bindings";
+import { resolveEpisodeAvailability, toEpisodeNavigationState } from "@/app/playback-policy";
 import {
-  getAutoAdvanceEpisode,
-  resolveEpisodeAvailability,
-  toEpisodeNavigationState,
-} from "@/app/playback-policy";
+  resolveAutoplayAdvanceEpisode,
+  resolvePlaybackResultDecision,
+  resolvePostPlaybackSessionAction,
+  type PlaybackAutoplayPauseReason,
+} from "@/app/playback-session-controller";
 import { buildPlaybackEpisodePickerOptions } from "@/app/playback-episode-picker";
 import { shouldPersistHistory, toHistoryTimestamp } from "@/app/playback-history";
 import { createResolveTraceStub } from "@/app/resolve-trace";
@@ -59,7 +61,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       string,
       readonly EpisodePickerOption[] | undefined
     >();
-    let autoplayPauseReason: "user" | "interrupted" | null = null;
+    let autoplayPauseReason: PlaybackAutoplayPauseReason = null;
 
     try {
       // Episode selection (for series)
@@ -325,13 +327,19 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         }
 
         const playbackControlAction = playerControl.consumeLastAction();
-        if (result.endReason === "quit" || playbackControlAction === "stop") {
-          if (autoplayPauseReason !== "user") {
-            autoplayPauseReason = "interrupted";
-          }
-          stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: true });
+        const playbackDecision = resolvePlaybackResultDecision({
+          result,
+          controlAction: playbackControlAction,
+          autoplayPauseReason,
+        });
+        autoplayPauseReason = playbackDecision.autoplayPauseReason;
+        if (playbackDecision.shouldTreatAsInterrupted) {
+          stateManager.dispatch({
+            type: "SET_SESSION_AUTOPLAY_PAUSED",
+            paused: playbackDecision.autoplayPaused,
+          });
         }
-        if (playbackControlAction === "refresh") {
+        if (playbackDecision.shouldRefreshSource) {
           pendingStartAt = toHistoryTimestamp(result);
           diagnosticsStore.record({
             category: "playback",
@@ -347,7 +355,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           continue;
         }
 
-        if (playbackControlAction === "fallback") {
+        if (playbackDecision.shouldFallbackProvider) {
           pendingStartAt = toHistoryTimestamp(result);
           const fallback = providerRegistry
             .getCompatible(title)
@@ -383,13 +391,14 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         }
 
         // Handle post-playback
-        const nextEpisode = await getAutoAdvanceEpisode(
+        const nextEpisode = await resolveAutoplayAdvanceEpisode({
           result,
           title,
           currentEpisode,
-          config.autoNext && autoplayPauseReason === null,
-          episodeAvailability,
-        );
+          autoNextEnabled: config.autoNext,
+          autoplayPauseReason,
+          availability: episodeAvailability,
+        });
         if (nextEpisode) {
           logger.info("Auto-next advancing to next episode", {
             titleId: title.id,
@@ -503,22 +512,28 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           } else if (routedAction === "mode-switch") {
             return { status: "success", value: "back_to_search" };
           } else if (routedAction === "toggle-autoplay") {
-            autoplayPauseReason = autoplaySessionPaused ? null : "user";
+            const autoplayAction = resolvePostPlaybackSessionAction(
+              "toggle-autoplay",
+              autoplayPauseReason,
+            );
+            autoplayPauseReason = autoplayAction.autoplayPauseReason;
             stateManager.dispatch({
               type: "SET_SESSION_AUTOPLAY_PAUSED",
-              paused: autoplayPauseReason !== null,
+              paused: autoplayAction.autoplayPaused,
             });
             continue postPlayback;
           } else if (routedAction === "resume") {
             pendingStartAt = resumeSeconds;
-            if (autoplayPauseReason === "interrupted") {
-              autoplayPauseReason = null;
+            const autoplayAction = resolvePostPlaybackSessionAction("resume", autoplayPauseReason);
+            autoplayPauseReason = autoplayAction.autoplayPauseReason;
+            if (!autoplayAction.autoplayPaused) {
               stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
             }
             break postPlayback;
           } else if (routedAction === "replay") {
-            if (autoplayPauseReason === "interrupted") {
-              autoplayPauseReason = null;
+            const autoplayAction = resolvePostPlaybackSessionAction("replay", autoplayPauseReason);
+            autoplayPauseReason = autoplayAction.autoplayPauseReason;
+            if (!autoplayAction.autoplayPaused) {
               stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
             }
             break postPlayback;
