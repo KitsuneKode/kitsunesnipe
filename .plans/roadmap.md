@@ -58,7 +58,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Developer-mode diagnostics surface for stream, subtitle, and provider resolution stages
 - Metadata-store and preview-service migration beyond the current in-memory caches
 - Image-pane service migration for safe Kitty/Ghostty poster rendering inside the persistent shell without Ink scroll flicker
-- Phase 2 playback/media runtime plan for persistent autoplay, provider-owned subtitle inventory, and image backend cleanup
+- Phase 2 playback/media runtime plan now expands into a dedicated playback-session controller, persistent autoplay player session, quit-threshold policy, IntroDB timing support, and image backend cleanup
 - Provider SDK candidate model: provider -> source/mirror -> variant, with selected stream plus discovered candidates, subtitles, trace, cache policy, and health deltas
 - Runtime-browser package plan for JIT Playwright leases, interception, cooldown, evidence capture, and teardown
 - Interactive resolution UX for cancel, skip source, retry fresh, force no-cache, fallback provider, and provider/source/quality/subtitle selection
