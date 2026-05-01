@@ -1,6 +1,10 @@
 import type { PlaybackControlAction } from "@/infra/player/PlayerControlService";
 import type { EpisodeInfo, PlaybackResult, TitleInfo } from "@/domain/types";
-import { getAutoAdvanceEpisode, type EpisodeAvailability } from "@/app/playback-policy";
+import {
+  didPlaybackEndNearNaturalEnd,
+  getAutoAdvanceEpisode,
+  type EpisodeAvailability,
+} from "@/app/playback-policy";
 
 export type PlaybackAutoplayPauseReason = "user" | "interrupted" | null;
 export type PlaybackSessionMode = "manual" | "autoplay-chain";
@@ -39,6 +43,23 @@ type AutoAdvanceArgs = {
   availability: EpisodeAvailability;
 };
 
+export function syncPlaybackSessionState(
+  session: PlaybackSessionState,
+  shellState: {
+    autoplaySessionPaused: boolean;
+    stopAfterCurrent: boolean;
+  },
+): PlaybackSessionState {
+  return {
+    ...session,
+    autoplayPauseReason: shellState.autoplaySessionPaused
+      ? (session.autoplayPauseReason ?? "user")
+      : null,
+    autoplayPaused: shellState.autoplaySessionPaused,
+    stopAfterCurrent: shellState.stopAfterCurrent,
+  };
+}
+
 export function createPlaybackSessionState({
   autoNextEnabled,
 }: {
@@ -68,7 +89,9 @@ export function resolvePlaybackResultDecision({
   controlAction,
   session,
 }: PlaybackResultDecisionArgs): PlaybackResultDecision {
-  const shouldTreatAsInterrupted = result.endReason === "quit" || controlAction === "stop";
+  const nearNaturalEnd = didPlaybackEndNearNaturalEnd(result);
+  const interruptedStop = result.endReason === "quit" || controlAction === "stop";
+  const shouldTreatAsInterrupted = interruptedStop && !nearNaturalEnd;
   const nextPauseReason =
     shouldTreatAsInterrupted && session.autoplayPauseReason !== "user"
       ? "interrupted"

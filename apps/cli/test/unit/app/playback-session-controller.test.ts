@@ -5,6 +5,7 @@ import {
   resolveAutoplayAdvanceEpisode,
   resolvePlaybackResultDecision,
   resolvePostPlaybackSessionAction,
+  syncPlaybackSessionState,
 } from "@/app/playback-session-controller";
 import type { EpisodeAvailability } from "@/app/playback-policy";
 import type { PlaybackResult, TitleInfo } from "@/domain/types";
@@ -92,6 +93,27 @@ describe("resolvePlaybackResultDecision", () => {
       },
       shouldRefreshSource: false,
       shouldFallbackProvider: true,
+      shouldTreatAsInterrupted: false,
+    });
+  });
+
+  test("does not treat a near-end quit as an interruption by default", () => {
+    const session = createPlaybackSessionState({ autoNextEnabled: true });
+    expect(
+      resolvePlaybackResultDecision({
+        result: {
+          watchedSeconds: 1204,
+          duration: 1210,
+          endReason: "quit",
+        },
+        controlAction: "stop",
+        session,
+      }),
+    ).toMatchObject({
+      session: {
+        autoplayPauseReason: null,
+        autoplayPaused: false,
+      },
       shouldTreatAsInterrupted: false,
     });
   });
@@ -200,5 +222,20 @@ describe("resolveAutoplayAdvanceEpisode", () => {
         availability: nextSeasonAvailability,
       }),
     ).resolves.toBeNull();
+  });
+});
+
+describe("syncPlaybackSessionState", () => {
+  test("pulls live shell autoplay and stop-after-current state back into the playback session", () => {
+    expect(
+      syncPlaybackSessionState(createPlaybackSessionState({ autoNextEnabled: true }), {
+        autoplaySessionPaused: true,
+        stopAfterCurrent: true,
+      }),
+    ).toMatchObject({
+      autoplayPauseReason: "user",
+      autoplayPaused: true,
+      stopAfterCurrent: true,
+    });
   });
 });

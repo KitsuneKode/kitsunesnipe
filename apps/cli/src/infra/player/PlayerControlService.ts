@@ -1,4 +1,10 @@
-export type PlaybackControlAction = "stop" | "refresh" | "fallback" | "reload-subtitles";
+export type PlaybackControlAction =
+  | "stop"
+  | "refresh"
+  | "fallback"
+  | "reload-subtitles"
+  | "next"
+  | "previous";
 
 export interface ActivePlayerControl {
   readonly id: string;
@@ -14,4 +20,6 @@ export interface PlayerControlService {
   refreshCurrentPlayback(reason?: string): Promise<boolean>;
   fallbackCurrentPlayback(reason?: string): Promise<boolean>;
   reloadCurrentSubtitles(reason?: string): Promise<boolean>;
+  nextCurrentPlayback(reason?: string): Promise<boolean>;
+  previousCurrentPlayback(reason?: string): Promise<boolean>;
 }

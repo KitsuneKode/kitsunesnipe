@@ -80,6 +80,10 @@ export function LoadingShell({
   onRefresh,
   onFallback,
   onReloadSubtitles,
+  onNext,
+  onPrevious,
+  onToggleAutoplay,
+  onStopAfterCurrent,
 }: {
   state: LoadingShellState;
   onCancel?: () => void;
@@ -87,6 +91,10 @@ export function LoadingShell({
   onRefresh?: () => void;
   onFallback?: () => void;
   onReloadSubtitles?: () => void;
+  onNext?: () => void;
+  onPrevious?: () => void;
+  onToggleAutoplay?: () => void;
+  onStopAfterCurrent?: () => void;
 }) {
   const spinner = useSpinner();
   const elapsed = useElapsed();
@@ -112,6 +120,18 @@ export function LoadingShell({
     }
     if (input.toLowerCase() === "s" && state.operation === "playing" && onReloadSubtitles) {
       onReloadSubtitles();
+    }
+    if (input.toLowerCase() === "n" && state.operation === "playing" && onNext) {
+      onNext();
+    }
+    if (input.toLowerCase() === "p" && state.operation === "playing" && onPrevious) {
+      onPrevious();
+    }
+    if (input.toLowerCase() === "a" && state.operation === "playing" && onToggleAutoplay) {
+      onToggleAutoplay();
+    }
+    if (input.toLowerCase() === "x" && state.operation === "playing" && onStopAfterCurrent) {
+      onStopAfterCurrent();
     }
   });
 

@@ -91,6 +91,7 @@ export interface SessionState {
   readonly currentEpisode: EpisodeInfo | null;
   readonly episodeNavigation: EpisodeNavigationState;
   readonly autoplaySessionPaused: boolean;
+  readonly stopAfterCurrent: boolean;
 
   readonly stream: StreamInfo | null;
   readonly playbackStatus: PlaybackStatus;
@@ -128,6 +129,7 @@ export type StateTransition =
       navigation: Partial<EpisodeNavigationState>;
     }
   | { type: "SET_SESSION_AUTOPLAY_PAUSED"; paused: boolean }
+  | { type: "SET_SESSION_STOP_AFTER_CURRENT"; enabled: boolean }
   | { type: "SET_STREAM"; stream: StreamInfo | null }
   | { type: "SET_PLAYBACK_STATUS"; status: PlaybackStatus; error?: string }
   | { type: "OPEN_OVERLAY"; overlay: OverlayState }
@@ -177,6 +179,7 @@ export function createInitialState(
     currentEpisode: null,
     episodeNavigation: DEFAULT_EPISODE_NAVIGATION,
     autoplaySessionPaused: false,
+    stopAfterCurrent: false,
     stream: null,
     playbackStatus: "idle",
     playbackError: null,
@@ -270,6 +273,7 @@ export function reduceState(state: SessionState, transition: StateTransition): S
         currentEpisode: null,
         episodeNavigation: DEFAULT_EPISODE_NAVIGATION,
         autoplaySessionPaused: false,
+        stopAfterCurrent: false,
         stream: null,
         playbackStatus: "idle",
       };
@@ -294,6 +298,12 @@ export function reduceState(state: SessionState, transition: StateTransition): S
       return {
         ...state,
         autoplaySessionPaused: transition.paused,
+      };
+
+    case "SET_SESSION_STOP_AFTER_CURRENT":
+      return {
+        ...state,
+        stopAfterCurrent: transition.enabled,
       };
 
     case "SET_STREAM":
@@ -430,6 +440,7 @@ export function reduceState(state: SessionState, transition: StateTransition): S
         currentEpisode: null,
         episodeNavigation: DEFAULT_EPISODE_NAVIGATION,
         autoplaySessionPaused: false,
+        stopAfterCurrent: false,
         stream: null,
         playbackStatus: "idle",
         playbackError: null,

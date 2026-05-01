@@ -27,6 +27,14 @@ export type EpisodeAvailability = {
   nextSeasonEpisode: EpisodeInfo | null;
 };
 
+export function didPlaybackEndNearNaturalEnd(result: PlaybackResult): boolean {
+  return (
+    result.duration > 0 &&
+    result.watchedSeconds > 0 &&
+    result.watchedSeconds >= Math.max(result.duration - 8, Math.floor(result.duration * 0.97))
+  );
+}
+
 type AvailabilityArgs = {
   title: TitleInfo;
   currentEpisode: EpisodeInfo;
@@ -189,10 +197,7 @@ export async function getAutoAdvanceEpisode(
   autoNextEnabled: boolean,
   availability: EpisodeAvailability,
 ): Promise<EpisodeInfo | null> {
-  const nearNaturalEnd =
-    result.duration > 0 &&
-    result.watchedSeconds > 0 &&
-    result.watchedSeconds >= Math.max(result.duration - 8, Math.floor(result.duration * 0.97));
+  const nearNaturalEnd = didPlaybackEndNearNaturalEnd(result);
 
   if (
     !autoNextEnabled ||

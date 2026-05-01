@@ -27,6 +27,7 @@ import {
   resolveAutoplayAdvanceEpisode,
   resolvePlaybackResultDecision,
   resolvePostPlaybackSessionAction,
+  syncPlaybackSessionState,
   type PlaybackSessionState,
 } from "@/app/playback-session-controller";
 import { buildPlaybackEpisodePickerOptions } from "@/app/playback-episode-picker";
@@ -330,6 +331,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         }
 
         const playbackControlAction = playerControl.consumeLastAction();
+        playbackSession = syncPlaybackSessionState(playbackSession, {
+          autoplaySessionPaused: stateManager.getState().autoplaySessionPaused,
+          stopAfterCurrent: stateManager.getState().stopAfterCurrent,
+        });
         const playbackDecision = resolvePlaybackResultDecision({
           result,
           controlAction: playbackControlAction,
@@ -393,6 +398,36 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           });
         }
 
+        if (playbackControlAction === "next" && title.type === "series") {
+          if (episodeAvailability.nextEpisode) {
+            stateManager.dispatch({
+              type: "SELECT_EPISODE",
+              episode: episodeAvailability.nextEpisode,
+            });
+            stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
+            playbackSession = {
+              ...playbackSession,
+              stopAfterCurrent: false,
+            };
+            continue;
+          }
+        }
+
+        if (playbackControlAction === "previous" && title.type === "series") {
+          if (episodeAvailability.previousEpisode) {
+            stateManager.dispatch({
+              type: "SELECT_EPISODE",
+              episode: episodeAvailability.previousEpisode,
+            });
+            stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
+            playbackSession = {
+              ...playbackSession,
+              stopAfterCurrent: false,
+            };
+            continue;
+          }
+        }
+
         // Handle post-playback
         const nextEpisode = await resolveAutoplayAdvanceEpisode({
           result,
@@ -424,7 +459,20 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             type: "SELECT_EPISODE",
             episode: nextEpisode,
           });
+          stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
+          playbackSession = {
+            ...playbackSession,
+            stopAfterCurrent: false,
+          };
           continue;
+        }
+
+        if (playbackSession.stopAfterCurrent) {
+          stateManager.dispatch({ type: "SET_SESSION_STOP_AFTER_CURRENT", enabled: false });
+          playbackSession = {
+            ...playbackSession,
+            stopAfterCurrent: false,
+          };
         }
 
         // Post-playback menu — inner loop so unavailable navigation

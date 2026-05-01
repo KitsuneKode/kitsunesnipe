@@ -84,3 +84,21 @@ test("PlayerControlServiceImpl reloads subtitles without stopping playback", asy
   expect(service.consumeLastAction()).toBe("reload-subtitles");
   expect(reloaded).toBe(1);
 });
+
+test("PlayerControlServiceImpl records next and previous episode intents as stop-backed actions", async () => {
+  const stoppedReasons: string[] = [];
+  const service = makeService();
+
+  service.setActive({
+    id: "player-1",
+    async stop(reason) {
+      stoppedReasons.push(reason ?? "");
+    },
+  });
+
+  expect(await service.nextCurrentPlayback("next-key")).toBe(true);
+  expect(service.consumeLastAction()).toBe("next");
+  expect(await service.previousCurrentPlayback("previous-key")).toBe(true);
+  expect(service.consumeLastAction()).toBe("previous");
+  expect(stoppedReasons).toEqual(["next-key", "previous-key"]);
+});

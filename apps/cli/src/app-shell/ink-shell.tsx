@@ -360,6 +360,12 @@ function AppRoot({ container }: { container: Container }) {
           <InlineBadge label={`provider ${state.provider}`} tone="neutral" />
           <InlineBadge label={`view ${currentViewLabel}`} tone="success" />
           {playbackSubtitle ? <InlineBadge label={playbackSubtitle} tone="neutral" /> : null}
+          {rootSurface === "playback" && state.autoplaySessionPaused ? (
+            <InlineBadge label="autoplay paused" tone="warning" />
+          ) : null}
+          {rootSurface === "playback" && state.stopAfterCurrent ? (
+            <InlineBadge label="stop after current" tone="warning" />
+          ) : null}
         </Box>
         <Box marginTop={1} flexDirection="column" flexGrow={1} justifyContent="space-between">
           <Box flexDirection="column" flexGrow={1}>
@@ -386,16 +392,24 @@ function AppRoot({ container }: { container: Container }) {
                   showMemory: state.playbackStatus === "playing",
                   stopHint:
                     state.playbackStatus === "playing"
-                      ? "q stop  ·  r refresh source  ·  f fallback provider"
+                      ? state.currentTitle?.type === "series"
+                        ? `q stop  ·  n next  ·  p previous  ·  ${state.stopAfterCurrent ? "x resume chain" : "x stop after current"}`
+                        : "q stop  ·  x stop after current"
                       : undefined,
                   controlHint:
                     state.playbackStatus === "playing"
-                      ? "s reload subtitles  ·  Ctrl+C hard exit"
+                      ? `${state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay"}  ·  s reload subtitles  ·  r refresh  ·  f fallback  ·  Ctrl+C hard exit`
                       : undefined,
                 }}
                 onCancel={() => {}}
                 onStop={() => {
                   void container.playerControl.stopCurrentPlayback("playback-shell-q");
+                }}
+                onNext={() => {
+                  void container.playerControl.nextCurrentPlayback("playback-shell-n");
+                }}
+                onPrevious={() => {
+                  void container.playerControl.previousCurrentPlayback("playback-shell-p");
                 }}
                 onRefresh={() => {
                   void container.playerControl.refreshCurrentPlayback("playback-shell-r");
@@ -405,6 +419,18 @@ function AppRoot({ container }: { container: Container }) {
                 }}
                 onReloadSubtitles={() => {
                   void container.playerControl.reloadCurrentSubtitles("playback-shell-s");
+                }}
+                onToggleAutoplay={() => {
+                  container.stateManager.dispatch({
+                    type: "SET_SESSION_AUTOPLAY_PAUSED",
+                    paused: !container.stateManager.getState().autoplaySessionPaused,
+                  });
+                }}
+                onStopAfterCurrent={() => {
+                  container.stateManager.dispatch({
+                    type: "SET_SESSION_STOP_AFTER_CURRENT",
+                    enabled: !container.stateManager.getState().stopAfterCurrent,
+                  });
                 }}
               />
             ) : rootSurface === "root-content" && rootContent ? (

@@ -62,9 +62,14 @@ describe("SessionState overlays", () => {
       type: "SET_SESSION_AUTOPLAY_PAUSED",
       paused: true,
     });
+    state = reduceState(state, {
+      type: "SET_SESSION_STOP_AFTER_CURRENT",
+      enabled: true,
+    });
     state = reduceState(state, { type: "RESET_CONTENT" });
 
     expect(state.autoplaySessionPaused).toBe(false);
+    expect(state.stopAfterCurrent).toBe(false);
   });
 
   test("Esc closes command entry before it closes the overlay stack", () => {
