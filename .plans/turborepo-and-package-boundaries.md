@@ -1,6 +1,6 @@
 # Kunai Turborepo And Package Boundaries Plan
 
-Status: Phase 4F provider SDK boundary redesign
+Status: Phase 4G provider package prep
 
 Last updated: 2026-04-29
 
@@ -369,7 +369,7 @@ Phase 3B wiring, after the package foundation:
 
 Build the provider architecture like an internal SDK. The app calls one standard interface; providers own their internal mess; runtime ports provide environment-specific capabilities.
 
-Status: Phase 4F provider SDK boundary redesign.
+Status: Phase 4G provider package prep.
 
 Phase 4A foundation:
 
@@ -426,12 +426,13 @@ Phase 4E resolver orchestration:
 
 Phase 4F provider SDK contract:
 
-- define `ProviderModule`, `ProviderManifest`, provider runtime-port requirements, provider-local retry policy, abort semantics, and trace event vocabulary
-- model `Provider -> Source/Mirror -> Variant` without forcing a rigid tree when upstream sites reveal data late
-- require selected stream plus discovered candidates when available
-- require providers to emit trace events for source attempts, mirror failures, subtitle discoveries, cache hints, retries, and provider exhaustion
-- keep current CLI providers working through adapters while the contract lands
-- treat the existing VidKing/Cineby/BitCine embed-route extraction as a temporary first slice; move those helpers to `@kunai/providers` once that package exists
+Status: Complete.
+
+- `@kunai/types` defines `ProviderModule`, source/mirror and variant candidates, selected-stream result fields, provider runtime context, retry policy, abort state, browser/fetch runtime ports, and live provider trace events
+- `@kunai/schemas` validates serialized source candidates, variant candidates, and provider trace events
+- `@kunai/core` exposes Provider SDK helpers for runtime context creation, trace event creation, and runtime allow-list checks
+- `@kunai/providers` exists as an empty provider-module package and registry target; no production providers have moved yet
+- current CLI providers still work through existing adapters
 
 Phase 4G provider package:
 

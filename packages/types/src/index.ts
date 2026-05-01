@@ -68,10 +68,14 @@ export interface EpisodeIdentity {
 export interface StreamCandidate {
   readonly id: string;
   readonly providerId: ProviderId;
+  readonly sourceId?: string;
+  readonly variantId?: string;
   readonly url?: string;
   readonly deferredLocator?: string;
   readonly protocol: "hls" | "dash" | "mp4" | "iframe" | "unknown";
   readonly container?: "m3u8" | "mpd" | "mp4" | "webm" | "unknown";
+  readonly audioLanguage?: string;
+  readonly hardSubLanguage?: string;
   readonly qualityLabel?: string;
   readonly qualityRank?: number;
   readonly headers?: Record<string, string>;
@@ -84,6 +88,8 @@ export interface StreamCandidate {
 export interface SubtitleCandidate {
   readonly id: string;
   readonly providerId: ProviderId;
+  readonly sourceId?: string;
+  readonly variantId?: string;
   readonly url: string;
   readonly language?: string;
   readonly label?: string;
@@ -92,6 +98,56 @@ export interface SubtitleCandidate {
   readonly confidence: number;
   readonly syncEvidence?: string;
   readonly cachePolicy: CachePolicy;
+}
+
+export type ProviderSourceKind =
+  | "provider-api"
+  | "embed"
+  | "file-host"
+  | "mirror"
+  | "manifest"
+  | "direct-media"
+  | "unknown";
+
+export type ProviderSourceStatus =
+  | "pending"
+  | "probing"
+  | "available"
+  | "selected"
+  | "skipped"
+  | "failed"
+  | "exhausted";
+
+export interface ProviderSourceCandidate {
+  readonly id: string;
+  readonly providerId: ProviderId;
+  readonly kind: ProviderSourceKind;
+  readonly label?: string;
+  readonly host?: string;
+  readonly status: ProviderSourceStatus;
+  readonly confidence: number;
+  readonly requiresRuntime?: ProviderRuntime;
+  readonly cachePolicy?: CachePolicy;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface ProviderVariantCandidate {
+  readonly id: string;
+  readonly providerId: ProviderId;
+  readonly sourceId: string;
+  readonly label?: string;
+  readonly qualityLabel?: string;
+  readonly qualityRank?: number;
+  readonly protocol?: StreamCandidate["protocol"];
+  readonly container?: StreamCandidate["container"];
+  readonly audioLanguage?: string;
+  readonly hardSubLanguage?: string;
+  readonly subtitleLanguages?: readonly string[];
+  readonly streamIds?: readonly string[];
+  readonly subtitleIds?: readonly string[];
+  readonly selected?: boolean;
+  readonly confidence: number;
+  readonly metadata?: Record<string, unknown>;
 }
 
 export type ResolveErrorCode =
@@ -125,6 +181,42 @@ export interface ResolveTraceStep {
   readonly attributes?: Record<string, string | number | boolean | null>;
 }
 
+export type ProviderTraceEventType =
+  | "provider:start"
+  | "provider:success"
+  | "provider:exhausted"
+  | "source:start"
+  | "source:success"
+  | "source:failed"
+  | "source:skipped"
+  | "variant:discovered"
+  | "variant:selected"
+  | "subtitle:discovered"
+  | "subtitle:selected"
+  | "cache:hit"
+  | "cache:stale"
+  | "cache:miss"
+  | "runtime:requested"
+  | "runtime:started"
+  | "runtime:reused"
+  | "runtime:released"
+  | "retry:scheduled"
+  | "retry:aborted";
+
+export interface ProviderTraceEvent {
+  readonly type: ProviderTraceEventType;
+  readonly at: string;
+  readonly providerId: ProviderId;
+  readonly sourceId?: string;
+  readonly variantId?: string;
+  readonly streamId?: string;
+  readonly subtitleId?: string;
+  readonly attempt?: number;
+  readonly message: string;
+  readonly durationMs?: number;
+  readonly attributes?: Record<string, string | number | boolean | null>;
+}
+
 export interface ResolveTrace {
   readonly id: string;
   readonly startedAt: string;
@@ -136,6 +228,7 @@ export interface ResolveTrace {
   readonly cacheHit: boolean;
   readonly runtime?: ProviderRuntime;
   readonly steps: readonly ResolveTraceStep[];
+  readonly events?: readonly ProviderTraceEvent[];
   readonly failures: readonly ProviderFailure[];
 }
 
@@ -176,14 +269,74 @@ export interface ProviderResolveInput {
   readonly allowedRuntimes: readonly ProviderRuntime[];
 }
 
+export type ProviderRetryBackoff = "none" | "fixed" | "exponential";
+
+export interface ProviderRetryPolicy {
+  readonly maxAttempts: number;
+  readonly backoff: ProviderRetryBackoff;
+  readonly delayMs?: number;
+  readonly retryableCodes?: readonly ResolveErrorCode[];
+}
+
+export interface ProviderAbortState {
+  readonly aborted: boolean;
+  readonly reason?: "user-cancelled" | "provider-fallback" | "timeout" | "shutdown";
+}
+
+export interface ProviderFetchPort {
+  readonly runtime: "browser-safe-fetch" | "node-fetch";
+  fetch(input: string | URL | Request, init?: RequestInit): Promise<Response>;
+}
+
+export interface ProviderBrowserCaptureInput {
+  readonly url: string;
+  readonly needsClick?: boolean;
+  readonly headers?: Record<string, string>;
+  readonly timeoutMs?: number;
+  readonly playerDomains?: readonly string[];
+  readonly metadata?: Record<string, string | number | boolean | null>;
+}
+
+export interface ProviderBrowserCaptureResult {
+  readonly streams: readonly StreamCandidate[];
+  readonly subtitles: readonly SubtitleCandidate[];
+  readonly traceEvents?: readonly ProviderTraceEvent[];
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface ProviderBrowserLeasePort {
+  readonly runtime: "playwright-lease";
+  capture(
+    input: ProviderBrowserCaptureInput,
+    signal?: AbortSignal,
+  ): Promise<ProviderBrowserCaptureResult>;
+}
+
+export interface ProviderRuntimeContext {
+  readonly signal?: AbortSignal;
+  readonly retryPolicy?: ProviderRetryPolicy;
+  readonly fetch?: ProviderFetchPort;
+  readonly browserLease?: ProviderBrowserLeasePort;
+  now(): string;
+  emit?(event: ProviderTraceEvent): void;
+}
+
 export interface ProviderResolveResult {
   readonly providerId: ProviderId;
+  readonly selectedStreamId?: string;
+  readonly sources?: readonly ProviderSourceCandidate[];
+  readonly variants?: readonly ProviderVariantCandidate[];
   readonly streams: readonly StreamCandidate[];
   readonly subtitles: readonly SubtitleCandidate[];
   readonly cachePolicy?: CachePolicy;
   readonly trace: ResolveTrace;
   readonly failures: readonly ProviderFailure[];
   readonly healthDelta?: ProviderHealthDelta;
+}
+
+export interface ProviderModule<TContext extends ProviderRuntimeContext = ProviderRuntimeContext> {
+  readonly providerId: ProviderId;
+  resolve(input: ProviderResolveInput, context: TContext): Promise<ProviderResolveResult>;
 }
 
 export interface PlaybackRecoveryEvent {

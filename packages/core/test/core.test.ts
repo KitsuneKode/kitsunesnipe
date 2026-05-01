@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import {
   allanimeManifest,
   adaptCliStreamResult,
+  assertRuntimeAllowed,
   assertManifestHasRuntimePort,
   bitcineManifest,
   buildBitcineEmbedUrl,
@@ -12,6 +13,9 @@ import {
   cinebyAnimeManifest,
   cinebyManifest,
   createProviderCachePolicy,
+  createProviderRuntimeContext,
+  createProviderTraceEvent,
+  DEFAULT_PROVIDER_RETRY_POLICY,
   resolveWithFallback,
   vidkingManifest,
 } from "../src/index";
@@ -117,6 +121,43 @@ test("provider cache policy normalizes deterministic key parts", () => {
     "1080p",
   ]);
   expect(policy.allowStale).toBe(true);
+});
+
+test("provider sdk helpers create runtime context and typed trace events", () => {
+  const events: ReturnType<typeof createProviderTraceEvent>[] = [];
+  const context = createProviderRuntimeContext({
+    now: () => "2026-05-01T00:00:00.000Z",
+    emit(event) {
+      events.push(event);
+    },
+  });
+
+  expect(context.retryPolicy).toEqual(DEFAULT_PROVIDER_RETRY_POLICY);
+
+  context.emit?.(
+    createProviderTraceEvent({
+      now: context.now,
+      type: "runtime:requested",
+      providerId: "vidking",
+      message: "Provider requested browser lease",
+    }),
+  );
+
+  expect(events[0]).toMatchObject({
+    type: "runtime:requested",
+    at: "2026-05-01T00:00:00.000Z",
+    providerId: "vidking",
+  });
+});
+
+test("provider sdk helpers reject unavailable runtimes before provider work starts", () => {
+  expect(() =>
+    assertRuntimeAllowed({
+      providerId: "vidking",
+      runtime: "playwright-lease",
+      allowedRuntimes: ["node-fetch"],
+    }),
+  ).toThrow("vidking requires playwright-lease");
 });
 
 test("cli stream adapter returns shared provider resolve result with trace evidence", () => {

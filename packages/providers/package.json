@@ -1,0 +1,26 @@
+{
+  "name": "@kunai/providers",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kunai provider modules behind the Provider SDK boundary.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "bun tsc --noEmit",
+    "lint": "oxlint .",
+    "fmt": "oxfmt --write .",
+    "test": "bun test test"
+  },
+  "dependencies": {
+    "@kunai/core": "workspace:*",
+    "@kunai/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

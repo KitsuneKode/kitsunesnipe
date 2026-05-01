@@ -78,6 +78,20 @@
         "typescript": "^5",
       },
     },
+    "packages/providers": {
+      "name": "@kunai/providers",
+      "version": "0.1.0",
+      "dependencies": {
+        "@kunai/core": "workspace:*",
+        "@kunai/types": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
+      },
+    },
     "packages/schemas": {
       "name": "@kunai/schemas",
       "version": "0.1.0",
@@ -233,6 +247,8 @@
     "@kunai/core": ["@kunai/core@workspace:packages/core"],
 
     "@kunai/experiments": ["@kunai/experiments@workspace:apps/experiments"],
+
+    "@kunai/providers": ["@kunai/providers@workspace:packages/providers"],
 
     "@kunai/schemas": ["@kunai/schemas@workspace:packages/schemas"],
 

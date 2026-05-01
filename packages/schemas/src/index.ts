@@ -3,6 +3,9 @@ import type {
   CachePolicy,
   ProviderFailure,
   ProviderHealth,
+  ProviderSourceCandidate,
+  ProviderTraceEvent,
+  ProviderVariantCandidate,
   ResolveTrace,
   StreamCandidate,
   SubtitleCandidate,
@@ -81,10 +84,14 @@ export const episodeIdentitySchema = z.object({
 export const streamCandidateSchema = z.object({
   id: z.string().min(1),
   providerId: z.string().min(1),
+  sourceId: z.string().min(1).optional(),
+  variantId: z.string().min(1).optional(),
   url: z.url().optional(),
   deferredLocator: z.string().min(1).optional(),
   protocol: z.enum(["hls", "dash", "mp4", "iframe", "unknown"]),
   container: z.enum(["m3u8", "mpd", "mp4", "webm", "unknown"]).optional(),
+  audioLanguage: z.string().min(1).optional(),
+  hardSubLanguage: z.string().min(1).optional(),
   qualityLabel: z.string().min(1).optional(),
   qualityRank: z.number().int().optional(),
   headers: z.record(z.string(), z.string()).optional(),
@@ -97,6 +104,8 @@ export const streamCandidateSchema = z.object({
 export const subtitleCandidateSchema = z.object({
   id: z.string().min(1),
   providerId: z.string().min(1),
+  sourceId: z.string().min(1).optional(),
+  variantId: z.string().min(1).optional(),
   url: z.url(),
   language: z.string().min(1).optional(),
   label: z.string().min(1).optional(),
@@ -106,6 +115,46 @@ export const subtitleCandidateSchema = z.object({
   syncEvidence: z.string().min(1).optional(),
   cachePolicy: cachePolicySchema,
 }) satisfies z.ZodType<SubtitleCandidate>;
+
+export const providerSourceCandidateSchema = z.object({
+  id: z.string().min(1),
+  providerId: z.string().min(1),
+  kind: z.enum([
+    "provider-api",
+    "embed",
+    "file-host",
+    "mirror",
+    "manifest",
+    "direct-media",
+    "unknown",
+  ]),
+  label: z.string().min(1).optional(),
+  host: z.string().min(1).optional(),
+  status: z.enum(["pending", "probing", "available", "selected", "skipped", "failed", "exhausted"]),
+  confidence: z.number().min(0).max(1),
+  requiresRuntime: providerRuntimeSchema.optional(),
+  cachePolicy: cachePolicySchema.optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+}) satisfies z.ZodType<ProviderSourceCandidate>;
+
+export const providerVariantCandidateSchema = z.object({
+  id: z.string().min(1),
+  providerId: z.string().min(1),
+  sourceId: z.string().min(1),
+  label: z.string().min(1).optional(),
+  qualityLabel: z.string().min(1).optional(),
+  qualityRank: z.number().int().optional(),
+  protocol: z.enum(["hls", "dash", "mp4", "iframe", "unknown"]).optional(),
+  container: z.enum(["m3u8", "mpd", "mp4", "webm", "unknown"]).optional(),
+  audioLanguage: z.string().min(1).optional(),
+  hardSubLanguage: z.string().min(1).optional(),
+  subtitleLanguages: z.array(z.string().min(1)).optional(),
+  streamIds: z.array(z.string().min(1)).optional(),
+  subtitleIds: z.array(z.string().min(1)).optional(),
+  selected: z.boolean().optional(),
+  confidence: z.number().min(0).max(1),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+}) satisfies z.ZodType<ProviderVariantCandidate>;
 
 export const providerFailureSchema = z.object({
   providerId: z.string().min(1),
@@ -126,6 +175,43 @@ export const resolveTraceStepSchema = z.object({
     .optional(),
 });
 
+export const providerTraceEventSchema = z.object({
+  type: z.enum([
+    "provider:start",
+    "provider:success",
+    "provider:exhausted",
+    "source:start",
+    "source:success",
+    "source:failed",
+    "source:skipped",
+    "variant:discovered",
+    "variant:selected",
+    "subtitle:discovered",
+    "subtitle:selected",
+    "cache:hit",
+    "cache:stale",
+    "cache:miss",
+    "runtime:requested",
+    "runtime:started",
+    "runtime:reused",
+    "runtime:released",
+    "retry:scheduled",
+    "retry:aborted",
+  ]),
+  at: z.iso.datetime(),
+  providerId: z.string().min(1),
+  sourceId: z.string().min(1).optional(),
+  variantId: z.string().min(1).optional(),
+  streamId: z.string().min(1).optional(),
+  subtitleId: z.string().min(1).optional(),
+  attempt: z.number().int().positive().optional(),
+  message: z.string(),
+  durationMs: z.number().nonnegative().optional(),
+  attributes: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]))
+    .optional(),
+}) satisfies z.ZodType<ProviderTraceEvent>;
+
 export const resolveTraceSchema = z.object({
   id: z.string().min(1),
   startedAt: z.iso.datetime(),
@@ -137,6 +223,7 @@ export const resolveTraceSchema = z.object({
   cacheHit: z.boolean(),
   runtime: providerRuntimeSchema.optional(),
   steps: z.array(resolveTraceStepSchema),
+  events: z.array(providerTraceEventSchema).optional(),
   failures: z.array(providerFailureSchema),
 }) satisfies z.ZodType<ResolveTrace>;
 

@@ -3,6 +3,9 @@ import { expect, test } from "bun:test";
 import {
   providerFailureSchema,
   providerHealthSchema,
+  providerSourceCandidateSchema,
+  providerTraceEventSchema,
+  providerVariantCandidateSchema,
   resolveTraceSchema,
   streamCandidateSchema,
 } from "../src/index";
@@ -27,6 +30,47 @@ test("stream candidate schema accepts serialized cache-safe shape", () => {
 
   expect(parsed.protocol).toBe("hls");
   expect(parsed.cachePolicy.ttlClass).toBe("stream-manifest");
+});
+
+test("provider source and variant schemas model mirror inventory without forcing a rigid tree", () => {
+  const source = providerSourceCandidateSchema.parse({
+    id: "oxygen",
+    providerId: "vidking",
+    kind: "mirror",
+    label: "Oxygen",
+    status: "available",
+    confidence: 0.88,
+    requiresRuntime: "playwright-lease",
+  });
+
+  const variant = providerVariantCandidateSchema.parse({
+    id: "oxygen-english-1080p",
+    providerId: "vidking",
+    sourceId: source.id,
+    qualityLabel: "1080p",
+    audioLanguage: "en",
+    subtitleLanguages: ["en", "es"],
+    streamIds: ["stream-1"],
+    confidence: 0.86,
+  });
+
+  expect(source.kind).toBe("mirror");
+  expect(variant.subtitleLanguages).toContain("en");
+});
+
+test("provider trace event schema validates live retry and runtime events", () => {
+  const event = providerTraceEventSchema.parse({
+    type: "retry:scheduled",
+    at: "2026-05-01T00:00:00.000Z",
+    providerId: "vidking",
+    sourceId: "oxygen",
+    attempt: 2,
+    message: "Retrying after timeout",
+    attributes: { timeoutMs: 3000, retryable: true },
+  });
+
+  expect(event.type).toBe("retry:scheduled");
+  expect(event.attributes?.timeoutMs).toBe(3000);
 });
 
 test("stream candidate schema rejects impossible confidence", () => {

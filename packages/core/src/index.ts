@@ -2,6 +2,7 @@ export * from "./adapter";
 export * from "./cache-policy";
 export * from "./embed-url";
 export * from "./provider-manifest";
+export * from "./provider-sdk";
 export * from "./providers/allanime";
 export * from "./providers/bitcine";
 export * from "./providers/braflix";
