@@ -4,7 +4,7 @@
 
 import type { ProviderCapabilities, ProviderMetadata, StreamInfo, TitleInfo } from "@/domain/types";
 import { buildVidkingEmbedUrl, vidkingManifest } from "@kunai/core";
-import { resolveSubtitlesByTmdbId } from "@/subtitle";
+import { mergeSubtitleTracks, resolveSubtitlesByTmdbId, selectSubtitle } from "@/subtitle";
 import type { Provider, ProviderDeps, StreamRequest } from "../Provider";
 import {
   attachProviderResolveResult,
@@ -62,15 +62,17 @@ export class VidKingProvider implements Provider {
       });
 
       if (wyzie.list.length > 0) {
+        const mergedSubtitleList = mergeSubtitleTracks(stream.subtitleList, wyzie.list);
+        const mergedPick = selectSubtitle(mergedSubtitleList, request.subLang);
         stream = {
           ...stream,
-          subtitle: wyzie.selected ?? stream.subtitle,
-          subtitleList: wyzie.list,
-          subtitleSource: "wyzie",
+          subtitle: mergedPick?.url ?? wyzie.selected ?? stream.subtitle,
+          subtitleList: mergedSubtitleList,
+          subtitleSource: stream.subtitleList?.length ? "provider" : "wyzie",
           subtitleEvidence: {
             directSubtitleObserved: Boolean(stream.subtitleList?.length),
             wyzieSearchObserved: true,
-            reason: wyzie.selected ? "wyzie-selected" : "wyzie-empty",
+            reason: mergedPick?.url ? "wyzie-selected" : "wyzie-empty",
           },
         };
       }

@@ -12,7 +12,7 @@ import type { ConfigService } from "@/services/persistence/ConfigService";
 import type { CacheStore } from "@/services/persistence/CacheStore";
 import type { DiagnosticsStore } from "@/services/diagnostics/DiagnosticsStore";
 import { scrapeStream, type ScrapeConfig } from "@/scraper";
-import { resolveSubtitlesByTmdbId, selectSubtitle } from "@/subtitle";
+import { mergeSubtitleTracks, resolveSubtitlesByTmdbId, selectSubtitle } from "@/subtitle";
 
 type ScrapeStreamFn = typeof scrapeStream;
 type ResolveSubtitlesByTmdbIdFn = typeof resolveSubtitlesByTmdbId;
@@ -133,11 +133,17 @@ export class BrowserServiceImpl implements BrowserService {
       });
 
       if (wyzieResult.list.length > 0) {
-        scrapeSubtitle = wyzieResult.selected ?? scrapeSubtitle ?? undefined;
-        scrapeSubtitleList = wyzieResult.list as unknown as SubtitleTrack[];
-        scrapeSubtitleSource = "wyzie";
+        const mergedSubtitleList = mergeSubtitleTracks(
+          scrapeSubtitleList,
+          wyzieResult.list as unknown as SubtitleTrack[],
+        );
+        const mergedPick = selectSubtitle(mergedSubtitleList as never, requestedSubLang);
+        scrapeSubtitle = mergedPick?.url ?? wyzieResult.selected ?? scrapeSubtitle ?? undefined;
+        scrapeSubtitleList = mergedSubtitleList;
+        scrapeSubtitleSource =
+          scrapeSubtitleList.length > wyzieResult.list.length ? "direct" : "wyzie";
         scrapeSubtitleEvidence = {
-          directSubtitleObserved: false,
+          directSubtitleObserved: Boolean(result.subtitleList?.length),
           wyzieSearchObserved: true,
           reason: scrapeSubtitle ? "wyzie-selected" : "wyzie-empty",
         };

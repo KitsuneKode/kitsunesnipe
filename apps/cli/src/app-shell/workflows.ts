@@ -617,10 +617,33 @@ export async function openSubtitlePicker(
     display?: string;
     language?: string;
     release?: string;
+    sourceKind?: "embedded" | "external";
+    sourceName?: string;
   }>,
   actionContext?: ListShellActionContext,
   container?: Container,
 ): Promise<string | null> {
+  const describeSubtitleEntry = (entry: {
+    language?: string;
+    release?: string;
+    sourceKind?: "embedded" | "external";
+    sourceName?: string;
+  }): string => {
+    const parts = [entry.language ?? "unknown"];
+    if (entry.sourceKind === "embedded") {
+      parts.push("built-in");
+    } else if (entry.sourceKind === "external") {
+      parts.push("external");
+    }
+    if (entry.sourceName) {
+      parts.push(entry.sourceName);
+    }
+    if (entry.release) {
+      parts.push(entry.release);
+    }
+    return parts.join("  ·  ");
+  };
+
   if (container) {
     container.stateManager.dispatch({
       type: "OPEN_OVERLAY",
@@ -629,7 +652,7 @@ export async function openSubtitlePicker(
         options: entries.map((entry) => ({
           value: entry.url,
           label: entry.display ?? entry.language ?? "Unknown track",
-          detail: `${entry.language ?? "unknown"}${entry.release ? `  ·  ${entry.release}` : ""}`,
+          detail: describeSubtitleEntry(entry),
         })),
       },
     });
@@ -643,7 +666,7 @@ export async function openSubtitlePicker(
     options: entries.map((entry) => ({
       value: entry.url,
       label: entry.display ?? entry.language ?? "Unknown track",
-      detail: `${entry.language ?? "unknown"}${entry.release ? `  ·  ${entry.release}` : ""}`,
+      detail: describeSubtitleEntry(entry),
     })),
   });
 }

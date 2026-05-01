@@ -70,6 +70,9 @@ export interface SubtitleTrack {
   readonly display?: string;
   readonly language?: string;
   readonly release?: string;
+  readonly sourceKind?: "embedded" | "external";
+  readonly sourceName?: string;
+  readonly isHearingImpaired?: boolean;
 }
 
 export interface SearchResult {

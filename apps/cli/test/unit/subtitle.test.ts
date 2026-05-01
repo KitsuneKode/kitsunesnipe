@@ -22,12 +22,34 @@ describe("parseWyzieSubtitleList", () => {
       language: "en",
       display: "English",
       release: "Demo.S01E01",
+      sourceKind: "external" as const,
+      sourceName: "opensubtitles",
+      isHearingImpaired: false,
     };
 
     expect(parseWyzieSubtitleList([entry])).toEqual([entry]);
     expect(parseWyzieSubtitleList({ subtitles: [entry] })).toEqual([entry]);
     expect(parseWyzieSubtitleList({ tracks: [entry] })).toEqual([entry]);
     expect(parseWyzieSubtitleList({ results: [entry] })).toEqual([entry]);
+  });
+
+  test("normalizes wyzie source metadata for subtitle ranking", () => {
+    const [entry] = parseWyzieSubtitleList([
+      {
+        id: "1",
+        url: "https://sub.wyzie.io/c/demo/id/1?format=srt",
+        language: "en",
+        display: "English SDH",
+        release: "Demo.S01E01",
+        source: "OpenSubtitles",
+      },
+    ]);
+
+    expect(entry).toMatchObject({
+      sourceKind: "external",
+      sourceName: "opensubtitles",
+      isHearingImpaired: true,
+    });
   });
 });
 
@@ -62,6 +84,31 @@ describe("selectSubtitle", () => {
     };
 
     expect(selectSubtitle([entry], "en")?.url).toBe(entry.url);
+  });
+
+  test("prefers built-in subtitles over external subtitles for the same language", () => {
+    const builtIn = {
+      id: "embedded-en",
+      url: "https://sub.provider/en.vtt",
+      language: "en",
+      display: "English",
+      release: "Demo",
+      sourceKind: "embedded" as const,
+      sourceName: "vidking",
+    };
+    const external = {
+      id: "external-en",
+      url: "https://sub.wyzie.io/c/demo/id/en?format=srt",
+      language: "en",
+      display: "English SDH",
+      release: "Demo",
+      sourceKind: "external" as const,
+      sourceName: "opensubtitles",
+      isHearingImpaired: true,
+      downloadCount: 999,
+    };
+
+    expect(selectSubtitle([external, builtIn], "en")?.url).toBe(builtIn.url);
   });
 });
 

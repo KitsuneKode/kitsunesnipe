@@ -5,11 +5,15 @@
 import { dbg, dbgErr } from "@/logger";
 
 export type SubtitleEntry = {
-  id: string;
+  id?: string;
   url: string;
-  display: string;
-  language: string;
-  release: string;
+  display?: string;
+  language?: string;
+  release?: string;
+  sourceKind?: "embedded" | "external";
+  sourceName?: string;
+  isHearingImpaired?: boolean;
+  downloadCount?: number;
 };
 
 export function parseWyzieSubtitleList(payload: unknown): SubtitleEntry[] {
@@ -22,7 +26,9 @@ export function parseWyzieSubtitleList(payload: unknown): SubtitleEntry[] {
 
   if (!Array.isArray(candidates)) return [];
 
-  return candidates.filter(isSubtitleEntry);
+  return candidates
+    .map(normalizeWyzieSubtitleEntry)
+    .filter((entry): entry is SubtitleEntry => entry !== null);
 }
 
 // True when an entry's language code matches the requested code.
@@ -73,24 +79,17 @@ function langMatches(entryLang: string, preferred: string): boolean {
 }
 
 function subtitleHints(entry: SubtitleEntry): string[] {
-  const values = [entry.language, entry.display, entry.release, entry.url]
+  const values = [entry.language, entry.display, entry.release, entry.url, entry.sourceName]
     .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
     .map((value) => value.toLowerCase().trim());
   return Array.from(new Set(values));
 }
 
-// Among a filtered set, prefer non-hearing-impaired entries with the most downloads.
 function bestFrom(candidates: SubtitleEntry[]): SubtitleEntry | null {
   if (candidates.length === 0) return null;
-  const normal = candidates.filter(
-    (s) => !(s as SubtitleEntry & { isHearingImpaired?: boolean }).isHearingImpaired,
+  return candidates.reduce((best, candidate) =>
+    compareSubtitleEntries(candidate, best) > 0 ? candidate : best,
   );
-  const pool = normal.length > 0 ? normal : candidates;
-  return pool.reduce((best, s) => {
-    const bc = (best as SubtitleEntry & { downloadCount?: number }).downloadCount ?? 0;
-    const sc = (s as SubtitleEntry & { downloadCount?: number }).downloadCount ?? 0;
-    return sc > bc ? s : best;
-  });
 }
 
 export function selectSubtitle(list: SubtitleEntry[], preferredLang: string): SubtitleEntry | null {
@@ -110,6 +109,33 @@ export function selectSubtitle(list: SubtitleEntry[], preferredLang: string): Su
 
   // 3. Last resort: best entry from whatever is available
   return bestFrom(list);
+}
+
+export function mergeSubtitleTracks<T extends { url: string }>(
+  primary: readonly T[] | undefined,
+  secondary: readonly T[] | undefined,
+): T[] {
+  const merged = new Map<string, T>();
+  const order: string[] = [];
+
+  const absorb = (track: T, preferExisting: boolean) => {
+    const key = track.url.trim();
+    if (!key) return;
+
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, track);
+      order.push(key);
+      return;
+    }
+
+    merged.set(key, mergeTrackObjects(existing, track, preferExisting));
+  };
+
+  for (const track of primary ?? []) absorb(track, true);
+  for (const track of secondary ?? []) absorb(track, false);
+
+  return order.map((key) => merged.get(key)).filter((track): track is T => track !== undefined);
 }
 
 export async function fetchSubtitlesFromWyzie(
@@ -198,15 +224,105 @@ function redactWyzieKey(url: string): string {
   }
 }
 
-function isSubtitleEntry(value: unknown): value is SubtitleEntry {
-  if (!value || typeof value !== "object") return false;
-  const entry = value as Partial<SubtitleEntry>;
-  return (
-    typeof entry.url === "string" &&
-    entry.url.length > 0 &&
-    typeof entry.language === "string" &&
-    entry.language.length > 0
-  );
+function normalizeWyzieSubtitleEntry(value: unknown): SubtitleEntry | null {
+  if (!value || typeof value !== "object") return null;
+
+  const raw = value as Record<string, unknown>;
+  const url = firstString(raw.url, raw.src, raw.file, raw.href);
+  const language = firstString(raw.language, raw.lang, raw.isoCode, raw.locale);
+
+  if (!url || !language) return null;
+
+  const display = firstString(raw.display, raw.label, raw.name, raw.language, raw.lang) ?? language;
+  const release = firstString(raw.release, raw.version, raw.filename) ?? "";
+  const id = firstString(raw.id, raw.slug, raw.url) ?? url;
+  const sourceName = firstString(raw.source, raw.sourceName, raw.provider, raw.origin);
+  const downloadCount = asNumber(raw.downloadCount, raw.downloads, raw.count);
+
+  return {
+    id,
+    url,
+    display,
+    language,
+    release,
+    sourceKind: "external",
+    sourceName: sourceName?.toLowerCase(),
+    isHearingImpaired: detectHearingImpaired(display, release),
+    downloadCount,
+  };
+}
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function asNumber(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim().length > 0) {
+      const parsed = Number.parseInt(value, 10);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+}
+
+function detectHearingImpaired(...values: Array<string | undefined>): boolean {
+  const raw = values
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .toLowerCase();
+  return raw.includes("sdh") || /\bhi\b/.test(raw) || raw.includes("hearing");
+}
+
+function sourcePriority(entry: SubtitleEntry): number {
+  switch (entry.sourceKind) {
+    case "embedded":
+      return 3;
+    case undefined:
+      return 2;
+    case "external":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function compareSubtitleEntries(left: SubtitleEntry, right: SubtitleEntry): number {
+  const sourceDelta = sourcePriority(left) - sourcePriority(right);
+  if (sourceDelta !== 0) return sourceDelta;
+
+  const hiDelta =
+    Number(Boolean(right.isHearingImpaired)) - Number(Boolean(left.isHearingImpaired));
+  if (hiDelta !== 0) return hiDelta;
+
+  const downloadDelta = (left.downloadCount ?? 0) - (right.downloadCount ?? 0);
+  if (downloadDelta !== 0) return downloadDelta;
+
+  return 0;
+}
+
+function mergeTrackObjects<T extends { url: string }>(
+  existing: T,
+  incoming: T,
+  preferExisting: boolean,
+): T {
+  const winner = preferExisting ? existing : incoming;
+  const loser = preferExisting ? incoming : existing;
+
+  const result: Record<string, unknown> = { ...winner };
+  for (const [key, value] of Object.entries(loser)) {
+    if (result[key] === undefined || result[key] === "") {
+      result[key] = value;
+    }
+  }
+
+  return result as T;
 }
 
 // =============================================================================

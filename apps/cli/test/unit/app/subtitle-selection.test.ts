@@ -52,6 +52,37 @@ describe("choosePlaybackSubtitle", () => {
     expect(result.reason).toBe("auto-selected");
   });
 
+  test("prefers built-in tracks over external tracks when both match the configured language", async () => {
+    const result = await choosePlaybackSubtitle({
+      stream: {
+        ...BASE_STREAM,
+        subtitle: "https://cdn.example/opensubtitles-en.vtt",
+        subtitleList: [
+          {
+            url: "https://cdn.example/opensubtitles-en.vtt",
+            language: "en",
+            display: "English SDH",
+            sourceKind: "external",
+            sourceName: "opensubtitles",
+            isHearingImpaired: true,
+          },
+          {
+            url: "https://cdn.example/provider-en.vtt",
+            language: "en",
+            display: "English",
+            sourceKind: "embedded",
+            sourceName: "vidking",
+          },
+        ],
+      },
+      subLang: "en",
+      pickSubtitle: async () => null,
+    });
+
+    expect(result.subtitle).toBe("https://cdn.example/provider-en.vtt");
+    expect(result.reason).toBe("auto-selected");
+  });
+
   test("uses interactive picking when fzf mode is enabled", async () => {
     const result = await choosePlaybackSubtitle({
       stream: BASE_STREAM,

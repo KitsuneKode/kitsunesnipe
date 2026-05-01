@@ -231,6 +231,14 @@ function normalizeSubtitleList(subtitles: VidkingSubtitle[] | undefined): Subtit
       display: subtitle.language ?? subtitle.label ?? subtitle.lang?.toUpperCase(),
       language: normalizeLanguage(subtitle.lang, subtitle.language),
       release: subtitle.release,
+      sourceKind: "embedded",
+      sourceName: "vidking",
+      isHearingImpaired: looksLikeHiSubtitle({
+        url,
+        display: subtitle.language ?? subtitle.label ?? subtitle.lang?.toUpperCase(),
+        language: normalizeLanguage(subtitle.lang, subtitle.language),
+        release: subtitle.release,
+      }),
     });
   }
 
