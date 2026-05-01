@@ -3,51 +3,79 @@ import type { EpisodeInfo, PlaybackResult, TitleInfo } from "@/domain/types";
 import { getAutoAdvanceEpisode, type EpisodeAvailability } from "@/app/playback-policy";
 
 export type PlaybackAutoplayPauseReason = "user" | "interrupted" | null;
+export type PlaybackSessionMode = "manual" | "autoplay-chain";
 
 export type PostPlaybackSessionAction = "toggle-autoplay" | "resume" | "replay";
 
-export interface PlaybackResultDecision {
+export interface PlaybackSessionState {
+  readonly mode: PlaybackSessionMode;
   readonly autoplayPauseReason: PlaybackAutoplayPauseReason;
   readonly autoplayPaused: boolean;
+  readonly stopAfterCurrent: boolean;
+}
+
+export interface PlaybackResultDecision {
+  readonly session: PlaybackSessionState;
   readonly shouldRefreshSource: boolean;
   readonly shouldFallbackProvider: boolean;
   readonly shouldTreatAsInterrupted: boolean;
 }
 
 export interface PlaybackActionDecision {
-  readonly autoplayPauseReason: PlaybackAutoplayPauseReason;
-  readonly autoplayPaused: boolean;
+  readonly session: PlaybackSessionState;
 }
 
 type PlaybackResultDecisionArgs = {
   result: PlaybackResult;
   controlAction: PlaybackControlAction | null;
-  autoplayPauseReason: PlaybackAutoplayPauseReason;
+  session: PlaybackSessionState;
 };
 
 type AutoAdvanceArgs = {
   result: PlaybackResult;
   title: TitleInfo;
   currentEpisode: EpisodeInfo;
-  autoNextEnabled: boolean;
-  autoplayPauseReason: PlaybackAutoplayPauseReason;
+  session: PlaybackSessionState;
   availability: EpisodeAvailability;
 };
+
+export function createPlaybackSessionState({
+  autoNextEnabled,
+}: {
+  autoNextEnabled: boolean;
+}): PlaybackSessionState {
+  return {
+    mode: autoNextEnabled ? "autoplay-chain" : "manual",
+    autoplayPauseReason: null,
+    autoplayPaused: false,
+    stopAfterCurrent: false,
+  };
+}
+
+function withPauseReason(
+  session: PlaybackSessionState,
+  autoplayPauseReason: PlaybackAutoplayPauseReason,
+): PlaybackSessionState {
+  return {
+    ...session,
+    autoplayPauseReason,
+    autoplayPaused: autoplayPauseReason !== null,
+  };
+}
 
 export function resolvePlaybackResultDecision({
   result,
   controlAction,
-  autoplayPauseReason,
+  session,
 }: PlaybackResultDecisionArgs): PlaybackResultDecision {
   const shouldTreatAsInterrupted = result.endReason === "quit" || controlAction === "stop";
   const nextPauseReason =
-    shouldTreatAsInterrupted && autoplayPauseReason !== "user"
+    shouldTreatAsInterrupted && session.autoplayPauseReason !== "user"
       ? "interrupted"
-      : autoplayPauseReason;
+      : session.autoplayPauseReason;
 
   return {
-    autoplayPauseReason: nextPauseReason,
-    autoplayPaused: nextPauseReason !== null,
+    session: withPauseReason(session, nextPauseReason),
     shouldRefreshSource: controlAction === "refresh",
     shouldFallbackProvider: controlAction === "fallback",
     shouldTreatAsInterrupted,
@@ -56,22 +84,21 @@ export function resolvePlaybackResultDecision({
 
 export function resolvePostPlaybackSessionAction(
   action: PostPlaybackSessionAction,
-  autoplayPauseReason: PlaybackAutoplayPauseReason,
+  session: PlaybackSessionState,
 ): PlaybackActionDecision {
   switch (action) {
     case "toggle-autoplay": {
-      const nextPauseReason = autoplayPauseReason === null ? "user" : null;
+      const nextPauseReason = session.autoplayPauseReason === null ? "user" : null;
       return {
-        autoplayPauseReason: nextPauseReason,
-        autoplayPaused: nextPauseReason !== null,
+        session: withPauseReason(session, nextPauseReason),
       };
     }
     case "resume":
     case "replay": {
-      const nextPauseReason = autoplayPauseReason === "interrupted" ? null : autoplayPauseReason;
+      const nextPauseReason =
+        session.autoplayPauseReason === "interrupted" ? null : session.autoplayPauseReason;
       return {
-        autoplayPauseReason: nextPauseReason,
-        autoplayPaused: nextPauseReason !== null,
+        session: withPauseReason(session, nextPauseReason),
       };
     }
   }
@@ -81,15 +108,14 @@ export async function resolveAutoplayAdvanceEpisode({
   result,
   title,
   currentEpisode,
-  autoNextEnabled,
-  autoplayPauseReason,
+  session,
   availability,
 }: AutoAdvanceArgs): Promise<EpisodeInfo | null> {
   return getAutoAdvanceEpisode(
     result,
     title,
     currentEpisode,
-    autoNextEnabled && autoplayPauseReason === null,
+    session.mode === "autoplay-chain" && !session.autoplayPaused && !session.stopAfterCurrent,
     availability,
   );
 }

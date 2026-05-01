@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  createPlaybackSessionState,
   resolveAutoplayAdvanceEpisode,
   resolvePlaybackResultDecision,
   resolvePostPlaybackSessionAction,
@@ -28,15 +29,20 @@ const baseResult: PlaybackResult = {
 
 describe("resolvePlaybackResultDecision", () => {
   test("marks manual stop as interrupted autoplay pause unless the user already paused it", () => {
+    const session = createPlaybackSessionState({ autoNextEnabled: true });
     expect(
       resolvePlaybackResultDecision({
         result: { ...baseResult, endReason: "quit" },
         controlAction: "stop",
-        autoplayPauseReason: null,
+        session,
       }),
-    ).toEqual({
-      autoplayPauseReason: "interrupted",
-      autoplayPaused: true,
+    ).toMatchObject({
+      session: {
+        mode: "autoplay-chain",
+        autoplayPauseReason: "interrupted",
+        autoplayPaused: true,
+        stopAfterCurrent: false,
+      },
       shouldRefreshSource: false,
       shouldFallbackProvider: false,
       shouldTreatAsInterrupted: true,
@@ -46,21 +52,28 @@ describe("resolvePlaybackResultDecision", () => {
       resolvePlaybackResultDecision({
         result: { ...baseResult, endReason: "quit" },
         controlAction: "stop",
-        autoplayPauseReason: "user",
-      }).autoplayPauseReason,
+        session: {
+          ...session,
+          autoplayPauseReason: "user",
+          autoplayPaused: true,
+        },
+      }).session.autoplayPauseReason,
     ).toBe("user");
   });
 
   test("keeps refresh and fallback decisions explicit without forcing interruption", () => {
+    const session = createPlaybackSessionState({ autoNextEnabled: true });
     expect(
       resolvePlaybackResultDecision({
         result: baseResult,
         controlAction: "refresh",
-        autoplayPauseReason: null,
+        session,
       }),
     ).toMatchObject({
-      autoplayPauseReason: null,
-      autoplayPaused: false,
+      session: {
+        autoplayPauseReason: null,
+        autoplayPaused: false,
+      },
       shouldRefreshSource: true,
       shouldFallbackProvider: false,
       shouldTreatAsInterrupted: false,
@@ -70,11 +83,13 @@ describe("resolvePlaybackResultDecision", () => {
       resolvePlaybackResultDecision({
         result: baseResult,
         controlAction: "fallback",
-        autoplayPauseReason: null,
+        session,
       }),
     ).toMatchObject({
-      autoplayPauseReason: null,
-      autoplayPaused: false,
+      session: {
+        autoplayPauseReason: null,
+        autoplayPaused: false,
+      },
       shouldRefreshSource: false,
       shouldFallbackProvider: true,
       shouldTreatAsInterrupted: false,
@@ -84,52 +99,104 @@ describe("resolvePlaybackResultDecision", () => {
 
 describe("resolvePostPlaybackSessionAction", () => {
   test("toggle-autoplay flips between explicit user pause and active autoplay", () => {
-    expect(resolvePostPlaybackSessionAction("toggle-autoplay", null)).toEqual({
-      autoplayPauseReason: "user",
-      autoplayPaused: true,
+    const session = createPlaybackSessionState({ autoNextEnabled: true });
+    expect(resolvePostPlaybackSessionAction("toggle-autoplay", session)).toEqual({
+      session: {
+        mode: "autoplay-chain",
+        autoplayPauseReason: "user",
+        autoplayPaused: true,
+        stopAfterCurrent: false,
+      },
     });
 
-    expect(resolvePostPlaybackSessionAction("toggle-autoplay", "user")).toEqual({
-      autoplayPauseReason: null,
-      autoplayPaused: false,
+    expect(
+      resolvePostPlaybackSessionAction("toggle-autoplay", {
+        ...session,
+        autoplayPauseReason: "user",
+        autoplayPaused: true,
+      }),
+    ).toEqual({
+      session: {
+        mode: "autoplay-chain",
+        autoplayPauseReason: null,
+        autoplayPaused: false,
+        stopAfterCurrent: false,
+      },
     });
   });
 
   test("resume and replay only clear interruption pauses", () => {
-    expect(resolvePostPlaybackSessionAction("resume", "interrupted")).toEqual({
-      autoplayPauseReason: null,
-      autoplayPaused: false,
+    const session = createPlaybackSessionState({ autoNextEnabled: true });
+    expect(
+      resolvePostPlaybackSessionAction("resume", {
+        ...session,
+        autoplayPauseReason: "interrupted",
+        autoplayPaused: true,
+      }),
+    ).toEqual({
+      session: {
+        mode: "autoplay-chain",
+        autoplayPauseReason: null,
+        autoplayPaused: false,
+        stopAfterCurrent: false,
+      },
     });
 
-    expect(resolvePostPlaybackSessionAction("replay", "user")).toEqual({
-      autoplayPauseReason: "user",
-      autoplayPaused: true,
+    expect(
+      resolvePostPlaybackSessionAction("replay", {
+        ...session,
+        autoplayPauseReason: "user",
+        autoplayPaused: true,
+      }),
+    ).toEqual({
+      session: {
+        mode: "autoplay-chain",
+        autoplayPauseReason: "user",
+        autoplayPaused: true,
+        stopAfterCurrent: false,
+      },
     });
   });
 });
 
 describe("resolveAutoplayAdvanceEpisode", () => {
   test("advances across seasons when autoplay is active and playback finished near EOF", async () => {
+    const session = createPlaybackSessionState({ autoNextEnabled: true });
     await expect(
       resolveAutoplayAdvanceEpisode({
         result: baseResult,
         title: seriesTitle,
         currentEpisode: { season: 2, episode: 5 },
-        autoNextEnabled: true,
-        autoplayPauseReason: null,
+        session,
         availability: nextSeasonAvailability,
       }),
     ).resolves.toEqual({ season: 3, episode: 1 });
   });
 
   test("does not auto-advance when autoplay is paused for the session", async () => {
+    const session = createPlaybackSessionState({ autoNextEnabled: true });
     await expect(
       resolveAutoplayAdvanceEpisode({
         result: baseResult,
         title: seriesTitle,
         currentEpisode: { season: 2, episode: 5 },
-        autoNextEnabled: true,
-        autoplayPauseReason: "interrupted",
+        session: {
+          ...session,
+          autoplayPauseReason: "interrupted",
+          autoplayPaused: true,
+        },
+        availability: nextSeasonAvailability,
+      }),
+    ).resolves.toBeNull();
+  });
+
+  test("does not auto-advance in manual playback mode", async () => {
+    await expect(
+      resolveAutoplayAdvanceEpisode({
+        result: baseResult,
+        title: seriesTitle,
+        currentEpisode: { season: 2, episode: 5 },
+        session: createPlaybackSessionState({ autoNextEnabled: false }),
         availability: nextSeasonAvailability,
       }),
     ).resolves.toBeNull();

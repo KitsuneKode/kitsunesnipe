@@ -23,10 +23,11 @@ import { resolveCommands } from "@/app-shell/commands";
 import { buildShellRuntimeBindings } from "@/app-shell/runtime-bindings";
 import { resolveEpisodeAvailability, toEpisodeNavigationState } from "@/app/playback-policy";
 import {
+  createPlaybackSessionState,
   resolveAutoplayAdvanceEpisode,
   resolvePlaybackResultDecision,
   resolvePostPlaybackSessionAction,
-  type PlaybackAutoplayPauseReason,
+  type PlaybackSessionState,
 } from "@/app/playback-session-controller";
 import { buildPlaybackEpisodePickerOptions } from "@/app/playback-episode-picker";
 import { shouldPersistHistory, toHistoryTimestamp } from "@/app/playback-history";
@@ -61,7 +62,9 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       string,
       readonly EpisodePickerOption[] | undefined
     >();
-    let autoplayPauseReason: PlaybackAutoplayPauseReason = null;
+    let playbackSession: PlaybackSessionState = createPlaybackSessionState({
+      autoNextEnabled: config.autoNext,
+    });
 
     try {
       // Episode selection (for series)
@@ -330,13 +333,13 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         const playbackDecision = resolvePlaybackResultDecision({
           result,
           controlAction: playbackControlAction,
-          autoplayPauseReason,
+          session: playbackSession,
         });
-        autoplayPauseReason = playbackDecision.autoplayPauseReason;
+        playbackSession = playbackDecision.session;
         if (playbackDecision.shouldTreatAsInterrupted) {
           stateManager.dispatch({
             type: "SET_SESSION_AUTOPLAY_PAUSED",
-            paused: playbackDecision.autoplayPaused,
+            paused: playbackDecision.session.autoplayPaused,
           });
         }
         if (playbackDecision.shouldRefreshSource) {
@@ -395,8 +398,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           result,
           title,
           currentEpisode,
-          autoNextEnabled: config.autoNext,
-          autoplayPauseReason,
+          session: playbackSession,
           availability: episodeAvailability,
         });
         if (nextEpisode) {
@@ -432,7 +434,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
 
         postPlayback: while (true) {
           const resumeSeconds = toHistoryTimestamp(result);
-          const autoplaySessionPaused: boolean = autoplayPauseReason !== null;
+          const autoplaySessionPaused = playbackSession.autoplayPaused;
           const canResumePlayback =
             result.endReason !== "eof" &&
             resumeSeconds > 10 &&
@@ -512,28 +514,28 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           } else if (routedAction === "mode-switch") {
             return { status: "success", value: "back_to_search" };
           } else if (routedAction === "toggle-autoplay") {
-            const autoplayAction = resolvePostPlaybackSessionAction(
+            const playbackAction = resolvePostPlaybackSessionAction(
               "toggle-autoplay",
-              autoplayPauseReason,
+              playbackSession,
             );
-            autoplayPauseReason = autoplayAction.autoplayPauseReason;
+            playbackSession = playbackAction.session;
             stateManager.dispatch({
               type: "SET_SESSION_AUTOPLAY_PAUSED",
-              paused: autoplayAction.autoplayPaused,
+              paused: playbackAction.session.autoplayPaused,
             });
             continue postPlayback;
           } else if (routedAction === "resume") {
             pendingStartAt = resumeSeconds;
-            const autoplayAction = resolvePostPlaybackSessionAction("resume", autoplayPauseReason);
-            autoplayPauseReason = autoplayAction.autoplayPauseReason;
-            if (!autoplayAction.autoplayPaused) {
+            const playbackAction = resolvePostPlaybackSessionAction("resume", playbackSession);
+            playbackSession = playbackAction.session;
+            if (!playbackAction.session.autoplayPaused) {
               stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
             }
             break postPlayback;
           } else if (routedAction === "replay") {
-            const autoplayAction = resolvePostPlaybackSessionAction("replay", autoplayPauseReason);
-            autoplayPauseReason = autoplayAction.autoplayPauseReason;
-            if (!autoplayAction.autoplayPaused) {
+            const playbackAction = resolvePostPlaybackSessionAction("replay", playbackSession);
+            playbackSession = playbackAction.session;
+            if (!playbackAction.session.autoplayPaused) {
               stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
             }
             break postPlayback;
