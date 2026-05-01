@@ -22,6 +22,6 @@ export const DEFAULT_CONFIG: KitsuneConfig = {
   animeLang: "sub",
   headless: true,
   showMemory: false,
-  autoNext: false,
+  autoNext: true,
   footerHints: "detailed",
 };
