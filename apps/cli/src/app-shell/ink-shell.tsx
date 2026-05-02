@@ -1,3 +1,4 @@
+import { switchSessionMode } from "@/app/mode-switch";
 import { getShellViewportPolicy } from "@/app-shell/layout-policy";
 import { useLineEditor } from "@/app-shell/line-editor";
 import type { Container } from "@/container";
@@ -332,7 +333,13 @@ function AppRoot({ container }: { container: Container }) {
   const shellWidth = Math.max(80, (stdout.columns ?? 80) - 2);
   const shellHeight = Math.max(24, (stdout.rows ?? 24) - 1);
   const currentViewLabel =
-    state.playbackStatus === "loading" || playbackIsActive ? "playback" : state.view;
+    state.playbackStatus === "loading" || playbackIsActive
+      ? "playback"
+      : rootContent?.kind === "picker"
+        ? "picker"
+        : rootContent?.kind === "browse" || rootContent?.kind === "playback"
+          ? rootContent.kind
+          : state.view;
   const rootOverlay = getRootOwnedOverlay(state);
   const rootSurface = resolveRootShellSurface(state, {
     hasRootContent: Boolean(rootContent),
@@ -432,6 +439,47 @@ function AppRoot({ container }: { container: Container }) {
                     state.playbackStatus === "stalled"
                       ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  i skip segment  ·  s reload subtitles  ·  r refresh  ·  f fallback  ·  Ctrl+C hard exit`
                       : undefined,
+                  commands: fallbackCommandState([
+                    "settings",
+                    "provider",
+                    "history",
+                    "diagnostics",
+                    "help",
+                    "about",
+                    "quit",
+                  ]),
+                  footerMode: container.config.getRaw().footerHints,
+                  onCommandAction: (action) => {
+                    if (action === "command-mode") return;
+                    if (action === "search") {
+                      void container.playerControl.refreshCurrentPlayback(
+                        "playback-loading-command-refresh",
+                      );
+                      return;
+                    }
+                    if (action === "provider") {
+                      void container.playerControl.fallbackCurrentPlayback(
+                        "playback-loading-command-fallback",
+                      );
+                      return;
+                    }
+                    if (action === "quit") {
+                      void container.playerControl.stopCurrentPlayback("playback-loading-command-stop");
+                      return;
+                    }
+                    if (action === "toggle-mode") {
+                      switchSessionMode(container.stateManager);
+                      return;
+                    }
+                    void (async () => {
+                      const { routeSearchShellAction } = await import("./command-router");
+                      const routed = await routeSearchShellAction({ action, container });
+                      if (routed === "quit") {
+                        if (process.stdin.isTTY) process.stdin.unref();
+                        process.exit(0);
+                      }
+                    })();
+                  },
                 }}
                 onCancel={() => {
                   const cancelledWork = container.workControl.cancelActive("playback-loading-esc");
@@ -2133,8 +2181,9 @@ export function openListShell<T>({
 
   const run = async (): Promise<T | null> => {
     while (true) {
-      const session = mountShell<ListShellSubmitResult<T>>({
-        renderShell: (finish) => (
+      const session = mountRootContent<ListShellSubmitResult<T>>({
+        kind: "picker",
+        renderContent: (finish) => (
           <ListShell
             title={title}
             subtitle={subtitle}
@@ -2148,7 +2197,6 @@ export function openListShell<T>({
           />
         ),
         fallbackValue: { type: "cancelled" },
-        clearOnResolve: false,
       });
 
       const result = await session.result;

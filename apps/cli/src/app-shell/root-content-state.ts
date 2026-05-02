@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { useEffect, useState } from "react";
 
-export type RootContentKind = "browse" | "playback";
+export type RootContentKind = "browse" | "playback" | "picker";
 
 export type RootContentSession = {
   id: number;

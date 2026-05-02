@@ -73,6 +73,9 @@ export type LoadingShellState = {
   cancellable?: boolean;
   stopHint?: string;
   controlHint?: string;
+  onCommandAction?: (action: ShellAction) => void;
+  commands?: readonly ResolvedAppCommand[];
+  footerMode?: ShellFooterMode;
 };
 
 export type BrowseShellOption<T> = {

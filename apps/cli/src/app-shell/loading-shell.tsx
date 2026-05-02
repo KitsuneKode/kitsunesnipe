@@ -1,9 +1,10 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import React, { useEffect, useState } from "react";
 
-import { Badge, DetailLine } from "./shell-primitives";
+import { CommandPalette, useShellInput } from "./shell-command-ui";
+import { Badge, DetailLine, ShellFooter } from "./shell-primitives";
 import { palette } from "./shell-theme";
-import type { LoadingShellState } from "./types";
+import type { FooterAction, LoadingShellState } from "./types";
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
@@ -103,12 +104,31 @@ export function LoadingShell({
   const pulse = usePulse(1400);
   const { stdout } = useStdout();
 
+  const footerActions: readonly FooterAction[] = [
+    { key: "/", label: "commands", action: "command-mode" },
+    ...(state.operation === "playing"
+      ? [
+          { key: "q", label: "stop", action: "quit" as const },
+          { key: "r", label: "refresh", action: "search" as const },
+          { key: "f", label: "fallback", action: "provider" as const },
+        ]
+      : []),
+  ];
+
+  const { commandMode, commandInput, commandCursor, highlightedIndex } = useShellInput({
+    footerActions,
+    commands: state.commands ?? [],
+    disabled: !state.onCommandAction,
+    escapeAction: state.cancellable ? "back-to-results" : null,
+    onResolve: (action) => state.onCommandAction?.(action),
+  });
+
   useInput((input, key) => {
     if (input === "\x03") {
       if (process.stdin.isTTY) process.stdin.unref();
       process.exit(0);
     }
-    if (key.escape && state.cancellable && onCancel) {
+    if (key.escape && !commandMode && state.cancellable && onCancel) {
       onCancel();
     }
     if (input.toLowerCase() === "q" && state.operation === "playing" && onStop) {
@@ -163,8 +183,8 @@ export function LoadingShell({
       : renderPhaseRail(state.operation);
 
   return (
-    <Box flexDirection="column" flexGrow={1} justifyContent="center" paddingX={2} paddingY={1}>
-      <Box flexDirection="column" width={infoWidth}>
+    <Box flexDirection="column" flexGrow={1} justifyContent="space-between" paddingX={2} paddingY={1}>
+      <Box flexDirection="column" width={infoWidth} justifyContent="center" flexGrow={1}>
         <Box>
           <Badge
             label={operationLabels[state.operation].toLowerCase()}
@@ -192,8 +212,8 @@ export function LoadingShell({
         </Box>
 
         <Box flexWrap="wrap">
-          {phaseRail.map((phase, index) => (
-            <Badge key={`${phase.label}-${index}`} label={phase.label} tone={phase.tone} />
+          {phaseRail.map((phase) => (
+            <Badge key={phase.label} label={phase.label} tone={phase.tone} />
           ))}
         </Box>
 
@@ -280,6 +300,27 @@ export function LoadingShell({
             </Text>
           </Box>
         ) : null}
+      </Box>
+
+      <Box flexDirection="column">
+        {commandMode && state.onCommandAction && state.commands ? (
+          <CommandPalette
+            input={commandInput}
+            cursor={commandCursor}
+            commands={state.commands}
+            highlightedIndex={highlightedIndex}
+          />
+        ) : null}
+        <ShellFooter
+          taskLabel={
+            state.operation === "playing"
+              ? "Playback  ·  q stop · r refresh · f fallback"
+              : "Playback bootstrap  ·  Esc cancel · / commands"
+          }
+          actions={footerActions}
+          mode={state.footerMode ?? "detailed"}
+          commandMode={commandMode}
+        />
       </Box>
     </Box>
   );
