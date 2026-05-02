@@ -6,6 +6,14 @@
 
 import type { StreamInfo, PlaybackResult } from "@/domain/types";
 import type { PlaybackTimingMetadata } from "@/domain/types";
+import type { PlaybackSkipKind } from "./playback-skip";
+
+export type PlayerPlaybackEvent =
+  | { type: "launching-player" }
+  | { type: "opening-stream" }
+  | { type: "subtitle-inventory-ready"; trackCount: number }
+  | { type: "player-ready" }
+  | { type: "segment-skipped"; kind: PlaybackSkipKind; automatic: boolean };
 
 export interface PlayerOptions {
   url: string;
@@ -22,6 +30,7 @@ export interface PlayerOptions {
   skipPreview?: boolean;
   onProgress?: (seconds: number) => void;
   onPlayerReady?: () => void;
+  onPlaybackEvent?: (event: PlayerPlaybackEvent) => void;
 }
 
 export interface PlayerService {

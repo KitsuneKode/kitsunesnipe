@@ -155,7 +155,7 @@ export function LoadingShell({
     scraping: "Scraping",
     resolving: "Resolving stream",
     playing: "Now playing",
-    loading: "Loading",
+    loading: "Loading playback",
   };
   const phaseRail =
     state.operation === "loading"
@@ -213,8 +213,10 @@ export function LoadingShell({
             label="Status"
             value={
               isPlaying
-                ? "mpv is active; the shell will return here when playback ends"
-                : "Resolving provider data, stream headers, and playback context"
+                ? "mpv is active; shell controls and subtitle switching remain available"
+                : state.cancellable
+                  ? "Resolving provider data, timing, and player startup; Esc cancels cleanly"
+                  : "Resolving provider data, stream headers, and playback context"
             }
             tone={isPlaying ? "success" : "info"}
           />

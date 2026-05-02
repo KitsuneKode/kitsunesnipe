@@ -96,6 +96,8 @@ export interface SessionState {
   readonly stream: StreamInfo | null;
   readonly playbackStatus: PlaybackStatus;
   readonly playbackError: string | null;
+  readonly playbackDetail: string | null;
+  readonly playbackNote: string | null;
 
   readonly searchQuery: string;
   readonly searchResults: SearchResult[];
@@ -132,6 +134,7 @@ export type StateTransition =
   | { type: "SET_SESSION_STOP_AFTER_CURRENT"; enabled: boolean }
   | { type: "SET_STREAM"; stream: StreamInfo | null }
   | { type: "SET_PLAYBACK_STATUS"; status: PlaybackStatus; error?: string }
+  | { type: "SET_PLAYBACK_FEEDBACK"; detail?: string | null; note?: string | null }
   | { type: "OPEN_OVERLAY"; overlay: OverlayState }
   | { type: "CLOSE_TOP_OVERLAY" }
   | { type: "CLOSE_ALL_OVERLAYS" }
@@ -183,6 +186,8 @@ export function createInitialState(
     stream: null,
     playbackStatus: "idle",
     playbackError: null,
+    playbackDetail: null,
+    playbackNote: null,
     searchQuery: "",
     searchResults: [],
     searchState: "idle",
@@ -310,10 +315,25 @@ export function reduceState(state: SessionState, transition: StateTransition): S
       return { ...state, stream: transition.stream };
 
     case "SET_PLAYBACK_STATUS":
+      const keepPlaybackFeedback =
+        transition.status === "loading" ||
+        transition.status === "playing" ||
+        transition.status === "paused";
       return {
         ...state,
         playbackStatus: transition.status,
         playbackError: transition.error ?? null,
+        playbackDetail: keepPlaybackFeedback ? state.playbackDetail : null,
+        playbackNote: keepPlaybackFeedback ? state.playbackNote : null,
+      };
+
+    case "SET_PLAYBACK_FEEDBACK":
+      return {
+        ...state,
+        playbackDetail:
+          transition.detail === undefined ? state.playbackDetail : (transition.detail ?? null),
+        playbackNote:
+          transition.note === undefined ? state.playbackNote : (transition.note ?? null),
       };
 
     case "OPEN_OVERLAY":
@@ -444,6 +464,8 @@ export function reduceState(state: SessionState, transition: StateTransition): S
         stream: null,
         playbackStatus: "idle",
         playbackError: null,
+        playbackDetail: null,
+        playbackNote: null,
       };
 
     case "RESET_SEARCH":

@@ -7,6 +7,7 @@ import { join } from "path";
 import type { PlaybackResult } from "@/domain/types";
 import type { SubtitleTrack } from "@/domain/types";
 import type { ActivePlayerControl } from "@/infra/player/PlayerControlService";
+import type { PlayerPlaybackEvent } from "@/infra/player/PlayerService";
 import type { MpvIpcSession } from "@/infra/player/mpv-ipc";
 import {
   applyEndFileEvent,
@@ -32,6 +33,7 @@ export async function launchMpv(opts: {
   skipPreview?: boolean;
   onControlReady?: (control: ActivePlayerControl | null) => void;
   onPlayerReady?: () => void;
+  onPlaybackEvent?: (event: PlayerPlaybackEvent) => void;
 }): Promise<PlaybackResult> {
   const nonce = `${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   const ipcPath = process.platform === "win32" ? null : join(tmpdir(), `kunai-mpv-${nonce}.sock`);
@@ -62,15 +64,17 @@ export async function launchMpv(opts: {
   const notifyPlayerReady = () => {
     if (playerReadyNotified) return;
     playerReadyNotified = true;
+    opts.onPlaybackEvent?.({ type: "player-ready" });
     opts.onPlayerReady?.();
   };
-  const trySkipSegment = () => {
+  const trySkipSegment = (automatic: boolean) => {
     const activeSkip = findActivePlaybackSkip(opts.timing, currentPositionSeconds, skipConfig);
     if (!activeSkip || !ipcSession || skippedSegments.has(activeSkip.key)) {
       return false;
     }
     skippedSegments.add(activeSkip.key);
     ipcSession.send(["seek", activeSkip.endSeconds, "absolute"]);
+    opts.onPlaybackEvent?.({ type: "segment-skipped", kind: activeSkip.kind, automatic });
     return true;
   };
   const control: ActivePlayerControl = {
@@ -88,7 +92,7 @@ export async function launchMpv(opts: {
       ipcSession?.send(["sub-reload"]);
     },
     async skipCurrentSegment() {
-      return trySkipSegment();
+      return trySkipSegment(false);
     },
   };
   opts.onControlReady?.(control);
@@ -124,7 +128,7 @@ export async function launchMpv(opts: {
         applyObservedPropertySample(telemetry, { name, value, observedAt });
         if ((name === "time-pos" || name === "playback-time") && typeof value === "number") {
           currentPositionSeconds = value;
-          trySkipSegment();
+          trySkipSegment(true);
         }
       },
       onEndFile: ({ reason, observedAt }) => {
@@ -132,8 +136,11 @@ export async function launchMpv(opts: {
       },
     });
 
+    opts.onPlaybackEvent?.({ type: "opening-stream" });
     notifyPlayerReady();
-    void attachAdditionalSubtitles(ipcSession, opts.subtitle, opts.subtitleTracks);
+    void attachAdditionalSubtitles(ipcSession, opts.subtitle, opts.subtitleTracks, (trackCount) => {
+      opts.onPlaybackEvent?.({ type: "subtitle-inventory-ready", trackCount });
+    });
   })().catch(() => {});
 
   const exit = await exitPromise;
@@ -239,13 +246,18 @@ async function attachAdditionalSubtitles(
   ipcSession: MpvIpcSession | null,
   primarySubtitle: string | null,
   subtitleTracks?: readonly SubtitleTrack[],
+  onAttached?: (trackCount: number) => void,
 ): Promise<void> {
   if (!ipcSession) return;
-  for (const track of collectAdditionalSubtitleTracks(primarySubtitle, subtitleTracks)) {
+  const additionalTracks = collectAdditionalSubtitleTracks(primarySubtitle, subtitleTracks);
+  for (const track of additionalTracks) {
     try {
       ipcSession.send(["sub-add", track.url, "auto", track.display ?? "", track.language ?? ""]);
     } catch {
       return;
     }
+  }
+  if (additionalTracks.length > 0) {
+    onAttached?.(additionalTracks.length);
   }
 }

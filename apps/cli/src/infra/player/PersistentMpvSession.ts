@@ -12,6 +12,7 @@ import type {
 } from "@/domain/types";
 import { buildMpvArgs, collectAdditionalSubtitleTracks } from "@/mpv";
 import type { ActivePlayerControl } from "./PlayerControlService";
+import type { PlayerPlaybackEvent } from "./PlayerService";
 import type { MpvIpcSession } from "./mpv-ipc";
 import { openMpvIpcSession, waitForMpvIpcSocket } from "./mpv-ipc";
 import { findActivePlaybackSkip, type PlaybackSkipConfig } from "./playback-skip";
@@ -34,6 +35,7 @@ type PlayerCycleOptions = {
   skipIntro?: boolean;
   skipPreview?: boolean;
   onPlayerReady?: () => void;
+  onPlaybackEvent?: (event: PlayerPlaybackEvent) => void;
 };
 
 type PlayerCycleState = {
@@ -42,6 +44,7 @@ type PlayerCycleState = {
   promise: Promise<PlaybackResult>;
   playerReadyNotified: boolean;
   onPlayerReady?: () => void;
+  onPlaybackEvent?: (event: PlayerPlaybackEvent) => void;
 };
 
 export class PersistentMpvSession {
@@ -108,6 +111,7 @@ export class PersistentMpvSession {
     this.currentHeadersKey = this.buildHeadersKey(stream.headers ?? {});
     const cycle = this.beginCycle(options);
     this.resetCycleState();
+    options.onPlaybackEvent?.({ type: "opening-stream" });
 
     if (!this.hasLoadedFile) {
       this.hasLoadedFile = true;
@@ -169,6 +173,7 @@ export class PersistentMpvSession {
     }
 
     this.beginCycle(this.initialOptions);
+    this.initialOptions.onPlaybackEvent?.({ type: "launching-player" });
     const args = buildMpvArgs(
       {
         url: this.initialStream.url,
@@ -235,7 +240,7 @@ export class PersistentMpvSession {
             }
             if ((name === "time-pos" || name === "playback-time") && typeof value === "number") {
               this.currentPositionSeconds = value;
-              void this.maybeAutoSkip(this.currentCycleOptions());
+              void this.maybeAutoSkip(this.currentCycleOptions(), true);
             }
             if (
               !active.playerReadyNotified &&
@@ -244,6 +249,7 @@ export class PersistentMpvSession {
                 (name === "playback-time" && typeof value === "number" && value >= 0))
             ) {
               active.playerReadyNotified = true;
+              active.onPlaybackEvent?.({ type: "player-ready" });
               active.onPlayerReady?.();
             }
           },
@@ -258,6 +264,7 @@ export class PersistentMpvSession {
             active.resolve(result);
           },
         });
+        this.currentCycleOptions().onPlaybackEvent?.({ type: "opening-stream" });
       }
     }
     this.scheduleReadyWork(this.initialOptions);
@@ -275,6 +282,7 @@ export class PersistentMpvSession {
       promise,
       playerReadyNotified: false,
       onPlayerReady: options.onPlayerReady,
+      onPlaybackEvent: options.onPlaybackEvent,
     };
     this.activeCycle = cycle;
     this.currentOptions = options;
@@ -293,6 +301,7 @@ export class PersistentMpvSession {
     const run = async () => {
       if (!cycle.playerReadyNotified) {
         cycle.playerReadyNotified = true;
+        cycle.onPlaybackEvent?.({ type: "player-ready" });
         cycle.onPlayerReady?.();
       }
 
@@ -301,8 +310,14 @@ export class PersistentMpvSession {
         this.ipcSession.send(["seek", options.startAt, "absolute"]);
       }
 
-      await this.replaceSubtitleInventory(options.primarySubtitle, options.subtitleTracks);
-      await this.maybeAutoSkip(options);
+      await this.replaceSubtitleInventory(
+        options.primarySubtitle,
+        options.subtitleTracks,
+        (trackCount) => {
+          options.onPlaybackEvent?.({ type: "subtitle-inventory-ready", trackCount });
+        },
+      );
+      await this.maybeAutoSkip(options, true);
     };
 
     setTimeout(() => {
@@ -313,6 +328,7 @@ export class PersistentMpvSession {
   private async replaceSubtitleInventory(
     primarySubtitle: string | null,
     subtitleTracks?: readonly SubtitleTrack[],
+    onAttached?: (trackCount: number) => void,
   ): Promise<void> {
     if (!this.ipcSession) return;
 
@@ -322,7 +338,8 @@ export class PersistentMpvSession {
       this.ipcSession.send(["sub-add", primarySubtitle, "select"]);
     }
 
-    for (const track of collectAdditionalSubtitleTracks(primarySubtitle, subtitleTracks)) {
+    const additionalTracks = collectAdditionalSubtitleTracks(primarySubtitle, subtitleTracks);
+    for (const track of additionalTracks) {
       this.ipcSession.send([
         "sub-add",
         track.url,
@@ -330,6 +347,9 @@ export class PersistentMpvSession {
         track.display ?? "",
         track.language ?? "",
       ]);
+    }
+    if (additionalTracks.length > 0) {
+      onAttached?.(additionalTracks.length);
     }
   }
 
@@ -351,7 +371,7 @@ export class PersistentMpvSession {
     };
   }
 
-  private async maybeAutoSkip(options: PlayerCycleOptions): Promise<boolean> {
+  private async maybeAutoSkip(options: PlayerCycleOptions, automatic: boolean): Promise<boolean> {
     const activeSkip = findActivePlaybackSkip(
       options.timing,
       this.currentPositionSeconds,
@@ -362,11 +382,12 @@ export class PersistentMpvSession {
     }
     this.skippedSegments.add(activeSkip.key);
     this.ipcSession.send(["seek", activeSkip.endSeconds, "absolute"]);
+    options.onPlaybackEvent?.({ type: "segment-skipped", kind: activeSkip.kind, automatic });
     return true;
   }
 
   private async skipCurrentSegment(): Promise<boolean> {
-    return await this.maybeAutoSkip(this.currentCycleOptions());
+    return await this.maybeAutoSkip(this.currentCycleOptions(), false);
   }
 
   private async removeExternalSubtitles(): Promise<void> {

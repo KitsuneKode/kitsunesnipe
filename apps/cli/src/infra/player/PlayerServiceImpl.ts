@@ -26,6 +26,7 @@ export class PlayerServiceImpl implements PlayerService {
   ) {}
 
   async play(stream: StreamInfo, options: PlayerOptions): Promise<PlaybackResult> {
+    options.onPlaybackEvent?.({ type: "launching-player" });
     process.stderr.write(`Starting playback: ${options.displayTitle}\n`);
     process.stderr.write(
       stream.subtitle
@@ -146,6 +147,7 @@ export class PlayerServiceImpl implements PlayerService {
       skipPreview: options.skipPreview,
       onControlReady: (control) => this.deps.playerControl.setActive(control),
       onPlayerReady: options.onPlayerReady,
+      onPlaybackEvent: options.onPlaybackEvent,
     });
   }
 
@@ -175,6 +177,7 @@ export class PlayerServiceImpl implements PlayerService {
           skipIntro: options.skipIntro,
           skipPreview: options.skipPreview,
           onPlayerReady: options.onPlayerReady,
+          onPlaybackEvent: options.onPlaybackEvent,
         },
         onControlReady: (control) => this.deps.playerControl.setActive(control),
       });
@@ -196,6 +199,7 @@ export class PlayerServiceImpl implements PlayerService {
       skipIntro: options.skipIntro,
       skipPreview: options.skipPreview,
       onPlayerReady: options.onPlayerReady,
+      onPlaybackEvent: options.onPlaybackEvent,
     });
 
     if (!this.persistentSession.isAlive()) {

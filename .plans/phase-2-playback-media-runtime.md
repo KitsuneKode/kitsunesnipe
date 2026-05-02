@@ -2,6 +2,9 @@
 
 Status: active implementation
 
+Verification reference:
+- [VERIFICATION.md](../VERIFICATION.md)
+
 This plan is the next runtime-quality checkpoint after the root shell and overlay migration.
 It focuses on playback smoothness, provider-owned subtitle inventories, autoplay architecture,
 and a reliable terminal image system.
@@ -221,6 +224,7 @@ Acceptance:
 
 Progress:
 - playback shell live controls for next/previous/autoplay pause/stop-after-current are already wired through the shared control service
+- playback shell now surfaces richer stage/status copy while the player launches and while skip events fire
 
 ### Phase 2E — Abortable Resolve and Scrape Work
 
@@ -242,7 +246,8 @@ Acceptance:
 Progress:
 - phase-level abort signals now flow through session controller -> phase context -> search/provider/timing calls
 - provider search, registry search, provider resolve, IntroDB timing fetch, and anime episode catalogs now receive the shared signal
-- full interactive shell cancel during loading is still the remaining sub-slice here
+- playback loading resolve can now be cancelled cleanly from the shell with `Esc`
+- remaining cancel follow-up is extending the same quality of cancellation to more non-playback loading flows where it makes sense
 
 ### Phase 2F — IntroDB Timing Metadata
 
@@ -273,7 +278,9 @@ Acceptance:
 
 Progress:
 - IntroDB timing is already used for completion/near-end decisions
-- recap/intro/preview skip affordances are still the remaining user-facing slice
+- recap/intro/preview auto-skip is now wired into the player path
+- manual `i` segment skip is now available during playback
+- remaining follow-up is richer pre-skip affordance copy and broader experiential verification
 
 ## Track 1 — Fast Playback Startup
 

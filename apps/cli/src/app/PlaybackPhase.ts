@@ -42,6 +42,7 @@ import { formatTimestamp } from "@/services/persistence/HistoryStore";
 import { fetchEpisodes, fetchSeasons } from "@/tmdb";
 import { resolveWithFallback } from "@kunai/core";
 import { fetchPlaybackTimingMetadata } from "@/introdb";
+import type { PlayerPlaybackEvent } from "@/infra/player/PlayerService";
 
 export type PlaybackOutcome =
   | "back_to_search"
@@ -52,6 +53,43 @@ export type PlaybackOutcome =
 
 export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
   name = "playback";
+
+  private updatePlaybackFeedback(
+    context: PhaseContext,
+    feedback: { detail?: string | null; note?: string | null },
+  ) {
+    context.container.stateManager.dispatch({
+      type: "SET_PLAYBACK_FEEDBACK",
+      detail: feedback.detail,
+      note: feedback.note,
+    });
+  }
+
+  private describePlayerEvent(event: PlayerPlaybackEvent): {
+    detail?: string | null;
+    note?: string | null;
+  } {
+    switch (event.type) {
+      case "launching-player":
+        return { detail: "Launching player" };
+      case "opening-stream":
+        return { detail: "Opening stream" };
+      case "subtitle-inventory-ready":
+        return {
+          detail: "Attaching subtitles",
+          note:
+            event.trackCount > 0
+              ? `${event.trackCount} alternate subtitle tracks are ready in mpv`
+              : "Primary subtitle is ready",
+        };
+      case "player-ready":
+        return { detail: "Player active" };
+      case "segment-skipped":
+        return {
+          note: `${event.kind.charAt(0).toUpperCase()}${event.kind.slice(1)} ${event.automatic ? "skipped automatically" : "skipped"}`,
+        };
+    }
+  }
 
   async execute(title: TitleInfo, context: PhaseContext): Promise<PhaseResult<PlaybackOutcome>> {
     const { container } = context;
@@ -167,6 +205,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
 
         try {
           const currentProvider = providerRegistry.get(stateManager.getState().provider);
+          this.updatePlaybackFeedback(context, {
+            detail: "Checking episode timing",
+            note: null,
+          });
           const playbackTiming = await this.getPlaybackTimingMetadata(
             title,
             currentEpisode,
@@ -221,6 +263,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           stateManager.dispatch({
             type: "SET_PLAYBACK_STATUS",
             status: "loading",
+          });
+          this.updatePlaybackFeedback(context, {
+            detail: "Resolving provider stream",
+            note: "Esc cancels this resolve and returns to results",
           });
 
           let stream: StreamInfo | null = null;
@@ -509,6 +555,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           }
 
           await player.releasePersistentSession();
+          this.updatePlaybackFeedback(context, { detail: null, note: null });
 
           // Post-playback menu — inner loop so unavailable navigation
           // actions stay in the menu instead of re-resolving the stream.
@@ -690,6 +737,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           if (resolveController.signal.aborted && !context.signal.aborted) {
             stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" });
             stateManager.dispatch({ type: "SET_STREAM", stream: null });
+            this.updatePlaybackFeedback(context, { detail: null, note: null });
             diagnosticsStore.record({
               category: "playback",
               message: "Playback resolve cancelled",
@@ -709,6 +757,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       }
     } catch (e) {
       if (context.signal.aborted) {
+        this.updatePlaybackFeedback(context, { detail: null, note: null });
         return { status: "cancelled" };
       }
       logger.error("Playback phase error", { error: String(e) });
@@ -721,6 +770,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         },
       };
     } finally {
+      this.updatePlaybackFeedback(context, { detail: null, note: null });
       await player.releasePersistentSession();
     }
 
@@ -833,6 +883,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     const subtitleStatus = describeSubtitleStatus(stream, stateManager.getState().subLang);
 
     try {
+      this.updatePlaybackFeedback(context, {
+        detail: "Launching player",
+        note: subtitleStatus,
+      });
       const result = await player.play(stream, {
         url: stream.url,
         headers: stream.headers,
@@ -846,7 +900,13 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         skipRecap: config.skipRecap,
         skipIntro: config.skipIntro,
         skipPreview: config.skipPreview,
+        onPlaybackEvent: (event) => {
+          this.updatePlaybackFeedback(context, this.describePlayerEvent(event));
+        },
         onPlayerReady: () => {
+          this.updatePlaybackFeedback(context, {
+            detail: "Player active",
+          });
           stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "playing" });
         },
       });

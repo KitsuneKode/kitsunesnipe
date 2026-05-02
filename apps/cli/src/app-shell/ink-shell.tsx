@@ -309,7 +309,7 @@ function AppRoot({ container }: { container: Container }) {
     state.playbackStatus === "playing"
       ? "playing"
       : state.playbackStatus === "loading"
-        ? "resolving"
+        ? "loading"
         : state.searchState === "loading"
           ? "searching"
           : state.playbackStatus === "error"
@@ -343,6 +343,11 @@ function AppRoot({ container }: { container: Container }) {
     rootSurface === "playback" &&
     state.currentTitle?.type === "series" &&
     state.currentEpisode !== null;
+  const playbackTrace =
+    state.playbackNote ??
+    (state.playbackStatus === "playing"
+      ? "Auto-skip and live playback controls stay available while mpv is active"
+      : undefined);
   const canGoNext = Boolean(isSeriesPlayback && state.episodeNavigation.hasNext);
   const canGoPrevious = Boolean(isSeriesPlayback && state.episodeNavigation.hasPrevious);
   const canToggleAutoplay = Boolean(isSeriesPlayback);
@@ -389,15 +394,17 @@ function AppRoot({ container }: { container: Container }) {
                 state={{
                   title: state.currentTitle?.name || "Resolving...",
                   subtitle: playbackSubtitle,
-                  operation: state.playbackStatus === "playing" ? "playing" : "resolving",
-                  details: `Provider: ${state.provider}`,
+                  operation:
+                    state.playbackStatus === "playing"
+                      ? "playing"
+                      : state.playbackStatus === "loading"
+                        ? "loading"
+                        : "resolving",
+                  details: state.playbackDetail ?? `Provider: ${state.provider}`,
                   subtitleStatus:
                     state.playbackStatus === "playing" ? playbackSubtitleStatus : undefined,
                   cancellable: state.playbackStatus === "loading",
-                  trace:
-                    state.playbackStatus === "playing"
-                      ? "mpv is open; press q to stop playback and return to Kunai"
-                      : undefined,
+                  trace: playbackTrace,
                   showMemory: state.playbackStatus === "playing",
                   stopHint:
                     state.playbackStatus === "playing"

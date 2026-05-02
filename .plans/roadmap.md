@@ -1,6 +1,6 @@
 # Kunai — Roadmap
 
-Last updated: 2026-04-30
+Last updated: 2026-05-02
 
 Use this file as the planning index. It should stay short. Put implementation detail in the linked plan files, not here.
 
@@ -58,10 +58,11 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Developer-mode diagnostics surface for stream, subtitle, and provider resolution stages
 - Metadata-store and preview-service migration beyond the current in-memory caches
 - Image-pane service migration for safe Kitty/Ghostty poster rendering inside the persistent shell without Ink scroll flicker
-- Phase 2 playback/media runtime now has the controller seam, persistent autoplay mpv session, built-in subtitle priority, and credits-aware completion timing; remaining work is the user-facing skip/cancel affordance layer
+- Phase 2 playback/media runtime now has the controller seam, persistent autoplay mpv session, built-in subtitle priority, credits-aware completion timing, loading cancel, and player-side skip controls
+- Manual runtime verification is now tracked in [VERIFICATION.md](../VERIFICATION.md)
 - Provider SDK candidate model: provider -> source/mirror -> variant, with selected stream plus discovered candidates, subtitles, trace, cache policy, and health deltas
 - Runtime-browser package plan for JIT Playwright leases, interception, cooldown, evidence capture, and teardown
-- Interactive resolution UX for cancel, skip source, retry fresh, force no-cache, fallback provider, and provider/source/quality/subtitle selection
+- Interactive resolution UX follow-up is now mostly narrowed to richer non-playback cancel surfaces plus later source/quality/subtitle chooser polish
 
 ### Recently Improved
 
