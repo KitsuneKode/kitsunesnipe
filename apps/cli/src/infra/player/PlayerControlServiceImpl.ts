@@ -186,11 +186,44 @@ export class PlayerControlServiceImpl implements PlayerControlService {
       context: { id: active.id, action, reason, stopCurrentFile },
     });
     if (stopCurrentFile && active.stopCurrentFile) {
-      await this.enqueueCommand(action, reason, async () => await active.stopCurrentFile!(reason));
+      await this.runPriorityCommand(
+        action,
+        reason,
+        async () => await active.stopCurrentFile!(reason),
+      );
       return true;
     }
-    await this.enqueueCommand(action, reason, async () => await active.stop(reason));
+    await this.runPriorityCommand(action, reason, async () => await active.stop(reason));
     return true;
+  }
+
+  private async runPriorityCommand<T>(
+    action: string,
+    reason: string,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    const startedAt = Date.now();
+    this.deps.diagnosticsStore.record({
+      category: "playback",
+      message: "Playback priority command started",
+      context: { action, reason },
+    });
+    try {
+      const result = await run();
+      this.deps.diagnosticsStore.record({
+        category: "playback",
+        message: "Playback priority command completed",
+        context: { action, reason, elapsedMs: Date.now() - startedAt },
+      });
+      return result;
+    } catch (error) {
+      this.deps.diagnosticsStore.record({
+        category: "playback",
+        message: "Playback priority command failed",
+        context: { action, reason, error: String(error), elapsedMs: Date.now() - startedAt },
+      });
+      throw error;
+    }
   }
 
   private enqueueCommand<T>(action: string, reason: string, run: () => Promise<T>): Promise<T> {

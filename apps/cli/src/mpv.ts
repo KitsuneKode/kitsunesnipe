@@ -95,8 +95,8 @@ export async function launchMpv(opts: {
       if (stopRequested) return;
       stopRequested = true;
       if (ipcSession) {
-        await ipcSession.send(["quit"], 1_000);
-        return;
+        const result = await ipcSession.send(["quit"], 1_000);
+        if (result.ok) return;
       }
       mpv.kill("SIGTERM");
     },

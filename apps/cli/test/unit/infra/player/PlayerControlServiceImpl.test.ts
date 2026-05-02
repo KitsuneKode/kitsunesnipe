@@ -147,3 +147,36 @@ test("PlayerControlServiceImpl falls back to full stop when file-stop control is
   expect(service.consumeLastAction()).toBe("refresh");
   expect(stoppedReasons).toEqual(["next-key", "refresh-key"]);
 });
+
+test("PlayerControlServiceImpl prioritizes stop controls over queued subtitle commands", async () => {
+  let resolveAttach!: (value: number) => void;
+  const attachStarted = Promise.withResolvers<void>();
+  const attachRelease = new Promise<number>((resolve) => {
+    resolveAttach = resolve;
+  });
+  const stoppedReasons: string[] = [];
+  const service = makeService();
+
+  service.setActive({
+    id: "player-1",
+    async stop(reason) {
+      stoppedReasons.push(reason ?? "");
+    },
+    async attachSubtitles() {
+      attachStarted.resolve();
+      return await attachRelease;
+    },
+  });
+
+  const attachPromise = service.attachLateSubtitles(
+    { primarySubtitle: "https://example.test/sub.vtt", subtitleTracks: [] },
+    "late-subtitle",
+  );
+  await attachStarted.promise;
+
+  expect(await service.stopCurrentPlayback("escape")).toBe(true);
+  expect(stoppedReasons).toEqual(["escape"]);
+
+  resolveAttach(1);
+  expect(await attachPromise).toBe(true);
+});

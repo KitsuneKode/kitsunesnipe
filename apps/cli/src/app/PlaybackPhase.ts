@@ -1006,7 +1006,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     episode: EpisodeInfo;
     context: PhaseContext;
   }): void {
-    const { stateManager, diagnosticsStore, logger, playerControl } = context.container;
+    const { stateManager, diagnosticsStore, logger } = context.container;
     const requestedSubLang = stateManager.getState().subLang;
     if (
       requestedSubLang === "none" ||

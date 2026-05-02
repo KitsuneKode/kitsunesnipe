@@ -80,13 +80,18 @@ export class PersistentMpvSession {
       id: this.id,
       stop: async () => {
         if (this.ipcSession) {
-          await this.ipcSession.send(["quit"], 1_000);
-          return;
+          const result = await this.ipcSession.send(["quit"], 1_000);
+          if (result.ok) return;
         }
         this.mpv?.kill("SIGTERM");
       },
       stopCurrentFile: async () => {
-        await this.ipcSession?.send(["stop"], 1_000);
+        if (!this.ipcSession) {
+          this.mpv?.kill("SIGTERM");
+          return;
+        }
+        const result = await this.ipcSession.send(["stop"], 1_000);
+        if (!result.ok) this.mpv?.kill("SIGTERM");
       },
       reloadSubtitles: async () => {
         await this.reloadSubtitles();
@@ -170,7 +175,8 @@ export class PersistentMpvSession {
     this.currentCycleOptions().onPlaybackEvent?.({ type: "player-closing" });
     this.clearReadyWorkFallback();
     if (this.ipcSession) {
-      await this.ipcSession.send(["quit"], 1_000);
+      const result = await this.ipcSession.send(["quit"], 1_000);
+      if (!result.ok) this.mpv?.kill("SIGTERM");
     } else {
       this.mpv?.kill("SIGTERM");
     }
@@ -298,6 +304,8 @@ export class PersistentMpvSession {
           onEndFile: ({ reason, observedAt }) => {
             const active = this.activeCycle;
             if (!active) return;
+            this.clearReadyWorkFallback();
+            this.pendingReadyWork = null;
             applyEndFileEvent(active.telemetry, reason, observedAt);
             const result = finalizePlaybackResult(active.telemetry, {
               socketPathCleanedUp: false,
