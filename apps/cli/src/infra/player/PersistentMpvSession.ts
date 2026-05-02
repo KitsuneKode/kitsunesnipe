@@ -68,6 +68,8 @@ export class PersistentMpvSession {
   private watchdog: PlaybackWatchdog | null = null;
   private pendingReadyWork: PlayerCycleOptions | null = null;
   private readyWorkFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private terminationPromise: Promise<void> | null = null;
+  private terminated = false;
 
   private constructor(
     private readonly initialStream: StreamInfo,
@@ -154,6 +156,10 @@ export class PersistentMpvSession {
     return this.alive;
   }
 
+  isReusable(): boolean {
+    return this.alive && this.mpv !== null && this.ipcSession !== null;
+  }
+
   getControl(): ActivePlayerControl {
     return this.currentControl;
   }
@@ -166,33 +172,31 @@ export class PersistentMpvSession {
   }
 
   async close(): Promise<void> {
-    if (!this.alive) {
-      await this.cleanupSocket();
-      this.onControlReady(null);
-      return;
-    }
-
     this.currentCycleOptions().onPlaybackEvent?.({ type: "player-closing" });
     this.clearReadyWorkFallback();
+    this.pendingReadyWork = null;
+    this.alive = false;
+
+    const target = this.mpv;
+
     if (this.ipcSession) {
       const result = await this.ipcSession.send(["quit"], 1_000);
-      if (!result.ok) this.mpv?.kill("SIGTERM");
+      if (!result.ok) {
+        target?.kill("SIGTERM");
+      }
     } else {
-      this.mpv?.kill("SIGTERM");
+      target?.kill("SIGTERM");
     }
 
-    await new Promise<void>((resolve) => {
-      const target = this.mpv;
-      if (!target) return resolve();
-      target.once("close", () => resolve());
-      setTimeout(resolve, 1500);
+    const closed = await this.waitForProcessClose(target, 1_500);
+    if (!closed) {
+      target?.kill("SIGTERM");
+    }
+
+    await this.handleProcessTermination({
+      code: target?.exitCode ?? (closed ? 0 : null),
+      signal: target?.signalCode ?? (closed ? null : "SIGTERM"),
     });
-    this.watchdog?.stop();
-    this.watchdog = null;
-    await this.ipcSession?.close().catch(() => {});
-    this.ipcSession = null;
-    await this.cleanupSocket();
-    this.onControlReady(null);
   }
 
   private async spawn(mpvOptions?: MpvRuntimeOptions): Promise<void> {
@@ -200,6 +204,8 @@ export class PersistentMpvSession {
       await unlinkIfExists(this.ipcPath);
     }
 
+    this.terminationPromise = null;
+    this.terminated = false;
     this.beginCycle(this.initialOptions);
     this.initialOptions.onPlaybackEvent?.({ type: "launching-player" });
     const args = buildMpvArgs(
@@ -230,46 +236,27 @@ export class PersistentMpvSession {
     this.resetCycleState();
     this.onControlReady(this.currentControl);
 
-    this.mpv.once("close", async (code, signal) => {
-      this.alive = false;
-      this.clearReadyWorkFallback();
-      this.watchdog?.stop();
-      this.watchdog = null;
-      const active = this.activeCycle;
-      if (active) {
-        recordPlayerExit(active.telemetry, { code, signal });
-        const result = finalizePlaybackResult(active.telemetry, {
-          socketPathCleanedUp: this.ipcPath ? !existsSync(this.ipcPath) : true,
-        });
-        this.activeCycle = null;
-        active.resolve(result);
-      }
-      await this.cleanupSocket();
-      this.currentCycleOptions().onPlaybackEvent?.({ type: "player-closed" });
-      this.onControlReady(null);
+    this.mpv.once("close", (code, signal) => {
+      void this.handleProcessTermination({ code, signal });
     });
-    this.mpv.once("error", async () => {
-      this.alive = false;
-      this.clearReadyWorkFallback();
-      this.watchdog?.stop();
-      this.watchdog = null;
-      const active = this.activeCycle;
-      if (active) {
-        recordPlayerExit(active.telemetry, { code: 1, signal: null });
-        const result = finalizePlaybackResult(active.telemetry, {
-          socketPathCleanedUp: this.ipcPath ? !existsSync(this.ipcPath) : true,
-        });
-        this.activeCycle = null;
-        active.resolve(result);
-      }
-      await this.cleanupSocket();
-      this.currentCycleOptions().onPlaybackEvent?.({ type: "player-closed" });
-      this.onControlReady(null);
+    this.mpv.once("error", () => {
+      void this.handleProcessTermination({ code: 1, signal: null });
     });
 
     if (this.ipcPath) {
       const ready = await waitForMpvIpcSocket(this.ipcPath, 5_000);
-      if (ready) {
+      if (!ready) {
+        this.currentCycleOptions().onPlaybackEvent?.({
+          type: "ipc-command-failed",
+          command: "ipc-bootstrap",
+          error: `IPC socket was not ready at ${this.ipcPath}`,
+        });
+        this.mpv.kill("SIGTERM");
+        await this.handleProcessTermination({ code: 1, signal: null });
+        return;
+      }
+
+      try {
         this.ipcSession = await openMpvIpcSession({
           socketPath: this.ipcPath,
           onPropertyUpdate: ({ name, value, observedAt }) => {
@@ -336,9 +323,19 @@ export class PersistentMpvSession {
             }
           },
         });
-        this.currentCycleOptions().onPlaybackEvent?.({ type: "ipc-connected" });
-        this.currentCycleOptions().onPlaybackEvent?.({ type: "opening-stream" });
+      } catch (error) {
+        this.currentCycleOptions().onPlaybackEvent?.({
+          type: "ipc-command-failed",
+          command: "ipc-bootstrap",
+          error: error instanceof Error ? error.message : String(error),
+        });
+        this.mpv.kill("SIGTERM");
+        await this.handleProcessTermination({ code: 1, signal: null });
+        return;
       }
+
+      this.currentCycleOptions().onPlaybackEvent?.({ type: "ipc-connected" });
+      this.currentCycleOptions().onPlaybackEvent?.({ type: "opening-stream" });
     }
     this.queueReadyWork(this.initialOptions);
   }
@@ -531,6 +528,76 @@ export class PersistentMpvSession {
       origin: headers.origin ?? headers.Origin ?? "",
       userAgent: headers["user-agent"] ?? headers["User-Agent"] ?? "",
     });
+  }
+
+  private async waitForProcessClose(target: ChildProcess | null, timeoutMs: number): Promise<boolean> {
+    if (!target) return true;
+
+    return await new Promise<boolean>((resolve) => {
+      let settled = false;
+      const finish = (closed: boolean) => {
+        if (settled) return;
+        settled = true;
+        target.off("close", onClose);
+        resolve(closed);
+      };
+      const onClose = () => finish(true);
+
+      target.once("close", onClose);
+      setTimeout(() => finish(false), timeoutMs);
+    });
+  }
+
+  private async closeIpcSession(): Promise<void> {
+    const session = this.ipcSession;
+    this.ipcSession = null;
+    await session?.close().catch(() => {});
+  }
+
+  private async handleProcessTermination(exit: {
+    code: number | null;
+    signal: NodeJS.Signals | null;
+  }): Promise<void> {
+    if (this.terminationPromise) {
+      await this.terminationPromise;
+      return;
+    }
+    if (this.terminated) return;
+
+    this.terminationPromise = (async () => {
+      this.alive = false;
+      this.clearReadyWorkFallback();
+      this.pendingReadyWork = null;
+      this.watchdog?.stop();
+      this.watchdog = null;
+
+      const active = this.activeCycle;
+      this.activeCycle = null;
+
+      await this.closeIpcSession();
+      await this.cleanupSocket();
+
+      this.mpv = null;
+      this.hasLoadedFile = false;
+
+      if (active) {
+        recordPlayerExit(active.telemetry, exit);
+        const result = finalizePlaybackResult(active.telemetry, {
+          socketPathCleanedUp: this.ipcPath ? !existsSync(this.ipcPath) : true,
+        });
+        active.resolve(result);
+      }
+
+      this.currentCycleOptions().onPlaybackEvent?.({ type: "player-closed" });
+      this.onControlReady(null);
+      this.terminated = true;
+    })();
+
+    try {
+      await this.terminationPromise;
+    } finally {
+      this.terminationPromise = null;
+    }
   }
 
   private async cleanupSocket(): Promise<void> {

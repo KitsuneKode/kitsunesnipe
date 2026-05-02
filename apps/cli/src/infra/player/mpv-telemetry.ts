@@ -227,9 +227,11 @@ export function recordPlayerExit(
   if (state.endReason === "unknown" && state.latestIpcSample?.eofReached) {
     state.endReason = "eof";
   } else if (state.endReason === "unknown") {
-    if (exit.code && exit.code !== 0) {
+    if (exit.code !== null && exit.code !== 0) {
       state.endReason = "error";
     } else if (exit.signal) {
+      state.endReason = "quit";
+    } else if (exit.code === 0) {
       state.endReason = "quit";
     }
   }
@@ -246,7 +248,7 @@ export function finalizePlaybackResult(
 
   const endReason = chosen?.endReason ?? state.endReason;
   let watchedSeconds = chosen?.positionSeconds ?? 0;
-  let duration = chosen?.durationSeconds ?? 0;
+  const duration = chosen?.durationSeconds ?? 0;
 
   if (endReason === "eof" && duration > 0) {
     watchedSeconds = Math.max(watchedSeconds, duration);

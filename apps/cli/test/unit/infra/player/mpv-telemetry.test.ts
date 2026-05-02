@@ -98,7 +98,7 @@ describe("mpv-telemetry", () => {
     });
   });
 
-  test("returns an unknown result for instant exits with no useful telemetry", () => {
+  test("maps clean instant exits without eof evidence to quit", () => {
     const telemetry = createPlayerTelemetryState("/tmp/mpv.sock");
     recordPlayerExit(telemetry, { code: 0, signal: null });
 
@@ -109,7 +109,7 @@ describe("mpv-telemetry", () => {
     ).toEqual({
       watchedSeconds: 0,
       duration: 0,
-      endReason: "unknown",
+      endReason: "quit",
       resultSource: "unknown",
       playerExitedCleanly: true,
       playerExitCode: 0,

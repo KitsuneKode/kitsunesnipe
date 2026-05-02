@@ -130,10 +130,35 @@ export async function openMpvIpcSession(options: SessionOptions): Promise<MpvIpc
   const pendingCommands = new Map<number, PendingCommand>();
   let nextRequestId = 1;
   let closed = false;
+  let closePromise: Promise<void> | null = null;
+
+  const drainPending = (error: string) => {
+    const entries = [...pendingCommands.entries()];
+    for (const [requestId, pending] of entries) {
+      clearTimeout(pending.timeout);
+      pendingCommands.delete(requestId);
+      pending.resolve({
+        ok: false,
+        command: pending.command,
+        requestId,
+        error,
+      });
+    }
+  };
+
+  const markClosed = (error = "session closed") => {
+    if (closed) return;
+    closed = true;
+    drainPending(error);
+  };
+
+  socket.on("close", () => markClosed("session closed"));
+  socket.on("error", () => markClosed("session closed"));
 
   const bufferState = { value: "" };
   socket.setEncoding("utf8");
   socket.on("data", (chunk: string) => {
+    if (closed) return;
     bufferState.value += chunk;
     let newlineIndex = bufferState.value.indexOf("\n");
     while (newlineIndex !== -1) {
@@ -216,18 +241,17 @@ export async function openMpvIpcSession(options: SessionOptions): Promise<MpvIpc
       writeCommand(command);
     },
     async close() {
-      closed = true;
-      for (const [requestId, pending] of pendingCommands) {
-        clearTimeout(pending.timeout);
-        pendingCommands.delete(requestId);
-        pending.resolve({
-          ok: false,
-          command: pending.command,
-          requestId,
-          error: "session closed",
-        });
+      if (closePromise) {
+        await closePromise;
+        return;
       }
-      await closeSocket(socket);
+
+      closePromise = (async () => {
+        markClosed("session closed");
+        await closeSocket(socket);
+      })();
+
+      await closePromise;
     },
   };
 }
@@ -293,7 +317,9 @@ function dispatchMessage(
   }
 
   if (typeof message.request_id === "number" && pendingCommands.has(message.request_id)) {
-    const pending = pendingCommands.get(message.request_id)!;
+    const pending = pendingCommands.get(message.request_id);
+    if (!pending) return;
+
     const result: MpvIpcCommandResult =
       message.error === "success"
         ? {
@@ -319,7 +345,8 @@ function dispatchMessage(
     requestIds.has(message.request_id) &&
     message.error === "success"
   ) {
-    const name = requestIds.get(message.request_id)!;
+    const name = requestIds.get(message.request_id);
+    if (!name) return;
     requestIds.delete(message.request_id);
     onPropertyUpdate({ name, value: message.data, observedAt });
   }

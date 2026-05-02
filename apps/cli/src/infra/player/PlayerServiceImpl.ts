@@ -156,9 +156,8 @@ export class PlayerServiceImpl implements PlayerService {
     stream: StreamInfo,
     options: PlayerOptions,
   ): Promise<PlaybackResult> {
-    if (this.persistentSession && !this.persistentSession.isAlive()) {
-      this.persistentSession = null;
-      this.deps.playerControl.setActive(null);
+    if (this.persistentSession && !this.persistentSession.isReusable()) {
+      await this.releasePersistentSession();
     }
 
     if (this.persistentSession && !this.persistentSession.matchesHeaders(stream.headers ?? {})) {
@@ -184,9 +183,8 @@ export class PlayerServiceImpl implements PlayerService {
         onControlReady: (control) => this.deps.playerControl.setActive(control),
       });
       const result = await this.persistentSession.waitForCurrentPlayback();
-      if (!this.persistentSession.isAlive()) {
-        this.persistentSession = null;
-        this.deps.playerControl.setActive(null);
+      if (this.persistentSession && !this.persistentSession.isReusable()) {
+        await this.releasePersistentSession();
       }
       return result;
     }
@@ -204,9 +202,8 @@ export class PlayerServiceImpl implements PlayerService {
       onPlaybackEvent: this.wrapPlaybackEventHandler(options.onPlaybackEvent),
     });
 
-    if (!this.persistentSession.isAlive()) {
-      this.persistentSession = null;
-      this.deps.playerControl.setActive(null);
+    if (this.persistentSession && !this.persistentSession.isReusable()) {
+      await this.releasePersistentSession();
     }
 
     return result;
