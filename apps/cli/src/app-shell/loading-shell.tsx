@@ -1,16 +1,16 @@
 import { Box, Text, useInput, useStdout } from "ink";
-import React, { useEffect, useState } from "react";
+import React from "react";
 
-import { CommandPalette, useShellInput } from "./shell-command-ui";
-import { Badge, DetailLine, ShellFooter } from "./shell-primitives";
+import { ShellFrame } from "./shell-frame";
+import { Badge, DetailLine } from "./shell-primitives";
 import { palette } from "./shell-theme";
 import type { FooterAction, LoadingShellState } from "./types";
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 export function useSpinner() {
-  const [frame, setFrame] = useState(0);
-  useEffect(() => {
+  const [frame, setFrame] = React.useState(0);
+  React.useEffect(() => {
     const timer = setInterval(() => {
       setFrame((f) => (f + 1) % SPINNER_FRAMES.length);
     }, 80);
@@ -20,8 +20,8 @@ export function useSpinner() {
 }
 
 function useElapsed(): number {
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
+  const [elapsed, setElapsed] = React.useState(0);
+  React.useEffect(() => {
     const start = Date.now();
     const timer = setInterval(() => {
       setElapsed(Math.floor((Date.now() - start) / 1000));
@@ -32,8 +32,8 @@ function useElapsed(): number {
 }
 
 function usePulse(periodMs: number): boolean {
-  const [on, setOn] = useState(true);
-  useEffect(() => {
+  const [on, setOn] = React.useState(true);
+  React.useEffect(() => {
     const start = Date.now();
     const timer = setInterval(() => {
       const phase = ((Date.now() - start) % periodMs) / periodMs;
@@ -104,32 +104,14 @@ export function LoadingShell({
   const pulse = usePulse(1400);
   const { stdout } = useStdout();
 
-  const footerActions: readonly FooterAction[] = [
-    { key: "/", label: "commands", action: "command-mode" },
-    ...(state.operation === "playing"
-      ? [
-          { key: "q", label: "stop", action: "quit" as const },
-          { key: "r", label: "refresh", action: "search" as const },
-          { key: "f", label: "fallback", action: "provider" as const },
-        ]
-      : []),
-  ];
-
-  const { commandMode, commandInput, commandCursor, highlightedIndex } = useShellInput({
-    footerActions,
-    commands: state.commands ?? [],
-    disabled: !state.onCommandAction,
-    escapeAction: state.cancellable ? "back-to-results" : null,
-    onResolve: (action) => state.onCommandAction?.(action),
-  });
-
   useInput((input, key) => {
     if (input === "\x03") {
       if (process.stdin.isTTY) process.stdin.unref();
       process.exit(0);
     }
-    if (key.escape && !commandMode && state.cancellable && onCancel) {
+    if (key.escape && state.cancellable && onCancel) {
       onCancel();
+      return;
     }
     if (input.toLowerCase() === "q" && state.operation === "playing" && onStop) {
       onStop();
@@ -182,8 +164,35 @@ export function LoadingShell({
       ? [{ label: "loading", tone: "info" as const }]
       : renderPhaseRail(state.operation);
 
+  const footerActions: readonly FooterAction[] = [
+    { key: "/", label: "commands", action: "command-mode" },
+    { key: "g", label: "settings", action: "settings" },
+    { key: "h", label: "history", action: "history" },
+    { key: "d", label: "diagnostics", action: "diagnostics" },
+    { key: "?", label: "help", action: "help" },
+  ];
+
   return (
-    <Box flexDirection="column" flexGrow={1} justifyContent="space-between" paddingX={2} paddingY={1}>
+    <ShellFrame
+      eyebrow="playback"
+      title={state.title}
+      subtitle={state.subtitle ?? "Preparing playback"}
+      status={{
+        label: isPlaying ? "playing" : operationLabels[state.operation].toLowerCase(),
+        tone: isPlaying ? "success" : "neutral",
+      }}
+      footerTask={
+        state.operation === "playing"
+          ? "Playback  ·  q stop · r refresh · f fallback"
+          : "Playback bootstrap  ·  Esc cancel · / commands"
+      }
+      footerActions={footerActions}
+      footerMode={state.footerMode ?? "detailed"}
+      commands={state.commands ?? []}
+      inputLocked={!state.onCommandAction}
+      escapeAction={null}
+      onResolve={(action) => state.onCommandAction?.(action)}
+    >
       <Box flexDirection="column" width={infoWidth} justifyContent="center" flexGrow={1}>
         <Box>
           <Badge
@@ -301,27 +310,6 @@ export function LoadingShell({
           </Box>
         ) : null}
       </Box>
-
-      <Box flexDirection="column">
-        {commandMode && state.onCommandAction && state.commands ? (
-          <CommandPalette
-            input={commandInput}
-            cursor={commandCursor}
-            commands={state.commands}
-            highlightedIndex={highlightedIndex}
-          />
-        ) : null}
-        <ShellFooter
-          taskLabel={
-            state.operation === "playing"
-              ? "Playback  ·  q stop · r refresh · f fallback"
-              : "Playback bootstrap  ·  Esc cancel · / commands"
-          }
-          actions={footerActions}
-          mode={state.footerMode ?? "detailed"}
-          commandMode={commandMode}
-        />
-      </Box>
-    </Box>
+    </ShellFrame>
   );
 }

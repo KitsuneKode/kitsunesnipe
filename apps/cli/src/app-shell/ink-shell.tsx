@@ -189,13 +189,14 @@ function ensureRootShell() {
   });
   rootShellExitPromise = rootShellInk.waitUntilExit();
 
-  void rootShellExitPromise.then(() => {
+  void (async () => {
+    await rootShellExitPromise;
     rootShellInk = null;
     rootShellExitPromise = null;
     rootShellScreen = null;
     clearRootContentSession();
     stdinManager.exitShell();
-  });
+  })();
 
   return rootShellExitPromise;
 }
@@ -246,12 +247,13 @@ function mountShell<TResult>({
     element: renderShell((value) => settle(value, clearOnResolve)),
   });
 
-  void exitPromise.then(() => {
+  void (async () => {
+    await exitPromise;
     if (!settled) {
       settled = true;
       resolveResult(fallbackValue);
     }
-  });
+  })();
 
   return {
     close: (value: TResult) => settle(value, true),
@@ -366,7 +368,14 @@ function AppRoot({ container }: { container: Container }) {
     state.playbackStatus === "stalled";
 
   return (
-    <Box flexDirection="column" width={shellWidth} height={shellHeight} paddingX={1} paddingY={0}>
+    <Box
+      flexDirection="column"
+      width={shellWidth}
+      height={shellHeight}
+      paddingX={1}
+      paddingY={0}
+      backgroundColor={palette.bg}
+    >
       <Box
         flexDirection="column"
         borderStyle="round"
@@ -575,8 +584,8 @@ function AppRoot({ container }: { container: Container }) {
  * Launches the persistent state-driven app shell.
  */
 export async function launchSessionApp(container: Container) {
-  if (rootShellInk) {
-    return rootShellExitPromise!;
+  if (rootShellInk && rootShellExitPromise) {
+    return rootShellExitPromise;
   }
 
   stdinManager.enterShell();
@@ -588,13 +597,14 @@ export async function launchSessionApp(container: Container) {
   });
   rootShellExitPromise = rootShellInk.waitUntilExit();
 
-  void rootShellExitPromise.then(() => {
+  void (async () => {
+    await rootShellExitPromise;
     rootShellInk = null;
     rootShellExitPromise = null;
     rootShellScreen = null;
     clearRootContentSession();
     stdinManager.exitShell();
-  });
+  })();
 
   return rootShellExitPromise;
 }
@@ -968,8 +978,8 @@ function PlaybackShell({
                       {poster.art
                         .split("\n")
                         .slice(0, poster.rows)
-                        .map((line, i) => (
-                          <Text key={i}>{line}</Text>
+                        .map((line) => (
+                          <Text key={`playback-poster-${line}`}>{line}</Text>
                         ))}
                     </Box>
                   ) : (
@@ -1402,7 +1412,7 @@ function ListShell<T>({
                     : "";
                   const rowText = truncateLine(`${option.label}${secondary}`, rowWidth);
                   return (
-                    <Box key={optionIndex}>
+                    <Box key={`${option.label}-${optionIndex}`}>
                       <Text
                         backgroundColor={selected ? palette.cyan : undefined}
                         color={selected ? "black" : "white"}
@@ -1438,8 +1448,8 @@ function ListShell<T>({
                       )}
                     </Text>
                     <Box marginTop={1} flexDirection="column">
-                      {detailLines.map((line, lineIndex) => (
-                        <Text key={`${line}-${lineIndex}`} color={palette.muted}>
+                      {detailLines.map((line) => (
+                        <Text key={`detail-${selectedLabel}-${line}`} color={palette.muted}>
                           {line}
                         </Text>
                       ))}
@@ -1909,7 +1919,7 @@ function BrowseShell<T>({
                 const metaText = option.previewMeta?.[0];
 
                 return (
-                  <Box key={optionIndex} flexDirection="column">
+                  <Box key={`${option.label}-${optionIndex}`} flexDirection="column">
                     <Box width={rowWidth} justifyContent="space-between">
                       <Box>
                         <Text
@@ -1977,7 +1987,7 @@ function BrowseShell<T>({
                       poster.art
                         .split("\n")
                         .slice(0, poster.rows)
-                        .map((line, i) => <Text key={i}>{line}</Text>)
+                        .map((line) => <Text key={`browse-poster-${line}`}>{line}</Text>)
                     )}
                   </Box>
                 ) : selectedOption?.previewImageUrl ? (
@@ -1995,19 +2005,19 @@ function BrowseShell<T>({
                 </Text>
                 {previewMeta.length > 0 && !ultraCompact ? (
                   <Box marginTop={1} flexWrap="wrap">
-                    {previewMeta.slice(0, 3).map((meta, index) => (
+                    {previewMeta.slice(0, 3).map((meta) => (
                       <Badge
-                        key={`${meta}-${index}`}
+                        key={`${meta}-${selectedOption?.label ?? "selected"}`}
                         label={truncateLine(meta, Math.max(12, previewWidth - 8))}
-                        tone={index === 2 ? "accent" : index === 0 ? "info" : "neutral"}
+                        tone="neutral"
                       />
                     ))}
                   </Box>
                 ) : null}
                 {previewBodyLines.length > 0 ? (
                   <Box marginTop={1} flexDirection="column">
-                    {previewBodyLines.map((line, index) => (
-                      <Text key={`${line}-${index}`} color={palette.muted}>
+                    {previewBodyLines.map((line) => (
+                      <Text key={`${selectedOption?.label ?? "selected"}-${line}`} color={palette.muted}>
                         {line}
                       </Text>
                     ))}
