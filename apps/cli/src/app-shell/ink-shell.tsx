@@ -9,7 +9,7 @@ import { Box, Text, render, useInput, useStdout } from "ink";
 import React, { useEffect, useRef, useState } from "react";
 
 import type { ResolvedAppCommand } from "./commands";
-import { buildBrowseDetailsPanel } from "./details-panel";
+import { buildBrowseCompanionPanel, buildBrowseDetailsPanel } from "./details-panel";
 import { deleteAllKittyImages, isChafaAvailable } from "./image-pane";
 import { LoadingShell, useSpinner } from "./loading-shell";
 import { OverlayPanel } from "./overlay-panel";
@@ -22,6 +22,7 @@ import {
 import { RootOverlayShell } from "./root-overlay-shell";
 import { getRootOwnedOverlay, resolveRootShellSurface } from "./root-shell-state";
 import { ErrorShell, RootIdleShell } from "./root-status-shells";
+import { buildRootStatusSummary } from "./root-status-summary";
 import {
   CommandPalette,
   fallbackCommandState,
@@ -39,7 +40,7 @@ import {
   ShellFooter,
 } from "./shell-primitives";
 import { getWindowStart, truncateLine, wrapText } from "./shell-text";
-import { APP_LABEL, palette } from "./shell-theme";
+import { APP_LABEL, palette, statusColor } from "./shell-theme";
 import {
   toShellAction,
   type FooterAction,
@@ -343,6 +344,11 @@ function AppRoot({ container }: { container: Container }) {
         : rootContent?.kind === "browse" || rootContent?.kind === "playback"
           ? rootContent.kind
           : state.view;
+  const rootStatusSummary = buildRootStatusSummary({
+    state,
+    currentViewLabel,
+    rootStatus,
+  });
   const rootOverlay = getRootOwnedOverlay(state);
   const rootSurface = resolveRootShellSurface(state, {
     hasRootContent: Boolean(rootContent),
@@ -388,19 +394,18 @@ function AppRoot({ container }: { container: Container }) {
       >
         <Box justifyContent="space-between">
           <Text color={palette.amber}>{APP_LABEL}</Text>
-          <Text color={rootStatus === "error" ? palette.red : palette.cyan}>{rootStatus}</Text>
+          <Text color={statusColor(rootStatusSummary.header.tone)}>
+            {rootStatusSummary.header.label}
+          </Text>
         </Box>
         <Box marginTop={0} flexWrap="wrap">
-          <InlineBadge label={`mode ${state.mode}`} tone="info" />
-          <InlineBadge label={`provider ${state.provider}`} tone="neutral" />
-          <InlineBadge label={`view ${currentViewLabel}`} tone="success" />
-          {playbackSubtitle ? <InlineBadge label={playbackSubtitle} tone="neutral" /> : null}
-          {rootSurface === "playback" && state.autoplaySessionPaused ? (
-            <InlineBadge label="autoplay paused" tone="warning" />
-          ) : null}
-          {rootSurface === "playback" && state.stopAfterCurrent ? (
-            <InlineBadge label="stop after current" tone="warning" />
-          ) : null}
+          {rootStatusSummary.badges.map((badge) => (
+            <InlineBadge
+              key={`${badge.label}-${badge.tone}`}
+              label={truncateLine(badge.label, badge.label === state.currentTitle?.name ? 34 : 28)}
+              tone={badge.tone}
+            />
+          ))}
         </Box>
         <Box marginTop={1} flexDirection="column" flexGrow={1} justifyContent="space-between">
           <Box flexDirection="column" flexGrow={1}>
@@ -1451,7 +1456,7 @@ function ListShell<T>({
                     </Text>
                     <Box marginTop={1} flexDirection="column">
                       {detailLines.map((line) => (
-                        <Text key={`detail-${selectedLabel}-${line}`} color={palette.muted}>
+                        <Text key={`detail-${selectedLabel}-${line}`} color={palette.cyan}>
                           {line}
                         </Text>
                       ))}
@@ -1689,6 +1694,7 @@ function BrowseShell<T>({
 
   const queryDirty = query.trim() !== lastSearchedQuery;
   const selectedOption = options[selectedIndex];
+  const companionPanel = buildBrowseCompanionPanel(selectedOption, { selectedDetail });
   const viewport = getShellViewportPolicy("browse", stdout.columns, stdout.rows);
   const {
     compact,
@@ -1707,12 +1713,8 @@ function BrowseShell<T>({
   const windowStart = getWindowStart(selectedIndex, options.length, maxVisible);
   const windowEnd = Math.min(windowStart + maxVisible, options.length);
   const visibleOptions = options.slice(windowStart, windowEnd);
-  const previewMeta = selectedOption?.previewMeta ?? [];
   const previewBodyLines = wrapText(
-    selectedOption?.previewBody ??
-      (options.length > 0
-        ? "No description available."
-        : "Type a title and press Enter to search."),
+    companionPanel.body,
     Math.max(previewWidth - 2, 24),
     ultraCompact ? 1 : compact ? 2 : 3,
   );
@@ -1721,10 +1723,10 @@ function BrowseShell<T>({
     !compact &&
     Boolean(
       poster.kind !== "none" ||
-      selectedOption?.previewTitle ||
-      previewMeta.length > 0 ||
+      companionPanel.title ||
+      companionPanel.badges.length > 0 ||
       previewBodyLines.some((line) => line.trim().length > 0) ||
-      selectedOption?.previewNote,
+      companionPanel.note,
     );
   useInput((input, key) => {
     if (input === "\x03") {
@@ -2000,18 +2002,15 @@ function BrowseShell<T>({
                   </Box>
                 ) : null}
                 <Text bold color="white">
-                  {truncateLine(
-                    selectedOption?.previewTitle ?? selectedOption?.label ?? "No selection yet",
-                    previewWidth,
-                  )}
+                  {truncateLine(companionPanel.title, previewWidth)}
                 </Text>
-                {previewMeta.length > 0 && !ultraCompact ? (
+                {companionPanel.badges.length > 0 && !ultraCompact ? (
                   <Box marginTop={1} flexWrap="wrap">
-                    {previewMeta.slice(0, 3).map((meta) => (
+                    {companionPanel.badges.map((badge) => (
                       <Badge
-                        key={`${selectedOption?.label ?? "selected"}-${meta}`}
-                        label={truncateLine(meta, Math.max(12, previewWidth - 8))}
-                        tone="neutral"
+                        key={`${selectedOption?.label ?? "selected"}-${badge.label}`}
+                        label={truncateLine(badge.label, Math.max(12, previewWidth - 8))}
+                        tone={badge.tone}
                       />
                     ))}
                   </Box>
@@ -2029,21 +2028,22 @@ function BrowseShell<T>({
                   </Box>
                 ) : null}
                 {!ultraCompact ? (
-                  <Box marginTop={1}>
-                    <Text color={palette.gray}>
-                      {selectedOption?.previewNote ??
-                        truncateLine(selectedDetail, Math.max(previewWidth, 48))}
-                    </Text>
+                  <Box marginTop={1} flexDirection="column">
+                    {companionPanel.facts.slice(0, compact ? 2 : 4).map((fact) => (
+                      <DetailLine
+                        key={`${selectedOption?.label ?? "selected"}-${fact.label}`}
+                        label={fact.label}
+                        value={truncateLine(fact.detail ?? "", Math.max(18, previewWidth - 16))}
+                        tone={fact.tone === "error" ? "warning" : fact.tone}
+                      />
+                    ))}
                   </Box>
                 ) : null}
               </Box>
             ) : (
               <Box marginTop={1} flexDirection="column">
                 <Text bold color="white">
-                  {truncateLine(
-                    selectedOption?.previewTitle ?? selectedOption?.label ?? "",
-                    innerWidth,
-                  )}
+                  {truncateLine(companionPanel.title, innerWidth)}
                 </Text>
                 {previewBodyLines.length > 0 ? (
                   <Text color={palette.muted}>{previewBodyLines[0]}</Text>
