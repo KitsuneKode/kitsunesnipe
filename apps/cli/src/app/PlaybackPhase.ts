@@ -425,7 +425,13 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           // post-playback decisions (history, autoNext, result classification) use it.
           const effectiveTiming = { current: playbackTiming };
           if (!playbackTiming) {
-            void this.retryTimingInBackground(title, currentEpisode, container, effectiveTiming);
+            void this.retryTimingInBackground(
+              title,
+              currentEpisode,
+              container,
+              effectiveTiming,
+              playbackTimingByEpisode,
+            );
           }
 
           const preparedStream = await this.preparePlaybackStream(
@@ -858,6 +864,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     episode: EpisodeInfo,
     container: PhaseContext["container"],
     timingRef?: { current: Awaited<ReturnType<typeof fetchPlaybackTimingMetadata>> },
+    cache?: Map<string, Awaited<ReturnType<typeof fetchPlaybackTimingMetadata>>>,
   ): Promise<void> {
     return (async () => {
       try {
@@ -870,6 +877,13 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         });
         if (timing) {
           if (timingRef) timingRef.current = timing;
+          if (cache) {
+            const cacheKey =
+              title.type === "movie"
+                ? `movie:${title.id}`
+                : `series:${title.id}:${episode.season}:${episode.episode}`;
+            cache.set(cacheKey, timing);
+          }
           container.playerControl.updateCurrentPlaybackTiming(timing, "background-retry");
         }
       } catch {

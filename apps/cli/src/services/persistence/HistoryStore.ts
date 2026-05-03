@@ -28,7 +28,7 @@ export interface HistoryStore {
 }
 
 // Utility functions
-export function isFinished(entry: HistoryEntry, threshold = 0.9): boolean {
+export function isFinished(entry: HistoryEntry, threshold = 0.95): boolean {
   return entry.completed || (entry.duration > 0 && entry.timestamp / entry.duration >= threshold);
 }
 

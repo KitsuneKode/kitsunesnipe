@@ -38,7 +38,7 @@ export class SqliteHistoryStoreImpl implements HistoryStore {
       },
       positionSeconds: entry.timestamp,
       durationSeconds: entry.duration,
-      completed: entry.completed || (entry.duration > 0 && entry.timestamp / entry.duration >= 0.9),
+      completed: entry.completed,
       providerId: entry.provider,
       updatedAt: entry.watchedAt,
     });
