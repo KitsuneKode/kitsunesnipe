@@ -16,6 +16,8 @@ export type KitsuneConfig = {
   skipPreview: boolean;
   skipCredits: boolean;
   footerHints: "detailed" | "minimal";
+  quitNearEndBehavior: "continue" | "pause";
+  quitNearEndThresholdMode: "credits-or-90-percent" | "percent-only" | "seconds-only";
 };
 
 export const DEFAULT_CONFIG: KitsuneConfig = {
@@ -32,6 +34,8 @@ export const DEFAULT_CONFIG: KitsuneConfig = {
   skipPreview: true,
   skipCredits: true,
   footerHints: "detailed",
+  quitNearEndBehavior: "continue",
+  quitNearEndThresholdMode: "credits-or-90-percent",
 };
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config", "kunai");

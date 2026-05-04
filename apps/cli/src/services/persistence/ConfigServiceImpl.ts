@@ -2,7 +2,12 @@
 // Config Service Implementation
 // =============================================================================
 
-import type { ConfigService, KitsuneConfig } from "./ConfigService";
+import type {
+  ConfigService,
+  KitsuneConfig,
+  QuitNearEndBehavior,
+  QuitNearEndThresholdMode,
+} from "./ConfigService";
 import type { ConfigStore } from "./ConfigStore";
 import { DEFAULT_CONFIG } from "./ConfigStore";
 
@@ -82,6 +87,14 @@ export class ConfigServiceImpl implements ConfigService {
 
   get footerHints(): "detailed" | "minimal" {
     return this.config.footerHints;
+  }
+
+  get quitNearEndBehavior(): QuitNearEndBehavior {
+    return this.config.quitNearEndBehavior;
+  }
+
+  get quitNearEndThresholdMode(): QuitNearEndThresholdMode {
+    return this.config.quitNearEndThresholdMode;
   }
 
   getRaw(): KitsuneConfig {

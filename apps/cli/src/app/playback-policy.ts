@@ -7,6 +7,20 @@ import type {
   TitleInfo,
 } from "@/domain/types";
 
+export type QuitNearEndBehavior = "continue" | "pause";
+
+export type QuitNearEndThresholdMode = "credits-or-90-percent" | "percent-only" | "seconds-only";
+
+export interface PlaybackEndPolicy {
+  readonly quitNearEndBehavior: QuitNearEndBehavior;
+  readonly quitNearEndThresholdMode: QuitNearEndThresholdMode;
+}
+
+export const DEFAULT_PLAYBACK_END_POLICY: PlaybackEndPolicy = {
+  quitNearEndBehavior: "continue",
+  quitNearEndThresholdMode: "credits-or-90-percent",
+};
+
 type CatalogEpisode = {
   number: number;
   name: string;
@@ -36,8 +50,16 @@ export type EpisodeAvailability = {
 export function getCompletionThresholdSeconds(
   duration: number,
   timing?: PlaybackTimingMetadata | null,
+  thresholdMode: QuitNearEndThresholdMode = "credits-or-90-percent",
 ): number {
   if (duration <= 0) return 0;
+
+  if (thresholdMode === "seconds-only") {
+    return Math.max(0, duration - 5);
+  }
+  if (thresholdMode === "percent-only") {
+    return Math.max(0, duration * 0.95);
+  }
 
   const creditsStartSeconds = getCreditsStartSeconds(duration, timing);
   if (creditsStartSeconds !== null) {
@@ -50,19 +72,21 @@ export function getCompletionThresholdSeconds(
 export function didPlaybackReachCompletionThreshold(
   result: PlaybackResult,
   timing?: PlaybackTimingMetadata | null,
+  thresholdMode: QuitNearEndThresholdMode = "credits-or-90-percent",
 ): boolean {
   return (
     result.duration > 0 &&
     result.watchedSeconds > 0 &&
-    result.watchedSeconds >= getCompletionThresholdSeconds(result.duration, timing)
+    result.watchedSeconds >= getCompletionThresholdSeconds(result.duration, timing, thresholdMode)
   );
 }
 
 export function didPlaybackEndNearNaturalEnd(
   result: PlaybackResult,
   timing?: PlaybackTimingMetadata | null,
+  thresholdMode: QuitNearEndThresholdMode = "credits-or-90-percent",
 ): boolean {
-  if (didPlaybackReachCompletionThreshold(result, timing)) return true;
+  if (didPlaybackReachCompletionThreshold(result, timing, thresholdMode)) return true;
 
   // Fallback for sources where mpv never reports a reliable duration (HLS/m3u8).
   // If the last known non-zero position is ≥ 95% of the last known non-zero duration,
@@ -240,14 +264,16 @@ export async function getAutoAdvanceEpisode(
   autoNextEnabled: boolean,
   availability: EpisodeAvailability,
   timing?: PlaybackTimingMetadata | null,
+  endPolicy: PlaybackEndPolicy = DEFAULT_PLAYBACK_END_POLICY,
 ): Promise<EpisodeInfo | null> {
-  const nearNaturalEnd = didPlaybackEndNearNaturalEnd(result, timing);
+  const thresholdMode = endPolicy.quitNearEndThresholdMode;
+  const nearNaturalEnd = didPlaybackEndNearNaturalEnd(result, timing, thresholdMode);
 
-  if (
-    !autoNextEnabled ||
-    title.type !== "series" ||
-    (result.endReason !== "eof" && !nearNaturalEnd)
-  ) {
+  const endAllowsAutoplayAdvance =
+    result.endReason === "eof" ||
+    (result.endReason === "quit" && endPolicy.quitNearEndBehavior === "continue" && nearNaturalEnd);
+
+  if (!autoNextEnabled || title.type !== "series" || !endAllowsAutoplayAdvance) {
     return null;
   }
 

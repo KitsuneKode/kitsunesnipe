@@ -290,6 +290,26 @@ describe("explainAutoplayBlockReason", () => {
       }),
     ).toBe("not-near-end");
   });
+
+  test("explains quit-stops-autoplay when pause policy and quit near natural end", () => {
+    expect(
+      explainAutoplayBlockReason({
+        result: {
+          watchedSeconds: 1205,
+          duration: 1210,
+          endReason: "quit",
+        },
+        title: seriesTitle,
+        currentEpisode: { season: 2, episode: 5 },
+        session: createPlaybackSessionState({ autoNextEnabled: true }),
+        availability: nextSeasonAvailability,
+        endPolicy: {
+          quitNearEndBehavior: "pause",
+          quitNearEndThresholdMode: "credits-or-90-percent",
+        },
+      }),
+    ).toBe("quit-stops-autoplay");
+  });
 });
 
 describe("syncPlaybackSessionState", () => {

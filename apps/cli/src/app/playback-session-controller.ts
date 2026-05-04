@@ -2,6 +2,8 @@ import {
   didPlaybackEndNearNaturalEnd,
   getAutoAdvanceEpisode,
   type EpisodeAvailability,
+  type PlaybackEndPolicy,
+  DEFAULT_PLAYBACK_END_POLICY,
 } from "@/app/playback-policy";
 import type {
   EpisodeInfo,
@@ -39,6 +41,7 @@ type PlaybackResultDecisionArgs = {
   controlAction: PlaybackControlAction | null;
   session: PlaybackSessionState;
   timing?: PlaybackTimingMetadata | null;
+  endPolicy?: PlaybackEndPolicy;
 };
 
 type AutoAdvanceArgs = {
@@ -48,6 +51,7 @@ type AutoAdvanceArgs = {
   session: PlaybackSessionState;
   availability: EpisodeAvailability;
   timing?: PlaybackTimingMetadata | null;
+  endPolicy?: PlaybackEndPolicy;
 };
 
 export type AutoAdvanceBlockReason =
@@ -56,6 +60,7 @@ export type AutoAdvanceBlockReason =
   | "stop-after-current"
   | "not-series"
   | "not-near-end"
+  | "quit-stops-autoplay"
   | "no-next-episode";
 
 export function syncPlaybackSessionState(
@@ -104,8 +109,13 @@ export function resolvePlaybackResultDecision({
   controlAction,
   session,
   timing,
+  endPolicy = DEFAULT_PLAYBACK_END_POLICY,
 }: PlaybackResultDecisionArgs): PlaybackResultDecision {
-  const nearNaturalEnd = didPlaybackEndNearNaturalEnd(result, timing);
+  const nearNaturalEnd = didPlaybackEndNearNaturalEnd(
+    result,
+    timing,
+    endPolicy.quitNearEndThresholdMode,
+  );
   // N/P navigation carries explicit user intent — don't treat the resulting
   // "stop" end-reason as an interrupted session even if position was mid-episode.
   const isNavigationAction = controlAction === "next" || controlAction === "previous";
@@ -154,6 +164,7 @@ export async function resolveAutoplayAdvanceEpisode({
   session,
   availability,
   timing,
+  endPolicy = DEFAULT_PLAYBACK_END_POLICY,
 }: AutoAdvanceArgs): Promise<EpisodeInfo | null> {
   return getAutoAdvanceEpisode(
     result,
@@ -162,19 +173,34 @@ export async function resolveAutoplayAdvanceEpisode({
     session.mode === "autoplay-chain" && !session.autoplayPaused && !session.stopAfterCurrent,
     availability,
     timing,
+    endPolicy,
   );
 }
 
 export function explainAutoplayBlockReason(args: AutoAdvanceArgs): AutoAdvanceBlockReason | null {
-  const { result, title, session, availability, timing } = args;
+  const {
+    result,
+    title,
+    session,
+    availability,
+    timing,
+    endPolicy = DEFAULT_PLAYBACK_END_POLICY,
+  } = args;
+  const thresholdMode = endPolicy.quitNearEndThresholdMode;
+  const nearNaturalEnd = didPlaybackEndNearNaturalEnd(result, timing, thresholdMode);
+  const endAllowsAutoplayAdvance =
+    result.endReason === "eof" ||
+    (result.endReason === "quit" && endPolicy.quitNearEndBehavior === "continue" && nearNaturalEnd);
 
   if (session.mode !== "autoplay-chain") return "manual-mode";
   if (session.autoplayPaused) return "autoplay-paused";
   if (session.stopAfterCurrent) return "stop-after-current";
   if (title.type !== "series") return "not-series";
-  if (result.endReason !== "eof" && !didPlaybackEndNearNaturalEnd(result, timing)) {
+  if (result.endReason === "quit" && endPolicy.quitNearEndBehavior === "pause") {
+    if (nearNaturalEnd) return "quit-stops-autoplay";
     return "not-near-end";
   }
+  if (!endAllowsAutoplayAdvance) return "not-near-end";
   if (!availability.nextEpisode) return "no-next-episode";
   return null;
 }
