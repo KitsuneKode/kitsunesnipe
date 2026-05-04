@@ -58,6 +58,41 @@ local loading_overlay = mp.create_osd_overlay("ass-events")
 loading_overlay.z = 1700
 
 local kunai_loading_text = ""
+local loading_anim_timer = nil
+local loading_started_wall = nil
+
+local function stop_loading_animation()
+	if loading_anim_timer ~= nil then
+		loading_anim_timer:kill()
+		loading_anim_timer = nil
+	end
+	loading_started_wall = nil
+end
+
+local function action_details_from_loading_text(text)
+	local raw = tostring(text or "")
+	local lower = raw:lower()
+	if lower:find("next episode", 1, true) then
+		return "Preparing next episode", "Keeping your session warm while sources resolve."
+	end
+	if lower:find("previous episode", 1, true) then
+		return "Going to previous episode", "Restoring prior playback context."
+	end
+	if lower:find("quality picker", 1, true) then
+		return "Opening quality picker", "Collecting available streams and variants."
+	end
+	return "Loading playback", "Resolving stream links and initializing player state."
+end
+
+local function loading_hint_for_time(elapsed)
+	local hints = {
+		"Kunai is contacting providers and validating playback links.",
+		"Playback starts automatically as soon as the stream is ready.",
+		"Keep this window focused for instant hand-off to mpv.",
+	}
+	local idx = math.floor((elapsed or 0) / 2.3) % #hints
+	return hints[idx + 1]
+end
 
 local function sync_kunai_loading_text(raw)
 	if type(raw) == "string" then
@@ -73,40 +108,104 @@ local function draw_kunai_loading_overlay()
 	if kunai_loading_text == "" then
 		loading_overlay.data = ""
 		loading_overlay:remove()
+		stop_loading_animation()
 		return
+	end
+
+	if not loading_started_wall then
+		loading_started_wall = mp.get_time()
 	end
 
 	local dim = mp.get_property_native("osd-dimensions", {})
 	local w = dim.w or 1280
 	local h = dim.h or 720
-	local fs = clamp(math.floor(h * 0.046), 26, 48)
 	local cx = math.floor(w / 2)
 	local cy = math.floor(h / 2)
+	local elapsed = math.max(0, mp.get_time() - loading_started_wall)
 
-	local line = esc_ass(kunai_loading_text)
-	local hint_fs = clamp(math.floor(h * 0.022), 12, 20)
-	local hint_line = esc_ass("Resolving stream — playback will start automatically.")
+	local title_fs = clamp(math.floor(h * 0.058), 34, 58)
+	local body_fs = clamp(math.floor(h * 0.028), 16, 26)
+	local hint_fs = clamp(math.floor(h * 0.022), 13, 20)
+	local micro_fs = clamp(math.floor(h * 0.018), 11, 16)
+
+	local spinner_frames = { "|", "/", "-", "\\" }
+	local spinner_idx = math.floor(elapsed * 10) % #spinner_frames
+	local spinner = spinner_frames[spinner_idx + 1]
+	local spinner_alpha = clamp(math.floor(34 + (math.sin(elapsed * 4.8) + 1) * 26), 26, 92)
+
+	local title, subtitle = action_details_from_loading_text(kunai_loading_text)
+	local line = esc_ass(title)
+	local subline = esc_ass(subtitle)
+	local detail_line = esc_ass(kunai_loading_text)
+	local hint_line = esc_ass(loading_hint_for_time(elapsed))
+	local wait_line = esc_ass(string.format("Elapsed: %.1fs", elapsed))
 
 	loading_overlay.res_x = w
 	loading_overlay.res_y = h
 	local ass_nl = "\\N"
 	loading_overlay.data = string.format(
-		"{\\an5\\bord5\\blur4\\shadow1\\shadowcolor&H40000000&\\fnSans\\fs%d\\pos(%d,%d)\\c&HF8F8F8&}%s"
+		"{\\an5\\bord7\\blur5\\shadow1\\shadowcolor&H50000000&\\fnSans\\fs%d\\pos(%d,%d)\\c&HFDFDFD&}%s"
 			.. ass_nl
-			.. "{\\alpha&HB0&\\fs%d}%s",
-		fs,
+			.. "{\\an5\\bord2\\blur2\\shadow0\\fnSans\\fs%d\\pos(%d,%d)\\c&HFFFFFF&\\alpha&H%02X&}%s"
+			.. ass_nl
+			.. "{\\an5\\alpha&H95&\\fs%d\\pos(%d,%d)\\c&HE6E6E6&}%s"
+			.. ass_nl
+			.. "{\\an5\\alpha&HA8&\\fs%d\\pos(%d,%d)\\c&HD2D2D2&}%s"
+			.. ass_nl
+			.. "{\\an5\\alpha&HC0&\\fs%d\\pos(%d,%d)\\c&HBCBCBC&}%s"
+			.. ass_nl
+			.. "{\\an5\\alpha&HD2&\\fs%d\\pos(%d,%d)\\c&HB0B0B0&}%s",
+		title_fs,
 		cx,
-		cy - math.floor(fs * 0.15),
+		cy - math.floor(h * 0.09),
 		line,
+		math.floor(title_fs * 1.2),
+		cx,
+		cy - math.floor(h * 0.17),
+		spinner_alpha,
+		spinner,
+		body_fs,
+		cx,
+		cy - math.floor(h * 0.01),
+		subline,
 		hint_fs,
+		cx,
+		cy + math.floor(h * 0.045),
+		detail_line,
+		hint_fs,
+		cx,
+		cy + math.floor(h * 0.09),
 		hint_line
+		,
+		micro_fs,
+		cx,
+		cy + math.floor(h * 0.13),
+		wait_line
 	)
 	loading_overlay:update()
+end
+
+local function ensure_loading_animation()
+	if kunai_loading_text == "" then
+		stop_loading_animation()
+		return
+	end
+	if loading_anim_timer ~= nil then
+		return
+	end
+	loading_anim_timer = mp.add_periodic_timer(0.08, function()
+		if kunai_loading_text == "" then
+			stop_loading_animation()
+			return
+		end
+		draw_kunai_loading_overlay()
+	end)
 end
 
 mp.observe_property("user-data/kunai-loading", "native", function(_, val)
 	sync_kunai_loading_text(val)
 	draw_kunai_loading_overlay()
+	ensure_loading_animation()
 end)
 
 mp.observe_property("osd-dimensions", "native", function()
@@ -118,6 +217,7 @@ end)
 pcall(function()
 	sync_kunai_loading_text(mp.get_property_native("user-data/kunai-loading"))
 	draw_kunai_loading_overlay()
+	ensure_loading_animation()
 end)
 
 mp.register_event("file-loaded", function()
