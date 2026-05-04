@@ -32,6 +32,7 @@ import {
 } from "@/app/playback-session-controller";
 import { createResolveTraceStub } from "@/app/resolve-trace";
 import { choosePlaybackSubtitle } from "@/app/subtitle-selection";
+import { effectiveFooterHints } from "@/container";
 import type {
   TitleInfo,
   EpisodeInfo,
@@ -47,6 +48,7 @@ import {
 } from "@/infra/player/playback-failure-classifier";
 import type { PlayerPlaybackEvent } from "@/infra/player/PlayerService";
 import { AniSkipTimingSource, IntroDbTimingSource, PlaybackTimingAggregator } from "@/infra/timing";
+import { buildApiStreamResolveCacheKey } from "@/services/cache/stream-resolve-cache";
 import { formatTimestamp } from "@/services/persistence/HistoryStore";
 import { mergeSubtitleTracks, resolveSubtitlesByTmdbId, selectSubtitle } from "@/subtitle";
 import { fetchEpisodes, fetchSeasons } from "@/tmdb";
@@ -63,6 +65,8 @@ export type PlaybackOutcome =
 
 export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
   name = "playback";
+
+  private static readonly lateSubtitleInflight = new Set<string>();
 
   private updatePlaybackFeedback(
     context: PhaseContext,
@@ -374,14 +378,14 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             });
           } else {
             const subLang = stateManager.getState().subLang;
-            const resolveCacheKey = this.buildProviderResolveCacheKey(
-              currentProvider.metadata.id,
+            const resolveCacheKey = buildApiStreamResolveCacheKey({
+              providerId: currentProvider.metadata.id,
               title,
-              currentEpisode,
-              stateManager.getState().mode,
+              episode: currentEpisode,
+              mode: stateManager.getState().mode,
               subLang,
-              config.animeLang,
-            );
+              animeLang: config.animeLang,
+            });
             const cachedStream = await cacheStore.get(resolveCacheKey);
             if (cachedStream) {
               stream = { ...cachedStream, cacheProvenance: "cached" };
@@ -424,6 +428,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                         title,
                         episode: currentEpisode,
                         subLang,
+                        animeLang: config.animeLang,
                       },
                       resolveController.signal,
                     ),
@@ -433,13 +438,15 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               stream = resolveResult.stream;
               resolvedProviderId = resolveResult.providerId ?? currentProvider.metadata.id;
 
-              for (const attempt of resolveResult.attempts) {
+              for (const [attemptIndex, attempt] of resolveResult.attempts.entries()) {
                 diagnosticsStore.record({
                   category: "provider",
                   message: attempt.stream
                     ? "Provider resolve attempt succeeded"
                     : "Provider resolve attempt failed",
                   context: {
+                    stage: "provider-resolve",
+                    attempt: attemptIndex + 1,
                     provider: attempt.providerId,
                     titleId: title.id,
                     season: currentEpisode.season,
@@ -483,14 +490,14 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 });
               }
 
-              const persistKey = this.buildProviderResolveCacheKey(
-                resolvedProviderId,
+              const persistKey = buildApiStreamResolveCacheKey({
+                providerId: resolvedProviderId,
                 title,
-                currentEpisode,
-                stateManager.getState().mode,
+                episode: currentEpisode,
+                mode: stateManager.getState().mode,
                 subLang,
-                config.animeLang,
-              );
+                animeLang: config.animeLang,
+              });
               try {
                 await cacheStore.set(persistKey, stream);
               } catch {
@@ -560,20 +567,21 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             const nextEp = episodeAvailability.nextEpisode;
             const prefetchProvider = providerRegistry.get(stateManager.getState().provider);
             if (!prefetchProvider) return;
-            const prefetchCacheKey = this.buildProviderResolveCacheKey(
-              prefetchProvider.metadata.id,
+            const prefetchCacheKey = buildApiStreamResolveCacheKey({
+              providerId: prefetchProvider.metadata.id,
               title,
-              nextEp,
-              stateManager.getState().mode,
-              stateManager.getState().subLang,
-              config.animeLang,
-            );
+              episode: nextEp,
+              mode: stateManager.getState().mode,
+              subLang: stateManager.getState().subLang,
+              animeLang: config.animeLang,
+            });
             void prefetchProvider
               .resolveStream(
                 {
                   title,
                   episode: nextEp,
                   subLang: stateManager.getState().subLang,
+                  animeLang: config.animeLang,
                 },
                 AbortSignal.timeout(30_000),
               )
@@ -604,8 +612,13 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
 
           // Save history — use effectiveTiming.current so that a background retry
           // that completed during playback is reflected in completion status.
-          if (shouldPersistHistory(result, effectiveTiming.current)) {
-            const historyTimestamp = toHistoryTimestamp(result, effectiveTiming.current);
+          const quitThresholdMode = config.quitNearEndThresholdMode;
+          if (shouldPersistHistory(result, effectiveTiming.current, quitThresholdMode)) {
+            const historyTimestamp = toHistoryTimestamp(
+              result,
+              effectiveTiming.current,
+              quitThresholdMode,
+            );
             await historyStore.save(title.id, {
               title: title.name,
               type: title.type,
@@ -613,7 +626,11 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               episode: currentEpisode.episode,
               timestamp: historyTimestamp,
               duration: result.duration,
-              completed: didPlaybackReachCompletionThreshold(result, effectiveTiming.current),
+              completed: didPlaybackReachCompletionThreshold(
+                result,
+                effectiveTiming.current,
+                quitThresholdMode,
+              ),
               provider: resolvedProviderId,
               watchedAt: new Date().toISOString(),
             });
@@ -642,6 +659,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             controlAction: playbackControlAction,
             session: playbackSession,
             timing: effectiveTiming.current,
+            endPolicy: {
+              quitNearEndBehavior: config.quitNearEndBehavior,
+              quitNearEndThresholdMode: config.quitNearEndThresholdMode,
+            },
           });
           playbackSession = playbackDecision.session;
           if (playbackDecision.shouldTreatAsInterrupted) {
@@ -651,15 +672,15 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             });
           }
           if (playbackDecision.shouldRefreshSource) {
-            pendingStartAt = toHistoryTimestamp(result);
-            const refreshCacheKey = this.buildProviderResolveCacheKey(
-              resolvedProviderId,
+            pendingStartAt = toHistoryTimestamp(result, effectiveTiming.current, quitThresholdMode);
+            const refreshCacheKey = buildApiStreamResolveCacheKey({
+              providerId: resolvedProviderId,
               title,
-              currentEpisode,
-              stateManager.getState().mode,
-              stateManager.getState().subLang,
-              config.animeLang,
-            );
+              episode: currentEpisode,
+              mode: stateManager.getState().mode,
+              subLang: stateManager.getState().subLang,
+              animeLang: config.animeLang,
+            });
             try {
               await cacheStore.delete(refreshCacheKey);
             } catch {
@@ -680,7 +701,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           }
 
           if (playbackDecision.shouldFallbackProvider) {
-            pendingStartAt = toHistoryTimestamp(result);
+            pendingStartAt = toHistoryTimestamp(result, effectiveTiming.current, quitThresholdMode);
             const fallback = providerRegistry
               .getCompatible(title)
               .find((candidate) => candidate.metadata.id !== resolvedProviderId);
@@ -783,6 +804,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             session: playbackSession,
             availability: episodeAvailability,
             timing: effectiveTiming.current,
+            endPolicy: {
+              quitNearEndBehavior: config.quitNearEndBehavior,
+              quitNearEndThresholdMode: config.quitNearEndThresholdMode,
+            },
           });
           if (!nextEpisode) {
             const blockedBy = explainAutoplayBlockReason({
@@ -792,6 +817,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               session: playbackSession,
               availability: episodeAvailability,
               timing: effectiveTiming.current,
+              endPolicy: {
+                quitNearEndBehavior: config.quitNearEndBehavior,
+                quitNearEndThresholdMode: config.quitNearEndThresholdMode,
+              },
             });
             diagnosticsStore.record({
               category: "playback",
@@ -828,6 +857,11 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 nextEpisode: nextEpisode.episode,
                 hasPrefetch: prefetchedNextStream !== null,
               },
+            });
+
+            this.updatePlaybackFeedback(context, {
+              detail: "Loading next episode",
+              note: `S${String(nextEpisode.season).padStart(2, "0")}E${String(nextEpisode.episode).padStart(2, "0")}`,
             });
 
             // Show OSD in the still-open mpv window so the user sees progress.
@@ -870,7 +904,11 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           const shellRuntime = buildShellRuntimeBindings(container);
 
           postPlayback: while (true) {
-            const resumeSeconds = toHistoryTimestamp(result);
+            const resumeSeconds = toHistoryTimestamp(
+              result,
+              effectiveTiming.current,
+              config.quitNearEndThresholdMode,
+            );
             const autoplaySessionPaused = playbackSession.autoplayPaused;
             const canResumePlayback =
               result.endReason !== "eof" &&
@@ -895,7 +933,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                   ? `resume ${formatTimestamp(resumeSeconds)}`
                   : undefined,
                 status: { label: "Ready for next action", tone: "success" },
-                footerMode: config.getRaw().footerHints,
+                footerMode: effectiveFooterHints(container),
                 commands: resolveCommands(stateManager.getState(), [
                   "search",
                   "settings",
@@ -909,6 +947,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                   "previous",
                   "next-season",
                   "diagnostics",
+                  "export-diagnostics",
                   "help",
                   "about",
                   "quit",
@@ -1295,6 +1334,17 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       return;
     }
 
+    const inflightKey = `${title.id}:${episode.season}:${episode.episode}:${requestedSubLang}`;
+    if (PlaybackPhase.lateSubtitleInflight.has(inflightKey)) {
+      diagnosticsStore.record({
+        category: "subtitle",
+        message: "Late subtitle lookup skipped (already in flight)",
+        context: { inflightKey },
+      });
+      return;
+    }
+    PlaybackPhase.lateSubtitleInflight.add(inflightKey);
+
     diagnosticsStore.record({
       category: "subtitle",
       message: "Late subtitle lookup started",
@@ -1391,6 +1441,8 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           message: "Late subtitle lookup failed",
           context: { titleId: title.id, error: String(error) },
         });
+      } finally {
+        PlaybackPhase.lateSubtitleInflight.delete(inflightKey);
       }
     })();
   }
@@ -1414,17 +1466,6 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       await Bun.sleep(250);
     }
     return false;
-  }
-
-  private buildProviderResolveCacheKey(
-    providerId: string,
-    title: TitleInfo,
-    episode: EpisodeInfo,
-    mode: "series" | "anime",
-    subLang: string,
-    animeLang: "sub" | "dub",
-  ): string {
-    return `api-resolve:${providerId}:${title.type}:${title.id}:${episode.season}:${episode.episode}:${mode}:${subLang}:${animeLang}`;
   }
 
   private async getAnimeEpisodeOptions({

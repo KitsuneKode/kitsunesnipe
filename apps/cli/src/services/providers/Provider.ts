@@ -17,6 +17,8 @@ export interface StreamRequest {
   title: TitleInfo;
   episode?: EpisodeInfo;
   subLang: string;
+  /** When set, overrides session config for this resolve (cache keys should match). */
+  animeLang?: "sub" | "dub";
 }
 
 export interface EpisodeListRequest {

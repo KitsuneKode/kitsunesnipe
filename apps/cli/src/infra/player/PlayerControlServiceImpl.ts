@@ -112,11 +112,13 @@ export class PlayerControlServiceImpl implements PlayerControlService {
       return false;
     }
 
-    const attached = await this.enqueueCommand(
+    const attachedRaw = await this.enqueueCommand(
       "attach-subtitles",
       reason,
       async () => await active.attachSubtitles?.(attachment),
     );
+    const attached =
+      typeof attachedRaw === "number" && Number.isFinite(attachedRaw) ? attachedRaw : 0;
     if (attached <= 0) return false;
     this.deps.logger.info("Attached late subtitles", { id: active.id, reason, attached });
     this.deps.diagnosticsStore.record({
@@ -153,11 +155,12 @@ export class PlayerControlServiceImpl implements PlayerControlService {
       message: "Skipping active playback segment",
       context: { id: active.id, reason },
     });
-    return await this.enqueueCommand(
+    const skipped = await this.enqueueCommand(
       "skip-segment",
       reason,
       async () => await active.skipCurrentSegment?.(),
     );
+    return Boolean(skipped);
   }
 
   async nextCurrentPlayback(reason = "user-requested"): Promise<boolean> {

@@ -51,7 +51,7 @@ export class AllAnimeProvider implements Provider {
       request.episode?.season ?? 1,
       request.episode?.episode ?? 1,
       {
-        animeLang: this.deps.config.animeLang,
+        animeLang: request.animeLang ?? this.deps.config.animeLang,
       },
     );
 
