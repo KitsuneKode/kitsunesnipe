@@ -8,6 +8,7 @@ import type { StreamInfo, SubtitleTrack } from "@/domain/types";
 import type { Logger } from "@/infra/logger/Logger";
 import type { Tracer } from "@/infra/tracer/Tracer";
 import { scrapeStream, type ScrapeConfig } from "@/scraper";
+import { buildEmbedStreamCacheKey } from "@/services/cache/stream-resolve-cache";
 import type { DiagnosticsStore } from "@/services/diagnostics/DiagnosticsStore";
 import type { CacheStore } from "@/services/persistence/CacheStore";
 import type { ConfigService } from "@/services/persistence/ConfigService";
@@ -32,7 +33,8 @@ export class BrowserServiceImpl implements BrowserService {
   async scrape(options: ScrapeOptions): Promise<StreamInfo | null> {
     const requestedSubLang = options.subLang ?? this.deps.config.subLang;
     const scrapeStreamImpl = this.deps.scrapeStreamImpl ?? scrapeStream;
-    const cached = await this.deps.cacheStore.get(options.url);
+    const cacheKey = buildEmbedStreamCacheKey(options.url);
+    const cached = await this.deps.cacheStore.get(cacheKey);
     if (cached) {
       let activeSubtitle = cached.subtitle;
 
@@ -132,7 +134,7 @@ export class BrowserServiceImpl implements BrowserService {
       timestamp: result.timestamp,
       cacheProvenance: "fresh" as const,
     };
-    await this.deps.cacheStore.set(options.url, stream);
+    await this.deps.cacheStore.set(cacheKey, stream);
     this.deps.diagnosticsStore.record({
       category: stream.subtitle ? "subtitle" : "provider",
       message: "Browser scrape resolved stream",
