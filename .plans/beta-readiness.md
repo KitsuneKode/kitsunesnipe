@@ -7,6 +7,8 @@ Last updated: 2026-05-03
 This plan tracks the work needed to ship a releasable public beta. It is the operational companion to the roadmap.
 Everything here is concrete and ordered. Each item is either done, in progress, or explicitly deferred.
 
+Product pillars and architecture contracts (playback, subtitles, cache seams, telemetry posture): [kunai-beta-v1-scope-and-contracts.md](kunai-beta-v1-scope-and-contracts.md).
+
 ---
 
 ## Consensus Decisions (locked)

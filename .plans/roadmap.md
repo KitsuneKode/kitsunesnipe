@@ -79,6 +79,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 
 | Track                            | Status        | Doc                                                                                                  |
 | -------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------- |
+| **Beta v1 scope & contracts**    | **Active**    | [.plans/kunai-beta-v1-scope-and-contracts.md](.plans/kunai-beta-v1-scope-and-contracts.md)          |
 | **Beta readiness**               | **Active**    | [.plans/beta-readiness.md](.plans/beta-readiness.md)                                                 |
 | Fullscreen root shell redesign   | In Progress   | [.plans/fullscreen-root-shell-redesign.md](.plans/fullscreen-root-shell-redesign.md)                 |
 | Phase 1.8 mounted content tree   | In Progress   | [.plans/phase-1.8-single-mounted-content-tree.md](.plans/phase-1.8-single-mounted-content-tree.md)   |
