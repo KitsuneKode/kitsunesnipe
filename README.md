@@ -23,13 +23,24 @@ Kunai does not host, store, upload, mirror, or distribute any video files on its
 - **1-hour stream cache** — re-watching or resuming skips the scraper entirely
 - **npm/package ready** — build, pack, and global-link scripts for local and release workflows
 
-## 🚀 Prerequisites
+## ✅ Supported now
+
+Use this as the current "works today" contract for beta users.
+
+- **Runtime**: Bun-based CLI on Linux (primary), macOS/Windows supported with caveats
+- **Playback**: `mpv` required and fail-fast checked at startup
+- **Providers**: series/movie + anime flows through current provider registry
+- **Subtitles**: provider + Wyzie merge path with in-shell picker and late attach
+- **Controls**: replay, next/previous, source picker, quality picker, refresh/fallback
+- **Diagnostics**: local diagnostics buffer + export + issue reporting command path
+
+## 🛠️ Prerequisites
 
 | Tool                                       | Required | Notes                       |
 | ------------------------------------------ | -------- | --------------------------- |
 | [Bun](https://bun.sh/)                     | ✅       | Runtime and package manager |
 | [mpv](https://mpv.io/)                     | ✅       | Media player                |
-| Playwright Chromium                          | Optional | Needed for browser/embed providers |
+| Playwright Chromium                         | Optional | Needed for browser/embed providers |
 | Kitty / Ghostty terminal                   | Optional | Poster image preview        |
 
 Install mpv:
@@ -53,6 +64,21 @@ cd kunai
 bun install
 bunx playwright install chromium
 bun run link:global
+```
+
+### Verify your setup
+
+```bash
+# quick confidence checks before first real run
+bun run typecheck
+bun run lint
+bun run test
+```
+
+If those pass, launch:
+
+```bash
+bun run dev
 ```
 
 ## 💻 Usage
@@ -127,6 +153,25 @@ History is stored in the OS app data directory as `kunai-data.sqlite`.
 - If playback diagnostics are unclear, use `/ export-diagnostics` then `/ report-issue`.
 - macOS/Windows behavior can differ from Linux on provider reliability and terminal rendering; please include OS + terminal details in issue reports.
 
+## 🗺️ Roadmap / TODO
+
+This section tracks future work in plain language for users and contributors.
+
+### Near-term TODO (beta hardening)
+
+- [ ] Broaden Linux smoke automation for source/quality and diagnostics flows
+- [ ] Improve macOS/Windows parity coverage and publish OS-specific caveats
+- [ ] Expand provider health telemetry surfaced in diagnostics panels
+- [ ] Add more deterministic tests around provider fallback + stream reselection
+- [ ] Ship clearer first-run guidance for optional browser-backed providers
+
+### Mid-term TODO (open-source usability)
+
+- [ ] Add contributor onboarding docs for provider debugging and test fixtures
+- [ ] Add release notes template and changelog discipline for each beta cut
+- [ ] Add reproducible bug report template with diagnostics attachment checklist
+- [ ] Publish a compatibility matrix for terminals, OS, and player runtime behavior
+
 ## 🗂️ Project Structure
 
 ```text
@@ -162,6 +207,15 @@ bun run link:global
 bun run unlink:global
 bun run relink:global
 ```
+
+## 🤝 Open-source workflow
+
+If you want this repo to stay usable for everyone, this is the expected loop:
+
+1. Open an issue with `/ export-diagnostics` output when reporting runtime bugs.
+2. Keep PRs focused and include test evidence (`bun run typecheck`, `bun run lint`, `bun run test`).
+3. Prefer additive docs updates when behavior changes (especially startup checks, hotkeys, or provider caveats).
+4. For provider breakages, include the provider id, exact command, OS, and terminal in reports.
 
 ## 🌐 Provider URL Patterns
 
