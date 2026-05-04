@@ -112,7 +112,6 @@ Unit tests live under `apps/cli/test/unit/`, integration tests under `apps/cli/t
 
 - [.plans/roadmap.md](.plans/roadmap.md): current status and what is next
 - [.plans/kunai-beta-v1-scope-and-contracts.md](.plans/kunai-beta-v1-scope-and-contracts.md): locked beta v1 scope, architecture seams, telemetry posture
-- [.plans/kunai-beta-v1-scope-and-contracts.md](.plans/kunai-beta-v1-scope-and-contracts.md): locked beta v1 scope, architecture seams, telemetry posture
 - [.plans/kunai-principal-grill-qa.md](.plans/kunai-principal-grill-qa.md): current product and architecture decision pressure-test
 - [.plans/kunai-architecture-and-cache-hardening.md](.plans/kunai-architecture-and-cache-hardening.md): web, daemon, cache, relay, and paid compute architecture
 - [.plans/kunai-experience-and-growth-moat.md](.plans/kunai-experience-and-growth-moat.md): CLI-first product moat, web experience, premium model, and growth strategy
