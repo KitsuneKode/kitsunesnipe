@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { EpisodeAvailability } from "@/app/playback-policy";
 import {
   createPlaybackSessionState,
+  explainAutoplayBlockReason,
   resolveAutoplayAdvanceEpisode,
   resolvePlaybackResultDecision,
   resolvePostPlaybackSessionAction,
@@ -253,6 +254,41 @@ describe("resolveAutoplayAdvanceEpisode", () => {
         availability: nextSeasonAvailability,
       }),
     ).resolves.toBeNull();
+  });
+});
+
+describe("explainAutoplayBlockReason", () => {
+  test("explains a session pause blocker", () => {
+    const session = createPlaybackSessionState({ autoNextEnabled: true });
+    expect(
+      explainAutoplayBlockReason({
+        result: baseResult,
+        title: seriesTitle,
+        currentEpisode: { season: 2, episode: 5 },
+        session: {
+          ...session,
+          autoplayPauseReason: "interrupted",
+          autoplayPaused: true,
+        },
+        availability: nextSeasonAvailability,
+      }),
+    ).toBe("autoplay-paused");
+  });
+
+  test("explains not-near-end blocker for non-eof quits", () => {
+    expect(
+      explainAutoplayBlockReason({
+        result: {
+          watchedSeconds: 500,
+          duration: 1200,
+          endReason: "quit",
+        },
+        title: seriesTitle,
+        currentEpisode: { season: 2, episode: 5 },
+        session: createPlaybackSessionState({ autoNextEnabled: true }),
+        availability: nextSeasonAvailability,
+      }),
+    ).toBe("not-near-end");
   });
 });
 

@@ -1,6 +1,5 @@
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 import { Box, Text } from "ink";
-import React from "react";
 
 import { Badge } from "./shell-primitives";
 import { getWindowStart, truncateLine, wrapText } from "./shell-text";
@@ -303,6 +302,13 @@ function resolvePanelTone(tone: ShellPanelLine["tone"]): string {
   }
 }
 
+/** Matches panel border/title accents for picker list focus styling. */
+function pickerFocusAccent(type: Extract<BrowseOverlay, { filterQuery: string }>["type"]): string {
+  if (type === "settings" || type === "settings-choice") return palette.green;
+  if (type === "provider") return palette.amber;
+  return palette.cyan;
+}
+
 export function OverlayPanel({
   overlay,
   width,
@@ -333,6 +339,9 @@ export function OverlayPanel({
   const visibleOptions = isPickerOverlay
     ? overlay.options.slice(optionWindowStart, optionWindowEnd)
     : [];
+  const pickerAccent = isPickerOverlay
+    ? pickerFocusAccent((overlay as Extract<BrowseOverlay, { filterQuery: string }>).type)
+    : palette.cyan;
 
   return (
     <Box
@@ -394,19 +403,21 @@ export function OverlayPanel({
               return (
                 <Text
                   key={`${option.value}-${optionIndex}`}
-                  backgroundColor={selected ? palette.cyan : undefined}
+                  backgroundColor={selected ? palette.surfaceElevated : undefined}
                   bold={selected}
                 >
-                  <Text color={selected ? "black" : palette.gray}>{selected ? "❯ " : "  "}</Text>
+                  <Text color={selected ? pickerAccent : palette.gray}>
+                    {selected ? "❯ " : "  "}
+                  </Text>
                   <Text
-                    color={selected ? "black" : (accentColor ?? "white")}
+                    color={selected ? pickerAccent : (accentColor ?? "white")}
                     dimColor={!selected && !accentColor}
                   >
                     {row}
                   </Text>
                   {badgeSuffix ? (
                     <Text
-                      color={selected ? "black" : (accentColor ?? palette.gray)}
+                      color={selected ? pickerAccent : (accentColor ?? palette.gray)}
                       dimColor={!selected && !accentColor}
                     >
                       {badgeSuffix}

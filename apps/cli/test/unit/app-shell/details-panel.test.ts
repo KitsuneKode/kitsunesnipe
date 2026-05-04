@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildBrowseDetailsPanel } from "@/app-shell/details-panel";
+import { buildBrowseCompanionPanel, buildBrowseDetailsPanel } from "@/app-shell/details-panel";
 import type { BrowseShellOption } from "@/app-shell/types";
 
 describe("buildBrowseDetailsPanel", () => {
@@ -37,5 +37,37 @@ describe("buildBrowseDetailsPanel", () => {
     expect(panel.lines.find((line) => line.label === "Rating")?.detail).toBe(
       "Rating unavailable from this provider response",
     );
+  });
+
+  test("builds compact companion facts for the selected browse result", () => {
+    const option: BrowseShellOption<string> = {
+      value: "demo",
+      label: "Demon Slayer (2019)",
+      previewTitle: "Demon Slayer",
+      previewBody: "A young swordsman joins the demon slayer corps.",
+      previewImageUrl: "https://image.tmdb.org/t/p/w342/demo.jpg",
+      previewRating: "8.5/10 TMDB",
+      previewMeta: ["Series", "2019", "26 episodes"],
+      previewNote: "Press Enter to open this title.",
+    };
+
+    const panel = buildBrowseCompanionPanel(option, {
+      selectedDetail: "Series · A young swordsman joins the demon slayer corps.",
+    });
+
+    expect(panel.title).toBe("Demon Slayer");
+    expect(panel.badges.map((badge) => badge.label)).toEqual([
+      "Series",
+      "2019",
+      "26 episodes",
+      "8.5/10 TMDB",
+    ]);
+    expect(panel.facts.map((fact) => fact.label)).toEqual([
+      "Poster",
+      "Rating",
+      "Provider data",
+      "Next step",
+    ]);
+    expect(panel.facts.find((fact) => fact.label === "Poster")?.tone).toBe("success");
   });
 });

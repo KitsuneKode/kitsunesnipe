@@ -36,10 +36,7 @@ function isNumericAniListId(id: string): boolean {
   return /^\d+$/.test(id);
 }
 
-async function resolveAniListIdByName(
-  name: string,
-  signal?: AbortSignal,
-): Promise<string | null> {
+async function resolveAniListIdByName(name: string, signal?: AbortSignal): Promise<string | null> {
   const key = name.toLowerCase();
   if (anilistIdByNameCache.has(key)) return anilistIdByNameCache.get(key) ?? null;
 

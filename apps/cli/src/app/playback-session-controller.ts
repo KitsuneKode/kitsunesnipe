@@ -50,6 +50,14 @@ type AutoAdvanceArgs = {
   timing?: PlaybackTimingMetadata | null;
 };
 
+export type AutoAdvanceBlockReason =
+  | "manual-mode"
+  | "autoplay-paused"
+  | "stop-after-current"
+  | "not-series"
+  | "not-near-end"
+  | "no-next-episode";
+
 export function syncPlaybackSessionState(
   session: PlaybackSessionState,
   shellState: {
@@ -155,4 +163,18 @@ export async function resolveAutoplayAdvanceEpisode({
     availability,
     timing,
   );
+}
+
+export function explainAutoplayBlockReason(args: AutoAdvanceArgs): AutoAdvanceBlockReason | null {
+  const { result, title, session, availability, timing } = args;
+
+  if (session.mode !== "autoplay-chain") return "manual-mode";
+  if (session.autoplayPaused) return "autoplay-paused";
+  if (session.stopAfterCurrent) return "stop-after-current";
+  if (title.type !== "series") return "not-series";
+  if (result.endReason !== "eof" && !didPlaybackEndNearNaturalEnd(result, timing)) {
+    return "not-near-end";
+  }
+  if (!availability.nextEpisode) return "no-next-episode";
+  return null;
 }

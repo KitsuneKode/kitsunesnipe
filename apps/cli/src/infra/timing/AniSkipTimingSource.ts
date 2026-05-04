@@ -1,5 +1,5 @@
-import type { EpisodeInfo, PlaybackTimingMetadata, TitleInfo } from "@/domain/types";
 import { fetchAniSkipTimingMetadata } from "@/aniskip";
+import type { EpisodeInfo, PlaybackTimingMetadata, TitleInfo } from "@/domain/types";
 
 import type { PlaybackTimingSource, TimingContentMode } from "./PlaybackTimingSource";
 

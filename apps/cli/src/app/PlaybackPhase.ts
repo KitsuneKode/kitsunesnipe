@@ -5,11 +5,6 @@
 // Returns when user wants to go back to search or switch mode.
 // =============================================================================
 
-import {
-  AniSkipTimingSource,
-  IntroDbTimingSource,
-  PlaybackTimingAggregator,
-} from "@/infra/timing";
 import { routePlaybackShellAction } from "@/app-shell/command-router";
 import { resolveCommands } from "@/app-shell/commands";
 import { buildShellRuntimeBindings } from "@/app-shell/runtime-bindings";
@@ -28,6 +23,7 @@ import {
 } from "@/app/playback-policy";
 import {
   createPlaybackSessionState,
+  explainAutoplayBlockReason,
   resolveAutoplayAdvanceEpisode,
   resolvePlaybackResultDecision,
   resolvePostPlaybackSessionAction,
@@ -50,15 +46,13 @@ import {
   recoveryForPlaybackFailure,
 } from "@/infra/player/playback-failure-classifier";
 import type { PlayerPlaybackEvent } from "@/infra/player/PlayerService";
+import { AniSkipTimingSource, IntroDbTimingSource, PlaybackTimingAggregator } from "@/infra/timing";
 import { formatTimestamp } from "@/services/persistence/HistoryStore";
 import { mergeSubtitleTracks, resolveSubtitlesByTmdbId, selectSubtitle } from "@/subtitle";
 import { fetchEpisodes, fetchSeasons } from "@/tmdb";
 import { resolveWithFallback } from "@kunai/core";
 
-const timingAggregator = new PlaybackTimingAggregator([
-  IntroDbTimingSource,
-  AniSkipTimingSource,
-]);
+const timingAggregator = new PlaybackTimingAggregator([IntroDbTimingSource, AniSkipTimingSource]);
 
 export type PlaybackOutcome =
   | "back_to_search"
@@ -705,6 +699,30 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             availability: episodeAvailability,
             timing: effectiveTiming.current,
           });
+          if (!nextEpisode) {
+            const blockedBy = explainAutoplayBlockReason({
+              result,
+              title,
+              currentEpisode,
+              session: playbackSession,
+              availability: episodeAvailability,
+              timing: effectiveTiming.current,
+            });
+            diagnosticsStore.record({
+              category: "playback",
+              message: "Auto-next blocked",
+              context: {
+                blockedBy,
+                endReason: result.endReason,
+                watchedSeconds: result.watchedSeconds,
+                duration: result.duration,
+                autoplayMode: playbackSession.mode,
+                autoplayPaused: playbackSession.autoplayPaused,
+                stopAfterCurrent: playbackSession.stopAfterCurrent,
+                hasNextEpisode: Boolean(episodeAvailability.nextEpisode),
+              },
+            });
+          }
           if (nextEpisode) {
             logger.info("Auto-next advancing to next episode", {
               titleId: title.id,

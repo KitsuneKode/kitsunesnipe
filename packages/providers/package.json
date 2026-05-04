@@ -14,7 +14,7 @@
     "test": "bun test test"
   },
   "dependencies": {
-    "@assemblyscript/loader": "^0.28.16",
+    "@assemblyscript/loader": "^0.28.17",
     "@kunai/core": "workspace:*",
     "@kunai/types": "workspace:*",
     "@types/crypto-js": "^4.2.2",
@@ -24,6 +24,6 @@
     "@types/bun": "latest"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^6.0.3"
   }
 }

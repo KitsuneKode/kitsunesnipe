@@ -10,6 +10,19 @@ export type BrowseDetailsPanel = {
   imageUrl?: string;
 };
 
+export type BrowseCompanionBadge = {
+  label: string;
+  tone: "neutral" | "success" | "warning";
+};
+
+export type BrowseCompanionPanel = {
+  title: string;
+  badges: readonly BrowseCompanionBadge[];
+  body: string;
+  facts: readonly ShellPanelLine[];
+  note: string;
+};
+
 export function buildBrowseDetailsPanel<T>(
   option: BrowseShellOption<T> | undefined,
 ): BrowseDetailsPanel {
@@ -75,5 +88,75 @@ export function buildBrowseDetailsPanel<T>(
     subtitle: title,
     lines,
     imageUrl: option.previewImageUrl,
+  };
+}
+
+export function buildBrowseCompanionPanel<T>(
+  option: BrowseShellOption<T> | undefined,
+  {
+    selectedDetail,
+  }: {
+    selectedDetail: string;
+  },
+): BrowseCompanionPanel {
+  if (!option) {
+    return {
+      title: "No selection yet",
+      badges: [],
+      body: "Type a title and press Enter to search.",
+      facts: [
+        {
+          label: "Next step",
+          detail: "Search for a title, then move through results.",
+          tone: "neutral",
+        },
+      ],
+      note: selectedDetail,
+    };
+  }
+
+  const badges: BrowseCompanionBadge[] = (option.previewMeta ?? []).slice(0, 3).map((meta) => ({
+    label: meta,
+    tone: "neutral",
+  }));
+  if (option.previewRating) {
+    badges.push({
+      label: option.previewRating,
+      tone: "success",
+    });
+  }
+
+  return {
+    title: option.previewTitle ?? option.label,
+    badges,
+    body: option.previewBody || "No overview available yet.",
+    facts: [
+      {
+        label: "Poster",
+        detail: option.previewImageUrl ? POSTER_AVAILABLE : POSTER_MISSING,
+        tone: option.previewImageUrl ? "success" : "warning",
+      },
+      {
+        label: "Rating",
+        detail: option.previewRating ?? "Unavailable from this provider response",
+        tone: option.previewRating ? "success" : "neutral",
+      },
+      {
+        label: "Provider data",
+        detail:
+          option.previewBody || option.previewFacts?.length || option.previewMeta?.length
+            ? "Detail fields available"
+            : "Only a title was returned",
+        tone:
+          option.previewBody || option.previewFacts?.length || option.previewMeta?.length
+            ? "success"
+            : "warning",
+      },
+      {
+        label: "Next step",
+        detail: option.previewNote ?? selectedDetail,
+      },
+    ],
+    note: option.previewNote ?? selectedDetail,
   };
 }

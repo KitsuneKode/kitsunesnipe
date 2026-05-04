@@ -16,13 +16,13 @@ test("buildMpvArgs only attaches the primary subtitle during initial launch", ()
 
   expect(args).toContain("--keep-open=no");
   expect(args).toContain("--idle=no");
-  expect(args).toContain("--force-window=immediate");
+  expect(args).toContain("--force-window=yes");
   expect(args).toContain("--autofit-larger=90%x90%");
   expect(args).toContain("--cache=yes");
   expect(args).toContain("--cache-pause=yes");
   expect(args).toContain("--cache-pause-wait=2");
-  expect(args).toContain("--demuxer-readahead-secs=20");
-  expect(args).toContain("--demuxer-max-bytes=128MiB");
+  expect(args).toContain("--demuxer-readahead-secs=60");
+  expect(args).toContain("--demuxer-max-bytes=200MiB");
   expect(args).toContain("--input-ipc-server=/tmp/kunai-test.sock");
   expect(args).toContain("--sub-file=https://sub.example/en.srt");
   expect(args).not.toContain("--sub-file=https://sub.example/ar.srt");
