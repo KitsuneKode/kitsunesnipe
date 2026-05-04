@@ -113,6 +113,7 @@ Each pillar implies **one primary seam** in code (interface + owner module). Fea
 
 ## Related
 
+- [kunai-execution-passes-and-cli-modes.md](kunai-execution-passes-and-cli-modes.md) — sequencing (perf vs reliability vs UX), CLI minimal/quick flags, autoskip notes  
 - [beta-readiness.md](beta-readiness.md) — operational checklist  
 - [roadmap.md](roadmap.md) — index and parked tracks  
 - [.docs/diagnostics-guide.md](../.docs/diagnostics-guide.md) — tracing for support  

@@ -486,7 +486,16 @@ export class PersistentMpvSession {
 
     if (options.startAt && options.startAt > 5) {
       options.onPlaybackEvent?.({ type: "resolving-playback" });
-      await this.ipcSession.send(["seek", options.startAt, "absolute"], 2_000);
+      const seekResult = await this.ipcSession.send(
+        ["seek", options.startAt, "absolute"],
+        2_000,
+      );
+      // IPC time-pos may lag behind the seek; autoskip uses currentPositionSeconds — sync so
+      // recap/intro windows are evaluated from the resume point, not from 0 (which would
+      // incorrectly skip earlier segments after a mid-episode resume).
+      if (seekResult.ok) {
+        this.currentPositionSeconds = options.startAt;
+      }
     }
 
     await this.replaceSubtitleInventory(
