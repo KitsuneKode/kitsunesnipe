@@ -313,6 +313,25 @@ async function openStaticInfoShell({
   });
 }
 
+async function openIssueUrl(): Promise<void> {
+  const url = "https://github.com/kitsunekode/kunai/issues/new/choose";
+  const commands: readonly [string, readonly string[]][] = [
+    ["xdg-open", [url]],
+    ["open", [url]],
+    ["cmd", ["/c", "start", "", url]],
+  ];
+  for (const [command, args] of commands) {
+    if (!Bun.which(command)) continue;
+    try {
+      const proc = Bun.spawn([command, ...args], { stdout: "ignore", stderr: "ignore" });
+      await proc.exited;
+      return;
+    } catch {
+      // try next opener
+    }
+  }
+}
+
 export function buildPickerActionContext({
   container,
   taskLabel,
@@ -495,6 +514,14 @@ export async function handleShellAction({
             detail: `${config.getRaw().defaultMode}  ·  Series ${config.getRaw().provider}  ·  Anime ${config.getRaw().animeProvider}`,
           },
           {
+            label: "Capabilities",
+            detail:
+              container.capabilitySnapshot?.issues.length &&
+              container.capabilitySnapshot.issues.length > 0
+                ? `${container.capabilitySnapshot.issues.length} degraded startup capability checks`
+                : "all required capabilities available",
+          },
+          {
             label: "Privacy",
             detail: "Diagnostics stay local unless you explicitly export or share them.",
           },
@@ -549,6 +576,16 @@ export async function handleShellAction({
           {
             label: "Memory",
             detail: `RSS ${(process.memoryUsage().rss / 1_048_576).toFixed(1)} MB`,
+          },
+          {
+            label: "Startup capabilities",
+            detail:
+              container.capabilitySnapshot?.issues.length &&
+              container.capabilitySnapshot.issues.length > 0
+                ? container.capabilitySnapshot.issues
+                    .map((issue) => `${issue.id} (${issue.severity})`)
+                    .join("  ·  ")
+                : "no startup capability issues",
           },
           ...recentEvents.map((event) => ({
             label: `${new Date(event.timestamp).toLocaleTimeString()}  ·  ${event.category}`,
@@ -678,6 +715,19 @@ export async function handleShellAction({
     return "handled";
   }
 
+  if (action === "report-issue") {
+    await openIssueUrl();
+    diagnosticsStore.record({
+      category: "ui",
+      message: "Opened issue reporting page",
+      context: {
+        url: "https://github.com/kitsunekode/kunai/issues/new/choose",
+        guidance: "Attach exported diagnostics, provider id, OS, and exact command.",
+      },
+    });
+    return "handled";
+  }
+
   return "unhandled";
 }
 
@@ -758,6 +808,78 @@ export async function openSubtitlePicker(
       value: entry.url,
       label: entry.display ?? entry.language ?? "Unknown track",
       detail: describeSubtitleEntry(entry),
+    })),
+  });
+}
+
+export async function openSourcePicker(
+  entries: ReadonlyArray<{
+    value: string;
+    label: string;
+    detail?: string;
+  }>,
+  actionContext?: ListShellActionContext,
+  container?: Container,
+): Promise<string | null> {
+  if (container) {
+    container.stateManager.dispatch({
+      type: "OPEN_OVERLAY",
+      overlay: {
+        type: "source_picker",
+        options: entries.map((entry) => ({
+          value: entry.value,
+          label: entry.label,
+          detail: entry.detail,
+        })),
+      },
+    });
+    return await waitForRootPicker();
+  }
+
+  return chooseOption({
+    title: "Choose source",
+    subtitle: `${entries.length} sources available`,
+    actionContext,
+    options: entries.map((entry) => ({
+      value: entry.value,
+      label: entry.label,
+      detail: entry.detail,
+    })),
+  });
+}
+
+export async function openQualityPicker(
+  entries: ReadonlyArray<{
+    value: string;
+    label: string;
+    detail?: string;
+  }>,
+  actionContext?: ListShellActionContext,
+  container?: Container,
+): Promise<string | null> {
+  if (container) {
+    container.stateManager.dispatch({
+      type: "OPEN_OVERLAY",
+      overlay: {
+        type: "quality_picker",
+        options: entries.map((entry) => ({
+          value: entry.value,
+          label: entry.label,
+          detail: entry.detail,
+        })),
+      },
+    });
+    return await waitForRootPicker();
+  }
+
+  return chooseOption({
+    title: "Choose quality",
+    subtitle: `${entries.length} quality options available`,
+    actionContext,
+    options: entries.map((entry) => ({
+      value: entry.value,
+      label: entry.label,
+      detail: entry.detail,
     })),
   });
 }

@@ -99,11 +99,15 @@ export class PlayerServiceImpl implements PlayerService {
 
       return result;
     } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      const actionableHint = errorMessage.toLowerCase().includes("mpv")
+        ? "mpv is required for playback. Install mpv and retry."
+        : "Run / export-diagnostics and / report-issue if this keeps failing.";
       this.deps.logger.error("MPV playback failed", { error: String(e) });
       this.deps.diagnosticsStore.record({
         category: "playback",
         message: "MPV playback failed",
-        context: { error: String(e) },
+        context: { error: errorMessage, hint: actionableHint },
       });
       return {
         watchedSeconds: 0,
@@ -181,7 +185,7 @@ export class PlayerServiceImpl implements PlayerService {
       autoNextEnabled: true,
       onPlayerReady: options.onPlayerReady,
       onPlaybackEvent: this.wrapPlaybackEventHandler(options.onPlaybackEvent),
-      onMpvActionRequest: (action: "next" | "previous") => {
+      onMpvActionRequest: (action: "next" | "previous" | "pick-quality") => {
         this.deps.playerControl.signalPlaybackAction(action);
       },
       onNearEof: options.onNearEof,

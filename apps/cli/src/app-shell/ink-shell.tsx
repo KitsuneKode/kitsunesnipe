@@ -451,15 +451,18 @@ function AppRoot({ container }: { container: Container }) {
                     state.playbackStatus === "playing" ||
                     state.playbackStatus === "buffering" ||
                     state.playbackStatus === "stalled"
-                      ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  b skip segment  ·  s reload subtitles  ·  r refresh  ·  f fallback  ·  Ctrl+C hard exit`
+                      ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  b skip segment  ·  o source  ·  k quality  ·  s reload subtitles  ·  r refresh  ·  f fallback  ·  Ctrl+C hard exit`
                       : undefined,
                   commands: fallbackCommandState([
                     "settings",
                     "provider",
                     "history",
                     "diagnostics",
+                    "report-issue",
                     "help",
                     "about",
+                    "source",
+                    "quality",
                     "quit",
                   ]),
                   footerMode: effectiveFooterHints(container),
@@ -474,6 +477,18 @@ function AppRoot({ container }: { container: Container }) {
                     if (action === "provider") {
                       void container.playerControl.fallbackCurrentPlayback(
                         "playback-loading-command-fallback",
+                      );
+                      return;
+                    }
+                    if (action === "source") {
+                      void container.playerControl.pickSourceCurrentPlayback(
+                        "playback-loading-command-source",
+                      );
+                      return;
+                    }
+                    if (action === "quality") {
+                      void container.playerControl.pickQualityCurrentPlayback(
+                        "playback-loading-command-quality",
                       );
                       return;
                     }
@@ -552,6 +567,12 @@ function AppRoot({ container }: { container: Container }) {
                       }
                     : undefined
                 }
+                onPickSource={() => {
+                  void container.playerControl.pickSourceCurrentPlayback("playback-shell-o");
+                }}
+                onPickQuality={() => {
+                  void container.playerControl.pickQualityCurrentPlayback("playback-shell-k");
+                }}
               />
             ) : rootSurface === "root-content" && rootContent ? (
               <Box key={rootContent.id} flexGrow={1}>
@@ -699,11 +720,14 @@ function PlaybackShell({
       "history",
       "toggle-autoplay",
       "replay",
+      "source",
+      "quality",
       "pick-episode",
       "next",
       "previous",
       "next-season",
       "diagnostics",
+      "report-issue",
       "help",
       "quit",
     ]);
@@ -721,6 +745,8 @@ function PlaybackShell({
       toShellAction,
     ),
     footerActionFromCommand(commands, "replay", { key: "r", label: "replay" }, toShellAction),
+    footerActionFromCommand(commands, "source", { key: "o", label: "sources" }, toShellAction),
+    footerActionFromCommand(commands, "quality", { key: "k", label: "quality" }, toShellAction),
     footerActionFromCommand(commands, "search", { key: "f", label: "search" }, toShellAction),
     footerActionFromCommand(
       commands,

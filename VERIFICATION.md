@@ -29,7 +29,9 @@ It separates:
   - `r` refresh current source
   - `f` fallback provider
   - `s` reload subtitles
-  - `i` skip the active recap/intro/preview segment when one is active
+  - `b` skip the active recap/intro/preview segment when one is active
+  - `o` open source picker and replay with selected source
+  - `k` open quality picker and replay with selected quality (also mapped in mpv bridge)
 - autoplay defaults to `on`
 - manual quit near end is credits-aware when IntroDB timing exists
 - fallback completion threshold is the last `5s` when timing metadata is absent
@@ -115,9 +117,17 @@ These are the highest-value smoke checks to do next.
 
 1. Play a title with IntroDB timing.
 2. Confirm recap/intros/previews auto-skip when enabled.
-3. During one of those windows, press `i`.
+3. During one of those windows, press `b`.
 4. Confirm manual skip jumps to the end of the active segment.
 5. Confirm credits timing affects completion/auto-next behavior as expected.
+
+### Source and quality controls
+
+1. Start playback on a provider exposing multiple streams/variants.
+2. Press `o` in the loading/playback shell and pick a different source.
+3. Confirm playback restarts with resume position and selected source.
+4. Press `k` in the shell, then again from mpv (`K`).
+5. Confirm quality picker appears and replay uses the selected variant.
 
 ### Poster rendering
 

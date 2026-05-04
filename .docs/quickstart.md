@@ -61,6 +61,7 @@ Summary:
 | `--debug` | | Verbose logging |
 
 Use `/ export-diagnostics` in the shell (or the command palette) to write a **redacted** JSON snapshot of recent diagnostics next to the process working directory for bug reports.
+Then run `/ report-issue` to open the GitHub issue form with triage guidance.
 
 ## Environment
 
@@ -83,6 +84,7 @@ bunx playwright install chromium
 **No stream resolved**
 
 Try a different provider from the shell picker or change the default provider in settings.
+If Playwright Chromium is missing, install it and retry browser-backed providers.
 
 **Anime playback broke after an upstream change**
 

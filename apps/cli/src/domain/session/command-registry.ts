@@ -14,13 +14,16 @@ export type AppCommandId =
   | "image-pane"
   | "toggle-autoplay"
   | "replay"
+  | "source"
+  | "quality"
   | "pick-episode"
   | "next"
   | "previous"
   | "next-season"
   | "clear-cache"
   | "clear-history"
-  | "export-diagnostics";
+  | "export-diagnostics"
+  | "report-issue";
 
 export type AppCommand = {
   readonly id: AppCommandId;
@@ -114,6 +117,18 @@ export const COMMANDS: readonly AppCommand[] = [
     description: "Replay the current item",
   },
   {
+    id: "source",
+    label: "Source Picker",
+    aliases: ["source", "sources", "mirror"],
+    description: "Open available stream sources",
+  },
+  {
+    id: "quality",
+    label: "Quality Picker",
+    aliases: ["quality", "qualities", "variant"],
+    description: "Open available quality variants",
+  },
+  {
     id: "pick-episode",
     label: "Pick Episode",
     aliases: ["episode", "pick-episode", "episodes"],
@@ -154,6 +169,12 @@ export const COMMANDS: readonly AppCommand[] = [
     label: "Export Diagnostics",
     aliases: ["export-diagnostics", "export-logs", "diag-export"],
     description: "Write recent diagnostics events to a redacted JSON file in the working directory",
+  },
+  {
+    id: "report-issue",
+    label: "Report Issue",
+    aliases: ["report-issue", "issue", "bug-report"],
+    description: "Open the GitHub issue page with diagnostics guidance",
   },
 ] as const;
 
@@ -259,6 +280,7 @@ function resolveCommandState(
     case "clear-cache":
     case "clear-history":
     case "export-diagnostics":
+    case "report-issue":
       return { enabled: true };
 
     case "toggle-mode":
@@ -331,6 +353,46 @@ function resolveCommandState(
         };
       }
       return { enabled: true };
+
+    case "source":
+      if (!hasEpisode) {
+        return {
+          enabled: false,
+          reason: "Start playback before source selection is available.",
+        };
+      }
+      if (resolving) {
+        return {
+          enabled: false,
+          reason: "Wait for stream resolution to finish first.",
+        };
+      }
+      return state.stream?.providerResolveResult?.streams.length
+        ? { enabled: true }
+        : {
+            enabled: false,
+            reason: "No provider source candidates were exposed for this stream.",
+          };
+
+    case "quality":
+      if (!hasEpisode) {
+        return {
+          enabled: false,
+          reason: "Start playback before quality selection is available.",
+        };
+      }
+      if (resolving) {
+        return {
+          enabled: false,
+          reason: "Wait for stream resolution to finish first.",
+        };
+      }
+      return state.stream?.providerResolveResult?.streams.length
+        ? { enabled: true }
+        : {
+            enabled: false,
+            reason: "No quality candidates were exposed for this stream.",
+          };
 
     case "pick-episode":
       if (!inSeriesContext) {

@@ -55,11 +55,13 @@ export function buildShellRuntimeBindings(container: Container) {
       buildAboutPanelLines({
         config: config.getRaw(),
         state: stateManager.getState(),
+        capabilitySnapshot: container.capabilitySnapshot,
       }),
     loadDiagnosticsPanel: async () =>
       buildDiagnosticsPanelLines({
         state: stateManager.getState(),
         recentEvents: diagnosticsStore.getRecent(10),
+        capabilitySnapshot: container.capabilitySnapshot,
       }),
     loadHistoryPanel: async () =>
       buildHistoryPanelLines(Object.entries(await historyStore.getAll())),

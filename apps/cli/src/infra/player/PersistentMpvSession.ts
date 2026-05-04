@@ -71,7 +71,7 @@ type PlayerCycleOptions = {
   onPlaybackEvent?: (event: PlayerPlaybackEvent) => void;
   /** Called when the user presses N or P inside the mpv window. The mpv process
    *  handles the stop itself; the app only needs to record the intent. */
-  onMpvActionRequest?: (action: "next" | "previous") => void;
+  onMpvActionRequest?: (action: "next" | "previous" | "pick-quality") => void;
   /** Called once when playback position is within ~30 s of the end. */
   onNearEof?: () => void;
 };
@@ -353,8 +353,10 @@ export class PersistentMpvSession {
             // presses N/P inside mpv. Handle it regardless of activeCycle state.
             if (name === "user-data/kunai-request") {
               const req = typeof value === "string" ? value : null;
-              if (req === "next" || req === "previous") {
-                this.currentCycleOptions().onMpvActionRequest?.(req);
+              if (req === "next" || req === "previous" || req === "quality") {
+                this.currentCycleOptions().onMpvActionRequest?.(
+                  req === "quality" ? "pick-quality" : req,
+                );
                 void this.ipcSession?.send(["set_property", "user-data/kunai-request", ""], 500);
               } else if (req === "skip" || req === "auto-skip") {
                 const automatic = req === "auto-skip";

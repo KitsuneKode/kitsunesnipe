@@ -72,6 +72,8 @@ export type OverlayState =
   | { type: "settings" }
   | { type: "provider_picker"; currentProvider: string; isAnime: boolean }
   | { type: "subtitle_picker"; options: readonly OverlayPickerOption[] }
+  | { type: "source_picker"; options: readonly OverlayPickerOption[] }
+  | { type: "quality_picker"; options: readonly OverlayPickerOption[] }
   | { type: "season_picker"; currentSeason: number; options: readonly OverlayPickerOption[] }
   | { type: "episode_picker"; season: number; options: readonly OverlayPickerOption[] }
   | { type: "history" }

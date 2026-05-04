@@ -50,6 +50,7 @@ import { ProviderRegistryImpl } from "./services/providers/ProviderRegistry";
 import { SEARCH_SERVICE_DEFINITIONS } from "./services/search/definitions";
 import type { SearchRegistry } from "./services/search/SearchRegistry";
 import { SearchRegistryImpl } from "./services/search/SearchRegistry";
+import type { CapabilitySnapshot } from "./ui";
 
 /**
  * The container is the single source of truth for all dependencies.
@@ -86,6 +87,8 @@ export interface Container {
 
   /** CLI-driven shell density; minimal forces a minimal footer regardless of saved config. */
   readonly shellChrome: ShellChrome;
+  /** Startup capability checks captured before container bootstrap. */
+  readonly capabilitySnapshot: CapabilitySnapshot | null;
 }
 
 export function effectiveFooterHints(
@@ -105,6 +108,7 @@ export interface ContainerOptions {
   debug?: boolean;
   mpv?: MpvRuntimeOptions;
   shellChrome?: ShellChrome;
+  capabilitySnapshot?: CapabilitySnapshot | null;
 }
 
 /**
@@ -164,6 +168,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   const searchRegistry = new SearchRegistryImpl({ logger, tracer }, SEARCH_SERVICE_DEFINITIONS);
 
   const shellChrome: ShellChrome = options?.shellChrome ?? "default";
+  const capabilitySnapshot = options?.capabilitySnapshot ?? null;
 
   const container: Container = {
     logger,
@@ -183,11 +188,13 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     diagnosticsStore,
     stateManager,
     shellChrome,
+    capabilitySnapshot,
   };
 
   logger.info("Container initialized", {
     providers: providerRegistry.getAllIds(),
     searchServices: searchRegistry.getAllIds(),
+    capabilityIssues: capabilitySnapshot?.issues.length ?? 0,
   });
 
   return container;

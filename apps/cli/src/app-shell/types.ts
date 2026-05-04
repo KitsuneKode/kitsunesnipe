@@ -16,6 +16,8 @@ export type ShellAction =
   | "toggle-autoplay"
   | "resume"
   | "replay"
+  | "source"
+  | "quality"
   | "pick-episode"
   | "next"
   | "previous"
@@ -23,6 +25,7 @@ export type ShellAction =
   | "clear-cache"
   | "clear-history"
   | "export-diagnostics"
+  | "report-issue"
   | "provider";
 
 export type ShellMode = "series" | "anime";
@@ -140,6 +143,8 @@ export function toShellAction(commandId: AppCommandId): ShellAction {
     case "toggle-autoplay":
     case "provider":
     case "replay":
+    case "source":
+    case "quality":
     case "pick-episode":
     case "next":
     case "previous":
@@ -147,6 +152,7 @@ export function toShellAction(commandId: AppCommandId): ShellAction {
     case "clear-cache":
     case "clear-history":
     case "export-diagnostics":
+    case "report-issue":
       return commandId;
   }
 }

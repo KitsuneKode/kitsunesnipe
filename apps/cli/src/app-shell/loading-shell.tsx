@@ -84,6 +84,8 @@ export function LoadingShell({
   onNext,
   onPrevious,
   onSkipSegment,
+  onPickSource,
+  onPickQuality,
   onToggleAutoplay,
   onStopAfterCurrent,
 }: {
@@ -96,6 +98,8 @@ export function LoadingShell({
   onNext?: () => void;
   onPrevious?: () => void;
   onSkipSegment?: () => void;
+  onPickSource?: () => void;
+  onPickQuality?: () => void;
   onToggleAutoplay?: () => void;
   onStopAfterCurrent?: () => void;
 }) {
@@ -137,6 +141,12 @@ export function LoadingShell({
     }
     if (input.toLowerCase() === "b" && state.operation === "playing" && onSkipSegment) {
       onSkipSegment();
+    }
+    if (input.toLowerCase() === "o" && state.operation === "playing" && onPickSource) {
+      onPickSource();
+    }
+    if (input.toLowerCase() === "k" && state.operation === "playing" && onPickQuality) {
+      onPickQuality();
     }
     if (input.toLowerCase() === "a" && state.operation === "playing" && onToggleAutoplay) {
       onToggleAutoplay();

@@ -9,6 +9,8 @@ import { routePlaybackShellAction } from "@/app-shell/command-router";
 import { resolveCommands } from "@/app-shell/commands";
 import { buildShellRuntimeBindings } from "@/app-shell/runtime-bindings";
 import {
+  openQualityPicker,
+  openSourcePicker,
   buildPickerActionContext,
   openSubtitlePicker,
   handleShellAction,
@@ -32,6 +34,11 @@ import {
   type PlaybackSessionState,
 } from "@/app/playback-session-controller";
 import { createResolveTraceStub } from "@/app/resolve-trace";
+import {
+  applyPreferredStreamSelection,
+  buildQualityPickerOptions,
+  buildSourcePickerOptions,
+} from "@/app/source-quality";
 import { choosePlaybackSubtitle } from "@/app/subtitle-selection";
 import { effectiveFooterHints } from "@/container";
 import type {
@@ -162,6 +169,24 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     }
   }
 
+  private buildProviderFailureHint({
+    attempts,
+    capabilitySnapshot,
+  }: {
+    attempts: readonly {
+      readonly failure?: { readonly code?: string; readonly message?: string } | undefined;
+    }[];
+    capabilitySnapshot: { readonly chromiumForEmbeds: boolean } | null;
+  }): string {
+    if (!capabilitySnapshot?.chromiumForEmbeds) {
+      return "Playwright Chromium is not installed, so browser-backed providers are currently unavailable. Install with `bunx playwright install chromium`.";
+    }
+    if (hasRuntimeMissingFailure(attempts)) {
+      return "A provider runtime dependency is missing. Open Diagnostics to inspect the failing provider/runtime pair.";
+    }
+    return "Try refresh/fallback, then export diagnostics and file an issue if this persists.";
+  }
+
   async execute(title: TitleInfo, context: PhaseContext): Promise<PhaseResult<PlaybackOutcome>> {
     const { container } = context;
     const {
@@ -184,6 +209,8 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     let playbackSession: PlaybackSessionState = createPlaybackSessionState({
       autoNextEnabled: config.autoNext,
     });
+    let preferredSourceId: string | null = null;
+    let preferredStreamId: string | null = null;
 
     try {
       // Episode selection (for series)
@@ -471,11 +498,15 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               }
 
               if (!stream) {
+                const failureHint = this.buildProviderFailureHint({
+                  attempts: resolveResult.attempts,
+                  capabilitySnapshot: container.capabilitySnapshot,
+                });
                 return {
                   status: "error",
                   error: {
                     code: "STREAM_NOT_FOUND",
-                    message: "Could not resolve stream from any provider",
+                    message: `Could not resolve stream from any provider. ${failureHint}`,
                     retryable: true,
                     provider: currentProvider.metadata.id,
                   },
@@ -513,16 +544,25 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
 
           // TypeScript cannot narrow `stream` across the conditional mutation above.
           if (!stream) {
+            const failureHint = this.buildProviderFailureHint({
+              attempts: [],
+              capabilitySnapshot: container.capabilitySnapshot,
+            });
             return {
               status: "error",
               error: {
                 code: "STREAM_NOT_FOUND",
-                message: "Could not resolve stream from any provider",
+                message: `Could not resolve stream from any provider. ${failureHint}`,
                 retryable: true,
                 provider: currentProvider.metadata.id,
               },
             };
           }
+
+          stream = applyPreferredStreamSelection(stream, {
+            preferredSourceId,
+            preferredStreamId,
+          });
 
           // Await timing — stream resolve takes much longer so this is nearly free.
           // If IntroDB timed out and returned null, schedule a background retry that
@@ -786,6 +826,75 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             }
           }
 
+          if (playbackControlAction === "pick-source") {
+            const sourceOptions = buildSourcePickerOptions(preparedStream);
+            if (sourceOptions.length > 0) {
+              const pickedSource = await openSourcePicker(
+                sourceOptions,
+                buildPickerActionContext({
+                  container,
+                  taskLabel: "Choose source",
+                }),
+                container,
+              );
+              if (pickedSource) {
+                preferredSourceId = pickedSource;
+                preferredStreamId = null;
+                pendingStartAt = toHistoryTimestamp(
+                  result,
+                  effectiveTiming.current,
+                  config.quitNearEndThresholdMode,
+                );
+                diagnosticsStore.record({
+                  category: "playback",
+                  message: "Source override selected",
+                  context: {
+                    sourceId: pickedSource,
+                    titleId: title.id,
+                    season: currentEpisode.season,
+                    episode: currentEpisode.episode,
+                    resumeSeconds: pendingStartAt,
+                  },
+                });
+                continue;
+              }
+            }
+          }
+
+          if (playbackControlAction === "pick-quality") {
+            const qualityOptions = buildQualityPickerOptions(preparedStream);
+            if (qualityOptions.length > 0) {
+              const pickedQualityStreamId = await openQualityPicker(
+                qualityOptions,
+                buildPickerActionContext({
+                  container,
+                  taskLabel: "Choose quality",
+                }),
+                container,
+              );
+              if (pickedQualityStreamId) {
+                preferredStreamId = pickedQualityStreamId;
+                pendingStartAt = toHistoryTimestamp(
+                  result,
+                  effectiveTiming.current,
+                  config.quitNearEndThresholdMode,
+                );
+                diagnosticsStore.record({
+                  category: "playback",
+                  message: "Quality override selected",
+                  context: {
+                    streamId: pickedQualityStreamId,
+                    titleId: title.id,
+                    season: currentEpisode.season,
+                    episode: currentEpisode.episode,
+                    resumeSeconds: pendingStartAt,
+                  },
+                });
+                continue;
+              }
+            }
+          }
+
           // Handle post-playback
           diagnosticsStore.record({
             category: "playback",
@@ -949,12 +1058,15 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                   "history",
                   "toggle-autoplay",
                   "replay",
+                  "source",
+                  "quality",
                   "pick-episode",
                   "next",
                   "previous",
                   "next-season",
                   "diagnostics",
                   "export-diagnostics",
+                  "report-issue",
                   "help",
                   "about",
                   "quit",
@@ -1021,6 +1133,45 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               if (!playbackAction.session.autoplayPaused) {
                 stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
               }
+              break postPlayback;
+            } else if (routedAction === "source") {
+              const sourceOptions = buildSourcePickerOptions(preparedStream);
+              if (sourceOptions.length === 0) {
+                continue postPlayback;
+              }
+              const pickedSource = await openSourcePicker(
+                sourceOptions,
+                buildPickerActionContext({
+                  container,
+                  taskLabel: "Choose source",
+                }),
+                container,
+              );
+              if (!pickedSource) {
+                continue postPlayback;
+              }
+              preferredSourceId = pickedSource;
+              preferredStreamId = null;
+              pendingStartAt = resumeSeconds;
+              break postPlayback;
+            } else if (routedAction === "quality") {
+              const qualityOptions = buildQualityPickerOptions(preparedStream);
+              if (qualityOptions.length === 0) {
+                continue postPlayback;
+              }
+              const pickedQualityStreamId = await openQualityPicker(
+                qualityOptions,
+                buildPickerActionContext({
+                  container,
+                  taskLabel: "Choose quality",
+                }),
+                container,
+              );
+              if (!pickedQualityStreamId) {
+                continue postPlayback;
+              }
+              preferredStreamId = pickedQualityStreamId;
+              pendingStartAt = resumeSeconds;
               break postPlayback;
             } else if (routedAction === "back-to-search") {
               return { status: "success", value: "back_to_search" };
@@ -1527,6 +1678,18 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       return undefined;
     }
   }
+}
+
+function hasRuntimeMissingFailure(
+  attempts: readonly {
+    readonly failure?: { readonly code?: string; readonly message?: string } | undefined;
+  }[],
+): boolean {
+  return attempts.some((attempt) => {
+    const code = attempt.failure?.code?.toLowerCase();
+    const message = attempt.failure?.message?.toLowerCase() ?? "";
+    return code === "runtime-missing" || message.includes("runtime-missing");
+  });
 }
 
 function describeSubtitleStatus(stream: StreamInfo, subLang: string): string {

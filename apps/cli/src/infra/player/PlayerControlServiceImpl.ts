@@ -206,6 +206,16 @@ export class PlayerControlServiceImpl implements PlayerControlService {
     return this.stopWithAction("next", reason, true);
   }
 
+  async pickSourceCurrentPlayback(reason = "user-requested"): Promise<boolean> {
+    this.lastAction = "pick-source";
+    return this.stopWithAction("pick-source", reason, true);
+  }
+
+  async pickQualityCurrentPlayback(reason = "user-requested"): Promise<boolean> {
+    this.lastAction = "pick-quality";
+    return this.stopWithAction("pick-quality", reason, true);
+  }
+
   async previousCurrentPlayback(reason = "user-requested"): Promise<boolean> {
     this.lastAction = "previous";
     return this.stopWithAction("previous", reason, true);

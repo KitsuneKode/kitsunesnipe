@@ -11,6 +11,7 @@ Kunai does not host, store, upload, mirror, or distribute any video files on its
 ## ✨ Features
 
 - **Ink shell UI** — command-aware terminal app flow instead of stacked prompts
+- **Capability-aware startup checks** — always verifies required tools, but only re-shows full install guidance on first run, upgrade, or when your system state regresses
 - **Watch history** — remembers where you stopped, offers to resume or jump to next episode
 - **Background pre-fetch** — next episode scrapes while you watch the current one; `[n]` is instant
 - **Poster preview** — shows the TMDB poster inline (Kitty / Ghostty only, no extra tools needed)
@@ -28,20 +29,20 @@ Kunai does not host, store, upload, mirror, or distribute any video files on its
 | ------------------------------------------ | -------- | --------------------------- |
 | [Bun](https://bun.sh/)                     | ✅       | Runtime and package manager |
 | [mpv](https://mpv.io/)                     | ✅       | Media player                |
-| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | ✅       | Extracts embed URLs         |
+| Playwright Chromium                          | Optional | Needed for browser/embed providers |
 | Kitty / Ghostty terminal                   | Optional | Poster image preview        |
 
-Install mpv and yt-dlp:
+Install mpv:
 
 ```bash
 # Arch
-sudo pacman -S mpv yt-dlp
+sudo pacman -S mpv
 
 # Debian/Ubuntu
-sudo apt install mpv yt-dlp
+sudo apt install mpv
 
 # macOS
-brew install mpv yt-dlp
+brew install mpv
 ```
 
 ## 📦 Installation
@@ -97,11 +98,19 @@ The main flow stays inside the same shell:
 - `/` opens command mode
 - `c` opens settings
 - `a` switches anime/series mode
-- `o` opens provider selection from playback
+- `o` opens source selection from playback
+- `k` opens quality selection from playback
 - `n` / `p` / `s` handle episode navigation for series
 - `q` cancels the current shell or exits where appropriate
 
-During **mpv** playback (persistent session, non-Windows), AniSkip-style segments show a bottom-right **skip chip** for ~3 seconds: with **Skip intros** (etc.) on, it counts down and **auto-skips** after 3s; with it off, the chip **auto-hides** while you can still press **`i`** or **click** the chip to skip. `N` / `P` in the player window request next/previous episode from the shell.
+During **mpv** playback (persistent session, non-Windows), AniSkip-style segments show a bottom-right **skip chip** for ~3 seconds: with **Skip intros** (etc.) on, it counts down and **auto-skips** after 3s; with it off, the chip **auto-hides** while you can still press **`b`** or **click** the chip to skip. `N` / `P` in the player window request next/previous episode from the shell, and `K` opens quality switching.
+
+Issue reporting: run `/ export-diagnostics` then `/ report-issue` from the shell.
+
+### Playback controls quick map
+
+- Shell playback hotkeys: `q` stop, `r` refresh, `f` fallback, `o` source picker, `k` quality picker, `s` subtitle reload, `b` skip active segment
+- mpv bridge hotkeys: `N` next episode, `P` previous episode, `K` quality picker intent, `B` skip active segment when chip is visible
 
 ## 📼 Watch History
 
@@ -110,6 +119,13 @@ History is stored in the OS app data directory as `kunai-data.sqlite`.
 - **Unfinished episode** → prompted to resume from exact timestamp or restart
 - **Finished episode** (>85% watched) → prompted to jump to next episode
 - **No history** → starts from S1E1
+
+## Known Issues (Beta)
+
+- Some providers only expose a single stream candidate, so source/quality pickers may show one option.
+- Browser-backed providers require Playwright Chromium; startup warns and runs in degraded mode without it.
+- If playback diagnostics are unclear, use `/ export-diagnostics` then `/ report-issue`.
+- macOS/Windows behavior can differ from Linux on provider reliability and terminal rendering; please include OS + terminal details in issue reports.
 
 ## 🗂️ Project Structure
 

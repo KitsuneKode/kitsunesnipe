@@ -79,6 +79,7 @@ export function RootOverlayShell({
     "about",
     "diagnostics",
     "export-diagnostics",
+    "report-issue",
   ]);
   const settingsSeriesProviderOptions = buildSettingsProviderOptions({
     providers: container.providerRegistry
@@ -101,11 +102,13 @@ export function RootOverlayShell({
         ? buildAboutPanelLines({
             config: container.config.getRaw(),
             state,
+            capabilitySnapshot: container.capabilitySnapshot,
           })
         : overlay.type === "diagnostics"
           ? buildDiagnosticsPanelLines({
               state,
               recentEvents: container.diagnosticsStore.getRecent(10),
+              capabilitySnapshot: container.capabilitySnapshot,
             })
           : [];
   const lines = overlay.type === "history" ? (asyncLines ?? []) : staticLines;
@@ -122,7 +125,9 @@ export function RootOverlayShell({
   const genericPickerOptions =
     overlay.type === "season_picker" ||
     overlay.type === "episode_picker" ||
-    overlay.type === "subtitle_picker"
+    overlay.type === "subtitle_picker" ||
+    overlay.type === "source_picker" ||
+    overlay.type === "quality_picker"
       ? overlay.options.map((option) => ({
           value: option.value,
           label: option.label,
@@ -199,7 +204,11 @@ export function RootOverlayShell({
                   ? "Choose episode"
                   : overlay.type === "subtitle_picker"
                     ? "Choose subtitles"
-                    : "Provider";
+                    : overlay.type === "source_picker"
+                      ? "Choose source"
+                      : overlay.type === "quality_picker"
+                        ? "Choose quality"
+                        : "Provider";
   const subtitle =
     overlay.type === "help"
       ? "Global commands, editing, filtering, and shell behavior"
@@ -222,7 +231,11 @@ export function RootOverlayShell({
                     })()
                   : overlay.type === "subtitle_picker"
                     ? `${overlay.options.length} tracks available`
-                    : `Current provider ${state.provider}`;
+                    : overlay.type === "source_picker"
+                      ? `${overlay.options.length} sources available`
+                      : overlay.type === "quality_picker"
+                        ? `${overlay.options.length} quality options available`
+                        : `Current provider ${state.provider}`;
   const footerActions: readonly FooterAction[] = [
     { key: "/", label: "commands", action: "command-mode" },
     { key: "esc", label: "close", action: "quit" },
@@ -244,7 +257,9 @@ export function RootOverlayShell({
           hasPendingRootPicker() &&
           (overlay.type === "season_picker" ||
             overlay.type === "episode_picker" ||
-            overlay.type === "subtitle_picker")
+            overlay.type === "subtitle_picker" ||
+            overlay.type === "source_picker" ||
+            overlay.type === "quality_picker")
         ) {
           resolveRootPicker(null);
         }
@@ -439,7 +454,9 @@ export function RootOverlayShell({
       } else if (
         overlay.type === "season_picker" ||
         overlay.type === "episode_picker" ||
-        overlay.type === "subtitle_picker"
+        overlay.type === "subtitle_picker" ||
+        overlay.type === "source_picker" ||
+        overlay.type === "quality_picker"
       ) {
         const picked = filteredGenericPickerOptions[selectedIndex]?.value ?? null;
         resolveRootPicker(picked);
@@ -454,7 +471,9 @@ export function RootOverlayShell({
         overlay.type === "settings" ||
         overlay.type === "season_picker" ||
         overlay.type === "episode_picker" ||
-        overlay.type === "subtitle_picker"
+        overlay.type === "subtitle_picker" ||
+        overlay.type === "source_picker" ||
+        overlay.type === "quality_picker"
       ) {
         const optionCount =
           overlay.type === "provider_picker"
@@ -484,7 +503,9 @@ export function RootOverlayShell({
       overlay.type === "settings" ||
       overlay.type === "season_picker" ||
       overlay.type === "episode_picker" ||
-      overlay.type === "subtitle_picker"
+      overlay.type === "subtitle_picker" ||
+      overlay.type === "source_picker" ||
+      overlay.type === "quality_picker"
     ) {
       if (overlay.type === "settings" && input.toLowerCase() === "s") {
         if (
@@ -608,7 +629,9 @@ export function RootOverlayShell({
             />
           ) : overlay.type === "season_picker" ||
             overlay.type === "episode_picker" ||
-            overlay.type === "subtitle_picker" ? (
+            overlay.type === "subtitle_picker" ||
+            overlay.type === "source_picker" ||
+            overlay.type === "quality_picker" ? (
             <InlineBadge label={`${filteredGenericPickerOptions.length} options`} tone="neutral" />
           ) : (
             <InlineBadge
@@ -645,7 +668,9 @@ export function RootOverlayShell({
                     : "Settings  ·  Type to filter, Enter to edit, S saves, Esc closes"
                   : overlay.type === "season_picker" ||
                       overlay.type === "episode_picker" ||
-                      overlay.type === "subtitle_picker"
+                      overlay.type === "subtitle_picker" ||
+                      overlay.type === "source_picker" ||
+                      overlay.type === "quality_picker"
                     ? `${title}  ·  Type to filter, Enter to select, Esc closes`
                     : `${title}  ·  Esc closes and returns to the previous shell state`
           }

@@ -3,6 +3,7 @@ import type { ProviderMetadata } from "@/domain/types";
 import type { DiagnosticEvent } from "@/services/diagnostics/DiagnosticsStore";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 import type { HistoryEntry } from "@/services/persistence/HistoryStore";
+import type { CapabilitySnapshot } from "@/ui";
 
 import type { ShellPanelLine, ShellPickerOption } from "./types";
 
@@ -122,16 +123,27 @@ export function buildHelpPanelLines(): readonly ShellPanelLine[] {
       detail:
         "If a command is unavailable, the footer and command palette show the reason instead of silently ignoring the keypress.",
     },
+    {
+      label: "/ report-issue",
+      detail:
+        "Open GitHub issue reporting and attach exported diagnostics, provider, OS, and the exact command you ran.",
+    },
   ];
 }
 
 export function buildAboutPanelLines({
   config,
   state,
+  capabilitySnapshot,
 }: {
   config: KitsuneConfig;
   state: SessionState;
+  capabilitySnapshot?: CapabilitySnapshot | null;
 }): readonly ShellPanelLine[] {
+  const capabilityLine =
+    capabilitySnapshot && capabilitySnapshot.issues.length > 0
+      ? `${capabilitySnapshot.issues.length} degraded capability ${capabilitySnapshot.issues.length === 1 ? "check" : "checks"}`
+      : "all required capabilities available";
   return [
     {
       label: "Version",
@@ -150,6 +162,11 @@ export function buildAboutPanelLines({
       detail: `${config.defaultMode}  ·  Series ${config.provider}  ·  Anime ${config.animeProvider}`,
     },
     {
+      label: "Capabilities",
+      detail: capabilityLine,
+      tone: capabilitySnapshot?.issues.length ? "warning" : "success",
+    },
+    {
       label: "Privacy",
       detail: "Diagnostics stay local unless you explicitly export or share them.",
     },
@@ -159,9 +176,11 @@ export function buildAboutPanelLines({
 export function buildDiagnosticsPanelLines({
   state,
   recentEvents,
+  capabilitySnapshot,
 }: {
   state: SessionState;
   recentEvents: readonly DiagnosticEvent[];
+  capabilitySnapshot?: CapabilitySnapshot | null;
 }): readonly ShellPanelLine[] {
   const subtitleState = describeSubtitleState(state);
   const bufferingEvent = findRecentMpvEvent(recentEvents, "network-buffering");
@@ -173,6 +192,12 @@ export function buildDiagnosticsPanelLines({
       label: "Export support bundle",
       detail:
         "Run / export-diagnostics (or the Export Diagnostics command) to write a redacted JSON snapshot of recent events next to the working directory.",
+      tone: "neutral",
+    },
+    {
+      label: "Report issue",
+      detail:
+        "Run / report-issue after exporting diagnostics to open GitHub issue reporting with the right triage fields.",
       tone: "neutral",
     },
     {
@@ -231,6 +256,16 @@ export function buildDiagnosticsPanelLines({
     {
       label: "Memory",
       detail: `RSS ${(process.memoryUsage().rss / 1_048_576).toFixed(1)} MB`,
+    },
+    {
+      label: "Startup capabilities",
+      detail:
+        capabilitySnapshot?.issues.length && capabilitySnapshot.issues.length > 0
+          ? capabilitySnapshot.issues
+              .map((issue) => `${issue.id} (${issue.severity})`)
+              .join("  ·  ")
+          : "no startup capability issues",
+      tone: capabilitySnapshot?.issues.length ? "warning" : "success",
     },
     {
       label: "mpv buffering",

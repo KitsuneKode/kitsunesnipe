@@ -12,7 +12,9 @@ export type RootOwnedOverlay = Extract<
       | "settings"
       | "season_picker"
       | "episode_picker"
-      | "subtitle_picker";
+      | "subtitle_picker"
+      | "source_picker"
+      | "quality_picker";
   }
 >;
 
@@ -36,7 +38,9 @@ export function isRootOwnedOverlay(
     overlay?.type === "settings" ||
     overlay?.type === "season_picker" ||
     overlay?.type === "episode_picker" ||
-    overlay?.type === "subtitle_picker"
+    overlay?.type === "subtitle_picker" ||
+    overlay?.type === "source_picker" ||
+    overlay?.type === "quality_picker"
   );
 }
 

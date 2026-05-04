@@ -22,6 +22,8 @@ import type { TitleInfo } from "@/domain/types";
 import type { MpvRuntimeOptions } from "@/infra/player/mpv-runtime-options";
 import { checkDeps } from "@/ui";
 
+const KUNAI_VERSION = "2.0.0-beta";
+
 // Simple CLI arg parser
 export function parseArgs(argv: string[]): {
   search?: string;
@@ -99,15 +101,25 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
   const args = parseArgs(argv);
 
   // Guard: verify required system dependencies before touching the shell
-  await checkDeps();
+  const capabilitySnapshot = await checkDeps(KUNAI_VERSION);
 
   // Bootstrap the DI container
   const container = await createContainer({
     debug: args.debug,
     mpv: args.mpv,
     shellChrome: args.shellChrome,
+    capabilitySnapshot,
   });
   const { logger, config, stateManager, cacheStore } = container;
+  if (capabilitySnapshot.issues.length > 0) {
+    container.diagnosticsStore.record({
+      category: "session",
+      message: "Startup capability checks",
+      context: {
+        issues: capabilitySnapshot.issues,
+      },
+    });
+  }
 
   // Prune expired cache entries at startup to prevent indefinite bloat
   await cacheStore.prune();
@@ -115,7 +127,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
   if (args.debug) {
     const initialMode = args.anime ? "anime" : config.defaultMode;
     logger.info("Kunai started", {
-      version: "2.0.0-beta",
+      version: KUNAI_VERSION,
       mode: initialMode,
       provider: initialMode === "anime" ? config.animeProvider : config.provider,
     });
