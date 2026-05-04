@@ -4,10 +4,11 @@
 // JSON file persistence using the existing file paths from the legacy code.
 // =============================================================================
 
-import { existsSync, mkdirSync } from "node:fs";
-import { unlink } from "node:fs/promises";
+import { mkdir, unlink } from "node:fs/promises";
 import os from "node:os";
 import { join, dirname } from "node:path";
+
+import { writeAtomicJson } from "@/infra/fs/atomic-write";
 
 import type { StorageService } from "./StorageService";
 
@@ -32,11 +33,6 @@ const PATHS: Record<string, string> = {
   config: join(getConfigDir(APP_NAME), "config.json"),
 };
 
-function ensureDir(filePath: string) {
-  const dir = dirname(filePath);
-  if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true });
-}
-
 export class FileStorage implements StorageService {
   // Simple mutex to prevent concurrent writes from interleaving and corrupting files
   private writeLock: Promise<void> = Promise.resolve();
@@ -52,6 +48,8 @@ export class FileStorage implements StorageService {
     } catch {
       // Corrupt JSON — back it up so we don't nuke it permanently
       const corruptPath = `${path}.corrupt.bak`;
+      const parent = dirname(corruptPath);
+      if (parent) await mkdir(parent, { recursive: true }).catch(() => {});
       await Bun.write(corruptPath, await file.text().catch(() => "")).catch(() => {});
       return null;
     }
@@ -62,8 +60,7 @@ export class FileStorage implements StorageService {
     if (!path) throw new Error(`Unknown storage key: ${key}`);
 
     const task = this.writeLock.then(async () => {
-      ensureDir(path);
-      await Bun.write(path, JSON.stringify(data, null, 2));
+      await writeAtomicJson(path, data);
       return undefined;
     });
 

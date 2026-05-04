@@ -1,6 +1,9 @@
+import { join } from "node:path";
+
 import type { Container } from "@/container";
 import { effectiveFooterHints } from "@/container";
 import type { EpisodePickerOption } from "@/domain/types";
+import { writeAtomicJson } from "@/infra/fs/atomic-write";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 import {
   formatTimestamp,
@@ -653,8 +656,6 @@ export async function handleShellAction({
   }
 
   if (action === "export-diagnostics") {
-    const { join } = await import("node:path");
-    const { writeFile } = await import("node:fs/promises");
     const snapshot = diagnosticsStore.getSnapshot();
     const redacted = JSON.parse(JSON.stringify(snapshot), (_key, value) => {
       if (typeof value === "string" && /^https?:\/\//i.test(value)) {
@@ -664,15 +665,11 @@ export async function handleShellAction({
     }) as typeof snapshot;
     const fileName = `kunai-diagnostics-export-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
     const path = join(process.cwd(), fileName);
-    await writeFile(
-      path,
-      JSON.stringify(
-        { exportedAt: new Date().toISOString(), eventCount: redacted.length, events: redacted },
-        null,
-        2,
-      ),
-      "utf-8",
-    );
+    await writeAtomicJson(path, {
+      exportedAt: new Date().toISOString(),
+      eventCount: redacted.length,
+      events: redacted,
+    });
     diagnosticsStore.record({
       category: "ui",
       message: "Diagnostics exported to file",

@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+
+import { writeAtomicJson } from "@/infra/fs/atomic-write";
 
 export type KitsuneConfig = {
   defaultMode: "series" | "anime";
@@ -46,23 +47,23 @@ const CONFIG_DIR = join(process.env.HOME ?? "~", ".config", "kunai");
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 const DOMAIN_FILE = join(CONFIG_DIR, "providers.json");
 
-function ensureDir() {
-  if (!existsSync(CONFIG_DIR)) mkdirSync(CONFIG_DIR, { recursive: true });
+async function ensureConfigDir(): Promise<void> {
+  await mkdir(CONFIG_DIR, { recursive: true });
 }
 
 export async function loadConfig(): Promise<KitsuneConfig> {
-  ensureDir();
-  if (!existsSync(CONFIG_FILE)) return { ...DEFAULT_CONFIG };
+  await ensureConfigDir();
+  const file = Bun.file(CONFIG_FILE);
+  if (!(await file.exists())) return { ...DEFAULT_CONFIG };
   try {
-    return { ...DEFAULT_CONFIG, ...JSON.parse(await readFile(CONFIG_FILE, "utf-8")) };
+    return { ...DEFAULT_CONFIG, ...(await file.json()) };
   } catch {
     return { ...DEFAULT_CONFIG };
   }
 }
 
 export async function saveConfig(cfg: KitsuneConfig): Promise<void> {
-  ensureDir();
-  await writeFile(CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf-8");
+  await writeAtomicJson(CONFIG_FILE, cfg);
 }
 
 // providers.json — optional domain overrides per provider ID.
@@ -71,9 +72,11 @@ export async function saveConfig(cfg: KitsuneConfig): Promise<void> {
 export type DomainOverrides = Record<string, { baseUrl?: string }>;
 
 export async function loadDomainOverrides(): Promise<DomainOverrides> {
-  if (!existsSync(DOMAIN_FILE)) return {};
+  await ensureConfigDir();
+  const file = Bun.file(DOMAIN_FILE);
+  if (!(await file.exists())) return {};
   try {
-    return JSON.parse(await readFile(DOMAIN_FILE, "utf-8")) as DomainOverrides;
+    return (await file.json()) as DomainOverrides;
   } catch {
     return {};
   }

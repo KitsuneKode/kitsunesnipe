@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+
+import { writeAtomicJson } from "@/infra/fs/atomic-write";
 
 export type HistoryEntry = {
   title: string;
@@ -19,23 +20,23 @@ type HistoryFile = Record<string, HistoryEntry>;
 const HISTORY_DIR = join(process.env.HOME ?? "~", ".local", "share", "kunai");
 const HISTORY_FILE = join(HISTORY_DIR, "history.json");
 
-function ensureDir() {
-  if (!existsSync(HISTORY_DIR)) mkdirSync(HISTORY_DIR, { recursive: true });
+async function ensureHistoryDir(): Promise<void> {
+  await mkdir(HISTORY_DIR, { recursive: true });
 }
 
 async function load(): Promise<HistoryFile> {
-  ensureDir();
-  if (!existsSync(HISTORY_FILE)) return {};
+  await ensureHistoryDir();
+  const file = Bun.file(HISTORY_FILE);
+  if (!(await file.exists())) return {};
   try {
-    return JSON.parse(await readFile(HISTORY_FILE, "utf-8"));
+    return (await file.json()) as HistoryFile;
   } catch {
     return {};
   }
 }
 
 async function save(data: HistoryFile): Promise<void> {
-  ensureDir();
-  await writeFile(HISTORY_FILE, JSON.stringify(data, null, 2), "utf-8");
+  await writeAtomicJson(HISTORY_FILE, data);
 }
 
 export async function getHistory(tmdbId: string): Promise<HistoryEntry | null> {
