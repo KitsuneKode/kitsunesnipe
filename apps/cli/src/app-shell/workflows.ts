@@ -1046,6 +1046,12 @@ export async function openSettingsShell({
             "Close mpv on episode EOF, then continue through the next available released episode automatically",
         },
         {
+          value: "resumeStartChoicePrompt" as const,
+          label: `Resume vs start-over prompt  ·  ${next.resumeStartChoicePrompt ? "on" : "off"}`,
+          detail:
+            "When autoplay resumes mid-episode, show mpv overlay before seeking; off seeks immediately",
+        },
+        {
           value: "quitNearEndBehavior" as const,
           label: `Quit near end  ·  ${next.quitNearEndBehavior}`,
           detail: "Whether quitting mpv near the natural end can still trigger auto-next",
@@ -1233,6 +1239,12 @@ export async function openSettingsShell({
 
     if (action === "autoNext") {
       next.autoNext = !next.autoNext;
+      changed = true;
+      continue;
+    }
+
+    if (action === "resumeStartChoicePrompt") {
+      next.resumeStartChoicePrompt = !next.resumeStartChoicePrompt;
       changed = true;
       continue;
     }

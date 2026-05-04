@@ -69,6 +69,7 @@ type SettingsAction =
   | "headless"
   | "showMemory"
   | "autoNext"
+  | "resumeStartChoicePrompt"
   | "quitNearEndBehavior"
   | "quitNearEndThresholdMode"
   | "skipRecap"
@@ -188,6 +189,12 @@ export function buildSettingsOptions(
       value: "autoNext",
       label: `Autoplay next  ·  ${config.autoNext ? "on" : "off"}`,
       detail: "Close mpv on EOF and continue through the next available released episode",
+    },
+    {
+      value: "resumeStartChoicePrompt",
+      label: `Resume vs start-over prompt  ·  ${config.resumeStartChoicePrompt ? "on" : "off"}`,
+      detail:
+        "When autoplay resumes mid-episode, show mpv overlay (R/O) before seeking; off jumps straight to saved time",
     },
     {
       value: "quitNearEndBehavior",

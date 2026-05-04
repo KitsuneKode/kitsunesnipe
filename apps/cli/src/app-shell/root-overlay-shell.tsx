@@ -401,6 +401,14 @@ export function RootOverlayShell({
           setSettingsError(null);
           return;
         }
+        if (picked.value === "resumeStartChoicePrompt") {
+          setSettingsDraft({
+            ...settingsDraft,
+            resumeStartChoicePrompt: !settingsDraft.resumeStartChoicePrompt,
+          });
+          setSettingsError(null);
+          return;
+        }
         if (picked.value === "skipRecap") {
           setSettingsDraft({ ...settingsDraft, skipRecap: !settingsDraft.skipRecap });
           setSettingsError(null);

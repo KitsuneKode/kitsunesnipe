@@ -28,6 +28,7 @@ describe("panel-data", () => {
         headless: true,
         showMemory: false,
         autoNext: true,
+        resumeStartChoicePrompt: true,
         skipRecap: true,
         skipIntro: true,
         skipPreview: true,
