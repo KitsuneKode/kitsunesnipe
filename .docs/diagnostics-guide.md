@@ -37,6 +37,7 @@ This currently targets Bloodhounds (`tmdb:127529`) and prints a JSON summary wit
 - `resolved` with `subtitleCount`: stream resolution finished, including how many subtitle tracks were observed.
 - `Subtitle resolution`: app-level subtitle selection ran after the provider returned stream data.
 - `Skipped history save`: mpv did not report enough position/duration data to persist history.
+- `mpv-in-process-reconnect` (diagnostics): persistent mpv performed or attempted a same-URL `loadfile` reload after a stall or premature EOF; see [.docs/mpv-in-process-reconnect.md](mpv-in-process-reconnect.md).
 
 ## Subtitle Reasoning
 

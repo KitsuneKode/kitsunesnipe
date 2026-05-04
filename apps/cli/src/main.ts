@@ -130,6 +130,8 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
       version: KUNAI_VERSION,
       mode: initialMode,
       provider: initialMode === "anime" ? config.animeProvider : config.provider,
+      stdinIsTTY: process.stdin.isTTY,
+      stdoutIsTTY: process.stdout.isTTY,
     });
   }
 

@@ -67,6 +67,8 @@ test("vidking resolves through the core provider result adapter", async () => {
       quitNearEndThresholdMode: "credits-or-90-percent",
       mpvKunaiScriptPath: "",
       mpvKunaiScriptOpts: {},
+      mpvInProcessStreamReconnect: true,
+      mpvInProcessStreamReconnectMaxAttempts: 3,
       getRaw() {
         return this;
       },
@@ -149,6 +151,8 @@ test("vidking prefers the direct decode path before browser scraping", async () 
       quitNearEndThresholdMode: "credits-or-90-percent",
       mpvKunaiScriptPath: "",
       mpvKunaiScriptOpts: {},
+      mpvInProcessStreamReconnect: true,
+      mpvInProcessStreamReconnectMaxAttempts: 3,
       getRaw() {
         return this;
       },

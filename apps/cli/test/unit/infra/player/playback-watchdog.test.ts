@@ -147,4 +147,45 @@ describe("playback-watchdog", () => {
 
     watchdog.stop();
   });
+
+  test("emits stream-stalled with network-read-dead when demuxer underrun and zero read rate persist", () => {
+    const events: PlayerPlaybackEvent[] = [];
+    const watchdog = createPlaybackWatchdog(
+      (event) => {
+        events.push(event);
+      },
+      {
+        intervalMs: 100,
+        stallAfterMs: 10_000,
+        seekStallAfterMs: 700,
+        cacheStallAfterMs: 5_000,
+        networkReadDeadAfterMs: 500,
+      },
+    );
+
+    watchdog.observe({
+      source: "ipc",
+      observedAt: 0,
+      positionSeconds: 40,
+      durationSeconds: 2000,
+      pausedForCache: true,
+      demuxerViaNetwork: true,
+      demuxerCacheUnderrun: true,
+      demuxerRawInputRate: 0,
+      demuxerCacheDurationSeconds: 0,
+      cacheSpeedBytesPerSecond: 0,
+    });
+
+    nowMs = 0;
+    runTimers();
+    nowMs = 600;
+    runTimers();
+
+    const dead = events.filter(
+      (e) => e.type === "stream-stalled" && e.stallKind === "network-read-dead",
+    );
+    expect(dead.length).toBe(1);
+
+    watchdog.stop();
+  });
 });

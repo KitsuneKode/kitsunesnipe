@@ -54,6 +54,7 @@ describe("mpv-ipc", () => {
       "cache-buffering-state",
       "demuxer-cache-duration",
       "demuxer-cache-state",
+      "demuxer-via-network",
       "cache-speed",
       "vo-configured",
       "eof-reached",

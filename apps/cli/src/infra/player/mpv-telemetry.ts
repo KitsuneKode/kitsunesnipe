@@ -12,6 +12,12 @@ export interface PlayerTelemetrySample {
   cacheBufferingState?: number;
   demuxerCacheDurationSeconds?: number;
   demuxerCacheState?: unknown;
+  /** From demuxer-cache-state when mpv exposes it. */
+  demuxerCacheUnderrun?: boolean;
+  /** From demuxer-cache-state `raw-input-rate` when mpv exposes it. */
+  demuxerRawInputRate?: number;
+  /** True when the demuxer is reading over the network (HTTP/HLS, etc.). */
+  demuxerViaNetwork?: boolean;
   cacheSpeedBytesPerSecond?: number;
   voConfigured?: boolean;
   eofReached?: boolean;
@@ -31,6 +37,17 @@ export interface PlayerTelemetryState {
   playerExitedCleanly: boolean;
   playerExitCode: number | null;
   playerExitSignal: NodeJS.Signals | null;
+  /**
+   * Highest time-pos reached via small forward steps (avoids treating a demuxer
+   * jump straight to EOF duration as genuine watch progress).
+   */
+  maxTrustedProgressSeconds: number;
+  /** After the first positive time sample, large opening seeks (resume) are allowed once. */
+  trustedProgressBootstrapDone: boolean;
+  /** Last `stream-stalled` / `ipc-stalled` observation (ms) for premature-EOF heuristics. */
+  lastStreamStallAtMs: number | null;
+  /** True when eof was demoted to unknown because progress looked inconsistent with a full watch. */
+  eofDemotedByPrematureGuard: boolean;
 }
 
 type CleanupStatus = {
@@ -73,7 +90,96 @@ export function createPlayerTelemetryState(socketPath?: string): PlayerTelemetry
     playerExitedCleanly: false,
     playerExitCode: null,
     playerExitSignal: null,
+    maxTrustedProgressSeconds: 0,
+    trustedProgressBootstrapDone: false,
+    lastStreamStallAtMs: null,
+    eofDemotedByPrematureGuard: false,
   };
+}
+
+const TRUSTED_FORWARD_JUMP_SEC = 55;
+
+/** Called when the playback watchdog reports stream/ipc stall (correlate with spurious EOF). */
+export function noteStreamStall(state: PlayerTelemetryState, observedAtMs: number): void {
+  const pos = state.latestIpcSample?.positionSeconds ?? 0;
+  state.lastStreamStallAtMs = observedAtMs;
+  if (pos > 0) {
+    state.maxTrustedProgressSeconds = Math.max(state.maxTrustedProgressSeconds, pos);
+  }
+}
+
+function advanceTrustedProgressSeconds(
+  state: PlayerTelemetryState,
+  prevPositionSeconds: number,
+  newPositionSeconds: number,
+): void {
+  if (newPositionSeconds <= state.maxTrustedProgressSeconds) return;
+
+  if (!state.trustedProgressBootstrapDone && prevPositionSeconds === 0 && newPositionSeconds > 0) {
+    state.maxTrustedProgressSeconds = newPositionSeconds;
+    state.trustedProgressBootstrapDone = true;
+    return;
+  }
+
+  if (!state.trustedProgressBootstrapDone && newPositionSeconds > 0) {
+    state.trustedProgressBootstrapDone = true;
+  }
+
+  const delta = newPositionSeconds - prevPositionSeconds;
+  if (delta <= TRUSTED_FORWARD_JUMP_SEC) {
+    state.maxTrustedProgressSeconds = newPositionSeconds;
+  }
+}
+
+function parseDemuxerCacheDiagnostics(value: unknown): {
+  underrun: boolean;
+  rawInputRate: number | undefined;
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { underrun: false, rawInputRate: undefined };
+  }
+  const v = value as Record<string, unknown>;
+  const underrun = v.underrun === true;
+  const raw = v["raw-input-rate"];
+  const rawInputRate = typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
+  return { underrun, rawInputRate };
+}
+
+function shouldDemotePrematureEof(
+  state: PlayerTelemetryState,
+  durationSeconds: number,
+  maxTrusted: number,
+  observedAtMs: number,
+  demuxerViaNetwork: boolean | undefined,
+): boolean {
+  if (durationSeconds <= 180) return false;
+
+  /** If trusted progress is within this window of the reported duration, trust EOF. */
+  const tail = Math.max(240, Math.min(1200, durationSeconds * 0.35));
+  if (maxTrusted >= durationSeconds - tail) return false;
+
+  const stallAt = state.lastStreamStallAtMs;
+  if (stallAt !== null && observedAtMs - stallAt <= 180_000) {
+    return true;
+  }
+
+  const earlyCap = Math.min(durationSeconds * 0.35, 420);
+  if (durationSeconds > 600 && maxTrusted <= earlyCap) {
+    return true;
+  }
+
+  // Network stream ended as "eof" but trusted playback never reached most of the
+  // reported duration — typical of a dropped socket / demuxer EOF on HLS/VOD.
+  if (
+    demuxerViaNetwork === true &&
+    durationSeconds >= 300 &&
+    maxTrusted >= 60 &&
+    maxTrusted + Math.min(180, durationSeconds * 0.08) < durationSeconds * 0.72
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 export function mapMpvEndReason(reason: string | null | undefined): EndReason {
@@ -142,8 +248,15 @@ export function applyObservedPropertySample(
     case "demuxer-cache-duration":
       next.demuxerCacheDurationSeconds = normalizeNumber(update.value);
       break;
-    case "demuxer-cache-state":
+    case "demuxer-cache-state": {
+      const parsed = parseDemuxerCacheDiagnostics(update.value);
       next.demuxerCacheState = update.value;
+      next.demuxerCacheUnderrun = parsed.underrun;
+      next.demuxerRawInputRate = parsed.rawInputRate;
+      break;
+    }
+    case "demuxer-via-network":
+      next.demuxerViaNetwork = Boolean(update.value);
       break;
     case "cache-speed":
       if (typeof update.value === "number" && Number.isFinite(update.value)) {
@@ -175,6 +288,10 @@ export function applyObservedPropertySample(
       return;
   }
 
+  if (update.name === "time-pos" || update.name === "playback-time") {
+    advanceTrustedProgressSeconds(state, base.positionSeconds, next.positionSeconds);
+  }
+
   if (isMeaningful(next)) {
     state.lastNonZeroSample = preferStrongerProgressSample(state.lastNonZeroSample, next);
   }
@@ -197,9 +314,28 @@ export function applyEndFileEvent(
   ) {
     mapped = "eof";
   }
-  state.endReason = mapped;
 
   const base = state.latestIpcSample ?? state.lastNonZeroSample;
+  const durationForGuard = base?.durationSeconds ?? 0;
+  let demotedPrematureEof = false;
+  if (mapped === "eof" && durationForGuard > 0) {
+    if (
+      shouldDemotePrematureEof(
+        state,
+        durationForGuard,
+        state.maxTrustedProgressSeconds,
+        observedAt,
+        base?.demuxerViaNetwork,
+      )
+    ) {
+      mapped = "unknown";
+      demotedPrematureEof = true;
+      state.eofDemotedByPrematureGuard = true;
+    }
+  }
+
+  state.endReason = mapped;
+
   if (!base) return;
 
   const finalSample: PlayerTelemetrySample = {
@@ -209,7 +345,16 @@ export function applyEndFileEvent(
     endReason: mapped,
   };
 
-  if (mapped === "eof" && finalSample.durationSeconds > 0) {
+  if (demotedPrematureEof) {
+    const capped = Math.min(
+      Math.max(0, state.maxTrustedProgressSeconds),
+      finalSample.durationSeconds > 0
+        ? Math.max(0, finalSample.durationSeconds - 1)
+        : state.maxTrustedProgressSeconds,
+    );
+    finalSample.positionSeconds = capped;
+    finalSample.eofReached = false;
+  } else if (mapped === "eof" && finalSample.durationSeconds > 0) {
     finalSample.positionSeconds = Math.max(
       finalSample.positionSeconds,
       finalSample.durationSeconds,
@@ -233,7 +378,11 @@ export function recordPlayerExit(
   state.playerExitSignal = exit.signal;
   state.playerExitedCleanly = exit.code === 0 && exit.signal === null;
 
-  if (state.endReason === "unknown" && state.latestIpcSample?.eofReached) {
+  if (
+    state.endReason === "unknown" &&
+    state.latestIpcSample?.eofReached &&
+    !state.eofDemotedByPrematureGuard
+  ) {
     state.endReason = "eof";
   } else if (state.endReason === "unknown") {
     if (exit.code !== null && exit.code !== 0) {

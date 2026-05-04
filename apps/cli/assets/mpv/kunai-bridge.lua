@@ -1,7 +1,7 @@
 -- Kunai mpv bridge: IPC user-data with the Kunai CLI (persistent session only on Unix).
 -- user-data: kunai-skip-to, kunai-skip-auto, kunai-skip-kind, kunai-skip-label, kunai-skip-rev,
 --             kunai-skip-prompt-ms (countdown + Bun auto-skip alignment)
--- kunai-request: next | previous | skip | auto-skip | quality
+-- kunai-request: next | previous | skip | auto-skip | quality | refresh
 -- kunai-loading: non-empty → full-window “loading episode” overlay (set by Bun or Lua before stop).
 -- kunai-resume-at: seconds > 0 → resume vs start-over prompt (kunai-resume-choice: resume|start).
 --
@@ -735,6 +735,14 @@ local function do_quality()
 	mp.commandv("stop")
 end
 
+local function do_refresh()
+	mp.set_property("user-data/kunai-loading", "Kunai · Refreshing stream (same episode)…")
+	sync_kunai_loading_text(mp.get_property_native("user-data/kunai-loading"))
+	draw_kunai_loading_overlay()
+	signal("refresh")
+	mp.commandv("stop")
+end
+
 mp.add_key_binding("n", "kunai-next", do_next, { repeatable = false })
 mp.add_key_binding("N", "kunai-next-shift", do_next, { repeatable = false })
 
@@ -746,3 +754,6 @@ mp.add_key_binding("P", "kunai-prev-shift", do_previous, { repeatable = false })
 mp.add_key_binding("b", "kunai-skip", do_skip, { repeatable = false })
 mp.add_key_binding("k", "kunai-quality", do_quality, { repeatable = false })
 mp.add_key_binding("K", "kunai-quality-shift", do_quality, { repeatable = false })
+
+-- Same episode: re-resolve the stream URL (cache bust) and resume from the saved position.
+mp.add_key_binding("ctrl+r", "kunai-refresh", do_refresh, { repeatable = false })

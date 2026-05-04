@@ -17,6 +17,7 @@ import {
   parseSkipPromptDurationMs,
   resolveKunaiMpvBridgeScriptPath,
 } from "./kunai-mpv-bridge";
+import { computeInProcessReconnectSeek } from "./mpv-in-process-reconnect";
 import type { MpvIpcSession } from "./mpv-ipc";
 import { openMpvIpcSession, waitForMpvIpcEndpoint } from "./mpv-ipc";
 import {
@@ -33,6 +34,7 @@ import {
   applyObservedPropertySample,
   createPlayerTelemetryState,
   finalizePlaybackResult,
+  noteStreamStall,
   recordPlayerExit,
   type PlayerTelemetryState,
 } from "./mpv-telemetry";
@@ -47,6 +49,11 @@ import {
 } from "./playback-skip";
 import { createPlaybackWatchdog, type PlaybackWatchdog } from "./playback-watchdog";
 import type { ActivePlayerControl } from "./PlayerControlService";
+
+const IN_PROCESS_RECONNECT_BASE_BACKOFF_MS = 1_800;
+const IN_PROCESS_RECONNECT_MAX_BACKOFF_MS = 16_000;
+
+type InProcessReconnectTrigger = "network-read-dead" | "premature-eof" | "error";
 import type { LateSubtitleAttachment, PlayerPlaybackEvent } from "./PlayerService";
 
 type MpvProcess = {
@@ -75,7 +82,7 @@ type PlayerCycleOptions = {
   onPlaybackEvent?: (event: PlayerPlaybackEvent) => void;
   /** Called when the user presses N or P inside the mpv window. The mpv process
    *  handles the stop itself; the app only needs to record the intent. */
-  onMpvActionRequest?: (action: "next" | "previous" | "pick-quality") => void;
+  onMpvActionRequest?: (action: "next" | "previous" | "pick-quality" | "refresh") => void;
   /** Called once when playback position is within ~30 s of the end. */
   onNearEof?: () => void;
 };
@@ -130,11 +137,24 @@ export class PersistentMpvSession {
     timeoutId: ReturnType<typeof setTimeout>;
   } | null = null;
 
+  private playbackStream: StreamInfo;
+  private mpvInProcessStreamReconnectEnabled = true;
+  private mpvInProcessStreamReconnectMaxAttempts = 3;
+  private reconnectTryCount = 0;
+  private reconnectBackoffUntilMs = 0;
+  private reconnectInFlight = false;
+  private pendingInProcessReconnect: {
+    seekSeconds: number;
+    shouldSeek: boolean;
+    trigger: InProcessReconnectTrigger;
+  } | null = null;
+
   private constructor(
     private readonly initialStream: StreamInfo,
     private readonly initialOptions: PlayerCycleOptions,
     private readonly onControlReady: (control: ActivePlayerControl | null) => void,
   ) {
+    this.playbackStream = initialStream;
     this.currentHeadersKey = this.buildHeadersKey(initialStream.headers ?? {});
     this.currentOptions = initialOptions;
     this.currentControl = {
@@ -181,6 +201,12 @@ export class PersistentMpvSession {
   }): Promise<PersistentMpvSession> {
     const session = new PersistentMpvSession(opts.stream, opts.options, opts.onControlReady);
     const cfg = opts.kitsuneConfig;
+    session.mpvInProcessStreamReconnectEnabled = cfg.mpvInProcessStreamReconnect !== false;
+    const maxAttempts = cfg.mpvInProcessStreamReconnectMaxAttempts;
+    session.mpvInProcessStreamReconnectMaxAttempts =
+      typeof maxAttempts === "number" && Number.isFinite(maxAttempts)
+        ? Math.max(0, Math.min(12, Math.trunc(maxAttempts)))
+        : 3;
     session.skipPromptDurationMs = parseSkipPromptDurationMs(cfg.mpvKunaiScriptOpts);
     session.scriptOptsArg = buildKunaiBridgeScriptOptsArg(cfg.mpvKunaiScriptOpts);
     session.luaScriptPath = await resolveKunaiMpvBridgeScriptPath(cfg);
@@ -197,6 +223,7 @@ export class PersistentMpvSession {
       throw new Error("Persistent MPV session is already playing");
     }
 
+    this.playbackStream = stream;
     this.currentHeadersKey = this.buildHeadersKey(stream.headers ?? {});
     const cycle = this.beginCycle(options);
     this.resetCycleState();
@@ -317,8 +344,21 @@ export class PersistentMpvSession {
       },
     );
 
-    const emitPlaybackEvent = (event: PlayerPlaybackEvent) =>
+    const emitPlaybackEvent = (event: PlayerPlaybackEvent) => {
+      const active = this.activeCycle;
+      if (active && (event.type === "stream-stalled" || event.type === "ipc-stalled")) {
+        noteStreamStall(active.telemetry, Date.now());
+      }
       this.currentCycleOptions().onPlaybackEvent?.(event);
+      if (
+        this.mpvInProcessStreamReconnectEnabled &&
+        this.mpvInProcessStreamReconnectMaxAttempts > 0 &&
+        event.type === "stream-stalled" &&
+        event.stallKind === "network-read-dead"
+      ) {
+        void this.handleNetworkReadDeadReconnect();
+      }
+    };
     this.watchdog = createPlaybackWatchdog(emitPlaybackEvent);
 
     if (!Bun.which("mpv")) {
@@ -377,9 +417,9 @@ export class PersistentMpvSession {
             // presses N/P inside mpv. Handle it regardless of activeCycle state.
             if (name === "user-data/kunai-request") {
               const req = typeof value === "string" ? value : null;
-              if (req === "next" || req === "previous" || req === "quality") {
+              if (req === "next" || req === "previous" || req === "quality" || req === "refresh") {
                 this.currentCycleOptions().onMpvActionRequest?.(
-                  req === "quality" ? "pick-quality" : req,
+                  req === "quality" ? "pick-quality" : req === "refresh" ? "refresh" : req,
                 );
                 void this.ipcSession?.send(["set_property", "user-data/kunai-request", ""], 500);
               } else if (req === "skip" || req === "auto-skip") {
@@ -441,26 +481,16 @@ export class PersistentMpvSession {
             }
           },
           onEndFile: ({ reason, observedAt }) => {
-            const active = this.activeCycle;
-            if (!active) return;
-            this.abortResumeChoiceWaitForCycleEnd();
-            this.clearReadyWorkFallback();
-            this.pendingReadyWork = null;
-            // Fire onNearEof if it was never triggered (e.g. no duration reported).
-            // This gives the prefetch a chance to start even if it will be late.
-            if (!this.nearEofFired) {
-              this.nearEofFired = true;
-              this.currentCycleOptions().onNearEof?.();
-            }
-            applyEndFileEvent(active.telemetry, reason, observedAt);
-            const result = finalizePlaybackResult(active.telemetry, {
-              socketPathCleanedUp: false,
-            });
-            this.activeCycle = null;
-            active.resolve(result);
+            void this.handlePlaybackEnded(reason, observedAt);
           },
           onFileLoaded: () => {
             void this.ipcSession?.send(["set_property", "user-data/kunai-loading", ""], 300);
+            const reconnect = this.pendingInProcessReconnect;
+            if (reconnect) {
+              this.pendingInProcessReconnect = null;
+              void this.finishInProcessReconnectAfterLoad(reconnect);
+              return;
+            }
             const pending = this.pendingReadyWork;
             if (!pending) return;
             this.pendingReadyWork = null;
@@ -596,6 +626,10 @@ export class PersistentMpvSession {
   }
 
   private resetCycleState(): void {
+    this.reconnectTryCount = 0;
+    this.reconnectBackoffUntilMs = 0;
+    this.reconnectInFlight = false;
+    this.pendingInProcessReconnect = null;
     this.currentPositionSeconds = 0;
     this.skippedSegments = new Set<string>();
     this.lastSkipTo = -1;
@@ -1054,6 +1088,216 @@ export class PersistentMpvSession {
     this.luaScriptPath = null;
     if (isEphemeralKunaiLuaScript(path) && existsSync(path)) {
       await unlink(path).catch(() => {});
+    }
+  }
+
+  private async handlePlaybackEnded(
+    reason: string | null | undefined,
+    observedAt: number,
+  ): Promise<void> {
+    const active = this.activeCycle;
+    if (!active) return;
+
+    this.abortResumeChoiceWaitForCycleEnd();
+    this.clearReadyWorkFallback();
+    this.pendingReadyWork = null;
+    if (!this.nearEofFired) {
+      this.nearEofFired = true;
+      this.currentCycleOptions().onNearEof?.();
+    }
+
+    applyEndFileEvent(active.telemetry, reason, observedAt);
+    const result = finalizePlaybackResult(active.telemetry, {
+      socketPathCleanedUp: false,
+    });
+
+    const latest = active.telemetry.latestIpcSample ?? active.telemetry.lastNonZeroSample;
+    const networkish = latest?.demuxerViaNetwork === true;
+    const demoted = active.telemetry.eofDemotedByPrematureGuard;
+    const seekFrom = Math.max(result.watchedSeconds, this.currentPositionSeconds);
+    const durationForSeek =
+      result.duration > 0
+        ? result.duration
+        : (active.telemetry.lastNonZeroSample?.durationSeconds ?? 0);
+
+    const shouldTryReconnect =
+      this.mpvInProcessStreamReconnectEnabled &&
+      this.mpvInProcessStreamReconnectMaxAttempts > 0 &&
+      this.reconnectTryCount < this.mpvInProcessStreamReconnectMaxAttempts &&
+      this.ipcSession &&
+      this.playbackStream.url.length > 0 &&
+      (demoted || (result.endReason === "error" && networkish));
+
+    if (shouldTryReconnect) {
+      const trigger: InProcessReconnectTrigger = demoted ? "premature-eof" : "error";
+      const reloaded = await this.runSameUrlReconnect(active, seekFrom, durationForSeek, trigger);
+      if (reloaded) {
+        return;
+      }
+    }
+
+    this.activeCycle = null;
+    active.resolve(result);
+  }
+
+  private async handleNetworkReadDeadReconnect(): Promise<void> {
+    if (
+      !this.mpvInProcessStreamReconnectEnabled ||
+      this.mpvInProcessStreamReconnectMaxAttempts <= 0
+    ) {
+      return;
+    }
+    const active = this.activeCycle;
+    if (!active || !this.ipcSession) return;
+
+    const latest = active.telemetry.latestIpcSample;
+    const duration = latest?.durationSeconds ?? 0;
+    const reloaded = await this.runSameUrlReconnect(
+      active,
+      this.currentPositionSeconds,
+      duration,
+      "network-read-dead",
+    );
+    if (!reloaded) {
+      dbg("mpv-ipc", "in-process-reconnect-skipped", {
+        reason: "backoff-or-limit-or-in-flight",
+        attempt: this.reconnectTryCount,
+      });
+    }
+  }
+
+  /**
+   * Reload the current stream URL inside the same mpv process. On success returns true and
+   * keeps `activeCycle` alive; `file-loaded` runs seek + subtitle re-attach.
+   */
+  private async runSameUrlReconnect(
+    active: PlayerCycleState,
+    positionSeconds: number,
+    durationSeconds: number,
+    trigger: InProcessReconnectTrigger,
+  ): Promise<boolean> {
+    if (
+      !this.mpvInProcessStreamReconnectEnabled ||
+      this.mpvInProcessStreamReconnectMaxAttempts <= 0
+    ) {
+      return false;
+    }
+    if (!this.ipcSession || !this.playbackStream.url) return false;
+    if (this.reconnectInFlight) return false;
+    if (this.reconnectTryCount >= this.mpvInProcessStreamReconnectMaxAttempts) return false;
+
+    const now = Date.now();
+    if (now < this.reconnectBackoffUntilMs) return false;
+
+    const nextAttempt = this.reconnectTryCount + 1;
+    const backoffBefore =
+      nextAttempt > 1
+        ? Math.min(
+            IN_PROCESS_RECONNECT_MAX_BACKOFF_MS,
+            IN_PROCESS_RECONNECT_BASE_BACKOFF_MS * 2 ** (nextAttempt - 2),
+          )
+        : 0;
+    if (backoffBefore > 0) {
+      await Bun.sleep(backoffBefore);
+    }
+
+    this.reconnectInFlight = true;
+    this.reconnectTryCount = nextAttempt;
+    const opts = this.currentCycleOptions();
+    const { seekSeconds, shouldSeek } = computeInProcessReconnectSeek(
+      positionSeconds,
+      durationSeconds,
+    );
+
+    try {
+      opts.onPlaybackEvent?.({
+        type: "mpv-in-process-reconnect",
+        phase: "started",
+        attempt: this.reconnectTryCount,
+        detail: trigger,
+      });
+
+      active.telemetry = createPlayerTelemetryState(this.ipcEndpoint.path);
+      this.pendingInProcessReconnect = { seekSeconds, shouldSeek, trigger };
+      this.clearReadyWorkFallback();
+      this.pendingReadyWork = null;
+
+      const loadResult = await this.ipcSession.send(
+        ["loadfile", this.playbackStream.url, "replace"],
+        12_000,
+      );
+      if (!loadResult.ok) {
+        throw new Error(loadResult.error ?? "loadfile failed");
+      }
+
+      this.reconnectBackoffUntilMs = 0;
+      void this.ipcSession.send(["set_property", "user-data/kunai-loading", ""], 500);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.pendingInProcessReconnect = null;
+      this.reconnectInFlight = false;
+      this.reconnectBackoffUntilMs =
+        Date.now() +
+        Math.min(
+          IN_PROCESS_RECONNECT_MAX_BACKOFF_MS,
+          IN_PROCESS_RECONNECT_BASE_BACKOFF_MS * 2 ** (this.reconnectTryCount - 1),
+        );
+      opts.onPlaybackEvent?.({
+        type: "mpv-in-process-reconnect",
+        phase: "failed",
+        attempt: this.reconnectTryCount,
+        detail: `${trigger}: ${message}`,
+      });
+      return false;
+    }
+  }
+
+  private async finishInProcessReconnectAfterLoad(spec: {
+    seekSeconds: number;
+    shouldSeek: boolean;
+    trigger: InProcessReconnectTrigger;
+  }): Promise<void> {
+    const opts = this.currentCycleOptions();
+    try {
+      if (spec.shouldSeek && this.ipcSession) {
+        const seekResult = await this.ipcSession.send(
+          ["seek", spec.seekSeconds, "absolute"],
+          3_000,
+        );
+        if (seekResult.ok) {
+          this.currentPositionSeconds = spec.seekSeconds;
+        }
+      }
+      await this.ipcSession?.send(["set_property", "pause", false], 500);
+
+      await this.replaceSubtitleInventory(
+        opts.primarySubtitle,
+        opts.subtitleTracks,
+        (trackCount) => {
+          opts.onPlaybackEvent?.({ type: "subtitle-inventory-ready", trackCount });
+          opts.onPlaybackEvent?.({ type: "subtitle-attached", trackCount });
+        },
+      );
+
+      opts.onPlaybackEvent?.({
+        type: "mpv-in-process-reconnect",
+        phase: "complete",
+        attempt: this.reconnectTryCount,
+        detail: spec.trigger,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      opts.onPlaybackEvent?.({
+        type: "mpv-in-process-reconnect",
+        phase: "failed",
+        attempt: this.reconnectTryCount,
+        detail: `${spec.trigger}: ${message}`,
+      });
+    } finally {
+      this.reconnectInFlight = false;
+      this.nearEofFired = false;
+      await this.handleSegmentSkipProgress(opts);
     }
   }
 }

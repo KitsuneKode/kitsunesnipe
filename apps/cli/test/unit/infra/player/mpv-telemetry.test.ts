@@ -6,6 +6,7 @@ import {
   createPlayerTelemetryState,
   finalizePlaybackResult,
   mapMpvEndReason,
+  noteStreamStall,
   recordPlayerExit,
 } from "@/infra/player/mpv-telemetry";
 
@@ -192,6 +193,84 @@ describe("mpv-telemetry", () => {
     expect(result.watchedSeconds).toBe(64);
     expect(result.duration).toBe(600);
     expect(result.endReason).toBe("quit");
+  });
+
+  test("demotes eof to unknown after a recent stream stall when trusted progress is far from duration", () => {
+    const telemetry = createPlayerTelemetryState("/tmp/mpv.sock");
+    for (let pos = 0; pos <= 400; pos += 50) {
+      applyObservedPropertySample(telemetry, {
+        name: "playback-time",
+        value: pos,
+        observedAt: 1_000 + pos,
+      });
+    }
+    applyObservedPropertySample(telemetry, {
+      name: "duration",
+      value: 2000,
+      observedAt: 2_000,
+    });
+    noteStreamStall(telemetry, 2_100_000);
+    applyObservedPropertySample(telemetry, {
+      name: "playback-time",
+      value: 2000,
+      observedAt: 2_100_050,
+    });
+    applyEndFileEvent(telemetry, "eof", 2_100_120);
+    recordPlayerExit(telemetry, { code: 0, signal: null });
+
+    const result = finalizePlaybackResult(telemetry, { socketPathCleanedUp: true });
+    expect(result.endReason).toBe("unknown");
+    expect(result.watchedSeconds).toBe(400);
+    expect(result.duration).toBe(2000);
+  });
+
+  test("demotes eof for network demuxer when trusted progress is far below duration (no stall)", () => {
+    const telemetry = createPlayerTelemetryState("/tmp/mpv.sock");
+    for (let pos = 0; pos <= 400; pos += 50) {
+      applyObservedPropertySample(telemetry, {
+        name: "playback-time",
+        value: pos,
+        observedAt: 1_000 + pos,
+      });
+    }
+    applyObservedPropertySample(telemetry, {
+      name: "duration",
+      value: 2000,
+      observedAt: 2_000,
+    });
+    applyObservedPropertySample(telemetry, {
+      name: "demuxer-via-network",
+      value: true,
+      observedAt: 2_010,
+    });
+    applyEndFileEvent(telemetry, "eof", 2_050_000);
+    recordPlayerExit(telemetry, { code: 0, signal: null });
+
+    const result = finalizePlaybackResult(telemetry, { socketPathCleanedUp: true });
+    expect(result.endReason).toBe("unknown");
+    expect(result.watchedSeconds).toBe(400);
+  });
+
+  test("demotes eof without stall when trusted progress is still very early in a long file", () => {
+    const telemetry = createPlayerTelemetryState("/tmp/mpv.sock");
+    for (let pos = 0; pos <= 200; pos += 50) {
+      applyObservedPropertySample(telemetry, {
+        name: "playback-time",
+        value: pos,
+        observedAt: 1_000 + pos,
+      });
+    }
+    applyObservedPropertySample(telemetry, {
+      name: "duration",
+      value: 2000,
+      observedAt: 2_000,
+    });
+    applyEndFileEvent(telemetry, "eof", 2_050_000);
+    recordPlayerExit(telemetry, { code: 0, signal: null });
+
+    const result = finalizePlaybackResult(telemetry, { socketPathCleanedUp: true });
+    expect(result.endReason).toBe("unknown");
+    expect(result.watchedSeconds).toBe(200);
   });
 
   test("tracks mpv buffering and seeking diagnostics without changing progress", () => {

@@ -41,6 +41,13 @@ export interface KitsuneConfig {
    * Merged with built-in defaults in the script via mp.read_options.
    */
   mpvKunaiScriptOpts: Record<string, string>;
+  /**
+   * Persistent mpv: after a `network-read-dead` stall, reload the same stream URL over IPC
+   * (optional seek for VOD). Disable to rely only on manual refresh / provider re-resolve.
+   */
+  mpvInProcessStreamReconnect: boolean;
+  /** Max same-URL reload attempts per playback cycle; `0` disables in-process reconnect. */
+  mpvInProcessStreamReconnectMaxAttempts: number;
 }
 
 export interface ConfigService extends KitsuneConfig {

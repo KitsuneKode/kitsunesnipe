@@ -11,6 +11,7 @@ export const MPV_OBSERVED_PROPERTIES = [
   "cache-buffering-state",
   "demuxer-cache-duration",
   "demuxer-cache-state",
+  "demuxer-via-network",
   "cache-speed",
   "vo-configured",
   "eof-reached",

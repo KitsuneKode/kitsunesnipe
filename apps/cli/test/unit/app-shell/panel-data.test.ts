@@ -38,6 +38,8 @@ describe("panel-data", () => {
         quitNearEndThresholdMode: "credits-or-90-percent",
         mpvKunaiScriptPath: "",
         mpvKunaiScriptOpts: {},
+        mpvInProcessStreamReconnect: true,
+        mpvInProcessStreamReconnectMaxAttempts: 3,
       },
       state: createInitialState("vidking", "allanime"),
     });

@@ -60,10 +60,22 @@ export function RootIdleShell({ state }: { state: SessionState }) {
   );
 }
 
-export function ErrorShell({ message, onResolve }: { message: string; onResolve: () => void }) {
-  useInput((_input, key) => {
+export function ErrorShell({
+  message,
+  onResolve,
+  onRetry,
+}: {
+  message: string;
+  onResolve: () => void;
+  onRetry?: () => void;
+}) {
+  useInput((input, key) => {
     if (key.return || key.escape) {
       onResolve();
+      return;
+    }
+    if (input.toLowerCase() === "r" && onRetry) {
+      onRetry();
     }
   });
 
@@ -71,7 +83,7 @@ export function ErrorShell({ message, onResolve }: { message: string; onResolve:
     <Box flexDirection="column" borderStyle="round" borderColor={palette.red} paddingX={1}>
       <Box marginBottom={1}>
         <Text color={palette.red} bold>
-          ⚠ Error
+          ⚠ Playback Error
         </Text>
       </Box>
       <Box marginBottom={1}>
@@ -79,7 +91,7 @@ export function ErrorShell({ message, onResolve }: { message: string; onResolve:
       </Box>
       <Box>
         <Text color={palette.gray} dimColor>
-          Press Enter or Esc to continue
+          {onRetry ? "R retry  ·  Enter / Esc dismiss" : "Enter / Esc to continue"}
         </Text>
       </Box>
     </Box>

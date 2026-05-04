@@ -28,6 +28,7 @@ export function classifyPlaybackFailureFromEvent(event: PlayerPlaybackEvent): Pl
     case "ipc-stalled":
       return "ipc-stuck";
     case "stream-stalled":
+      if (event.stallKind === "network-read-dead") return "expired-stream";
       return "unknown";
     default:
       return "none";
@@ -81,7 +82,8 @@ export function recoveryForPlaybackFailure(
     case "unknown":
       return {
         action: "inspect",
-        label: "Open diagnostics or rerun with --mpv-debug/--mpv-clean.",
+        label:
+          "Open diagnostics, press Ctrl+r in mpv to refresh the stream, or rerun with --mpv-debug/--mpv-clean.",
       };
     case "none":
       return { action: "none", label: "No recovery needed." };

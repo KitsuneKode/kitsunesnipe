@@ -59,6 +59,8 @@ function createConfig(overrides: Partial<KitsuneConfig> = {}): ConfigService {
     quitNearEndThresholdMode: "credits-or-90-percent" as const,
     mpvKunaiScriptPath: "",
     mpvKunaiScriptOpts: {} as Record<string, string>,
+    mpvInProcessStreamReconnect: true,
+    mpvInProcessStreamReconnectMaxAttempts: 3,
     ...overrides,
   };
   const config: KitsuneConfig = {

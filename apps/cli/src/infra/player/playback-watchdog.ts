@@ -13,12 +13,15 @@ export function createPlaybackWatchdog(
     stallAfterMs?: number;
     seekStallAfterMs?: number;
     cacheStallAfterMs?: number;
+    networkReadDeadAfterMs?: number;
   },
 ): PlaybackWatchdog {
   const intervalMs = options?.intervalMs ?? 2_500;
   const stallAfterMs = options?.stallAfterMs ?? 12_000;
   const seekStallAfterMs = options?.seekStallAfterMs ?? 8_000;
   const cacheStallAfterMs = options?.cacheStallAfterMs ?? 20_000;
+  /** Demuxer reports underrun + zero read rate while waiting for cache (see mpv demuxer-cache-state). */
+  const networkReadDeadAfterMs = options?.networkReadDeadAfterMs ?? 8_000;
   let latest: PlayerTelemetrySample | null = null;
   let lastPosition = 0;
   let lastProgressAt = Date.now();
@@ -28,6 +31,8 @@ export function createPlaybackWatchdog(
   let emittedStreamStall = false;
   let emittedSeekStall = false;
   let pausedOrIdle = false;
+  let networkReadDeadSince: number | null = null;
+  let emittedNetworkReadDead = false;
 
   const resetProgressClock = (observedAt: number, positionSeconds: number) => {
     lastPosition = positionSeconds;
@@ -47,6 +52,8 @@ export function createPlaybackWatchdog(
       resetProgressClock(now, latest.positionSeconds);
       seekingSince = null;
       emittedSeekStall = false;
+      networkReadDeadSince = null;
+      emittedNetworkReadDead = false;
       return;
     }
 
@@ -55,6 +62,8 @@ export function createPlaybackWatchdog(
       resetProgressClock(now, latest.positionSeconds);
       seekingSince = null;
       emittedSeekStall = false;
+      networkReadDeadSince = null;
+      emittedNetworkReadDead = false;
     }
 
     if (latest.seeking) {
@@ -71,6 +80,27 @@ export function createPlaybackWatchdog(
     emittedSeekStall = false;
 
     if (latest.pausedForCache) {
+      const rawRate = latest.demuxerRawInputRate;
+      const networkReadDead =
+        latest.demuxerViaNetwork === true && latest.demuxerCacheUnderrun === true && rawRate === 0;
+
+      if (networkReadDead) {
+        networkReadDeadSince ??= now;
+        const deadForMs = now - networkReadDeadSince;
+        if (deadForMs >= networkReadDeadAfterMs && !emittedNetworkReadDead) {
+          emittedNetworkReadDead = true;
+          emittedStreamStall = true;
+          emit({
+            type: "stream-stalled",
+            secondsWithoutProgress: Math.round(deadForMs / 1000),
+            stallKind: "network-read-dead",
+          });
+        }
+      } else {
+        networkReadDeadSince = null;
+        emittedNetworkReadDead = false;
+      }
+
       const cacheAhead = latest.demuxerCacheDurationSeconds ?? 0;
       const cacheSpeed = latest.cacheSpeedBytesPerSecond ?? 0;
       if (cacheAhead > lastCacheAheadSeconds + 0.25 || cacheSpeed > 0) {
@@ -90,6 +120,9 @@ export function createPlaybackWatchdog(
       return;
     }
 
+    networkReadDeadSince = null;
+    emittedNetworkReadDead = false;
+
     const stalledForMs = now - lastProgressAt;
     if (stalledForMs >= stallAfterMs && !emittedStreamStall) {
       emittedStreamStall = true;
@@ -108,6 +141,8 @@ export function createPlaybackWatchdog(
         lastProgressAt = sample.observedAt;
         lastCacheProgressAt = sample.observedAt;
         emittedStreamStall = false;
+        networkReadDeadSince = null;
+        emittedNetworkReadDead = false;
       }
 
       const userPausedOrIdle = Boolean(sample.paused || sample.idleActive || sample.coreIdle);

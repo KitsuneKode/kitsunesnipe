@@ -18,6 +18,7 @@ import {
   applyObservedPropertySample,
   createPlayerTelemetryState,
   finalizePlaybackResult,
+  noteStreamStall,
   recordPlayerExit,
 } from "@/infra/player/mpv-telemetry";
 import { findActivePlaybackSkip, type PlaybackSkipConfig } from "@/infra/player/playback-skip";
@@ -54,7 +55,13 @@ export async function launchMpv(opts: {
 
   const args = buildMpvArgs(opts, ipcServerCliArg(ipcEndpoint), { mpv: opts.mpv });
   const telemetry = createPlayerTelemetryState(ipcEndpoint.path);
-  const emitPlaybackEvent = opts.onPlaybackEvent ?? (() => {});
+  const baseEmit = opts.onPlaybackEvent ?? (() => {});
+  const emitPlaybackEvent = (event: PlayerPlaybackEvent) => {
+    if (event.type === "stream-stalled" || event.type === "ipc-stalled") {
+      noteStreamStall(telemetry, Date.now());
+    }
+    baseEmit(event);
+  };
 
   if (!Bun.which("mpv")) {
     throw new Error("mpv is not installed or not found on PATH");
@@ -287,7 +294,12 @@ export function buildMpvArgs(
   args.push("--cache-pause-wait=2");
   args.push("--demuxer-readahead-secs=60");
   args.push("--demuxer-max-bytes=200MiB");
-  args.push("--demuxer-lavf-o=reconnect=1,reconnect_streamed=1,reconnect_delay_max=4");
+  // libavformat HTTP/HLS reconnect hints (backend-dependent). We still rely on IPC
+  // watchdogs + refresh/reload; keep-open=always is intentionally not used here because
+  // it can suppress end-file and stall autoplay/session hand-off (see keep-open=no above).
+  args.push(
+    "--demuxer-lavf-o=reconnect=1,reconnect_streamed=1,reconnect_on_network_error=1,reconnect_delay_max=10,reconnect_max_retries=8",
+  );
   if (config?.mpv?.clean || config?.mpv?.noUserConfig) {
     args.push("--no-config");
   }

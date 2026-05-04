@@ -73,19 +73,12 @@ const stdinManager = {
   setup() {
     if (this._isSetup || !process.stdin.isTTY) return;
     this._isSetup = true;
-
-    // Keep one persistent ref to prevent event loop drainage
+    // Keep one persistent ref to prevent event loop drainage between shell
+    // transitions. We do NOT add a "data" listener here — doing so puts stdin
+    // into flowing mode, which conflicts with Ink's "readable" + read() pattern
+    // and prevents Ink from receiving key events in the built binary. Ctrl+C is
+    // handled inside the AppRoot useInput hook instead.
     process.stdin.ref();
-
-    // Handle Ctrl+C in raw mode (Ink sets raw mode, so SIGINT won't fire)
-    process.stdin.on("data", (chunk: Buffer) => {
-      const data = chunk.toString();
-      if (data === "\x03" || data === "\x04") {
-        // Ctrl+C or Ctrl+D
-        this.cleanup();
-        process.exit(0);
-      }
-    });
   },
 
   // Track shell nesting (for debugging/monitoring)
@@ -294,6 +287,16 @@ function AppRoot({ container }: { container: Container }) {
   const rootContent = useRootContentSession();
   const { stdout } = useStdout();
 
+  // Global Ctrl+C handler — raw mode suppresses SIGINT, so we catch \x03 here.
+  // This must live in the always-mounted root so it fires regardless of which
+  // sub-shell is active.
+  useInput((input) => {
+    if (input === "\x03" || input === "\x04") {
+      stdinManager.cleanup();
+      process.exit(0);
+    }
+  });
+
   useEffect(() => {
     let cancelled = false;
 
@@ -409,6 +412,9 @@ function AppRoot({ container }: { container: Container }) {
               <ErrorShell
                 message={state.playbackError || "An unknown error occurred"}
                 onResolve={() =>
+                  stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" })
+                }
+                onRetry={() =>
                   stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" })
                 }
               />

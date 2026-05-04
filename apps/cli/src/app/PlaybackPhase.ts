@@ -64,7 +64,7 @@ import type { ActivePlayerControl } from "@/infra/player/PlayerControlService";
 import type { PlayerPlaybackEvent } from "@/infra/player/PlayerService";
 import { AniSkipTimingSource, IntroDbTimingSource, PlaybackTimingAggregator } from "@/infra/timing";
 import { buildApiStreamResolveCacheKey } from "@/services/cache/stream-resolve-cache";
-import { formatTimestamp } from "@/services/persistence/HistoryStore";
+import { formatTimestamp, isFinished } from "@/services/persistence/HistoryStore";
 import { mergeSubtitleTracks, resolveSubtitlesByTmdbId, selectSubtitle } from "@/subtitle";
 import { fetchEpisodes, fetchSeasons } from "@/tmdb";
 import { resolveWithFallback } from "@kunai/core";
@@ -104,6 +104,24 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       type: "SET_PLAYBACK_FEEDBACK",
       detail: feedback.detail,
       note: feedback.note,
+    });
+  }
+
+  /** Dispatches the error status to the UI and waits for the user to dismiss it. */
+  private async showPlaybackError(context: PhaseContext, message: string): Promise<void> {
+    const { stateManager } = context.container;
+    stateManager.dispatch({
+      type: "SET_PLAYBACK_STATUS",
+      status: "error",
+      error: message,
+    });
+    await new Promise<void>((resolve) => {
+      const unsubscribe = stateManager.subscribe((state) => {
+        if (state.playbackStatus !== "error") {
+          unsubscribe();
+          resolve();
+        }
+      });
     });
   }
 
@@ -168,11 +186,13 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         return { detail: "Player controls ready" };
       case "playback-started":
         return { detail: "Playing" };
-      case "stream-stalled":
+      case "stream-stalled": {
+        const dead = event.stallKind === "network-read-dead";
         return {
-          detail: "Stream stalled",
-          note: `No playback progress for ${event.secondsWithoutProgress}s · ${recoveryForPlaybackFailure(classifyPlaybackFailureFromEvent(event)).label}`,
+          detail: dead ? "Stream stalled (network read idle)" : "Stream stalled",
+          note: `${dead ? "Demuxer underrun with no incoming bytes" : `No playback progress for ${event.secondsWithoutProgress}s`} · ${recoveryForPlaybackFailure(classifyPlaybackFailureFromEvent(event)).label}`,
         };
+      }
       case "seek-stalled":
         return {
           detail: "Seek stalled",
@@ -186,6 +206,20 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         return {
           note: `${event.kind.charAt(0).toUpperCase()}${event.kind.slice(1)} ${event.automatic ? "skipped automatically" : "skipped"}`,
         };
+      case "mpv-in-process-reconnect": {
+        const phaseLabel =
+          event.phase === "started"
+            ? "Reloading same stream in mpv"
+            : event.phase === "complete"
+              ? "Reload finished"
+              : "Reload failed";
+        return {
+          detail: phaseLabel,
+          note: event.detail
+            ? `Attempt ${event.attempt} · ${event.detail}`
+            : `Attempt ${event.attempt}`,
+        };
+      }
     }
   }
 
@@ -199,12 +233,25 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     capabilitySnapshot: { readonly chromiumForEmbeds: boolean } | null;
   }): string {
     if (!capabilitySnapshot?.chromiumForEmbeds) {
-      return "Playwright Chromium is not installed, so browser-backed providers are currently unavailable. Install with `bunx playwright install chromium`.";
+      return "Playwright Chromium is not installed. Install with: bunx playwright install chromium";
     }
     if (hasRuntimeMissingFailure(attempts)) {
-      return "A provider runtime dependency is missing. Open Diagnostics to inspect the failing provider/runtime pair.";
+      return "A provider runtime dependency is missing. Open Diagnostics for details.";
     }
-    return "Try refresh/fallback, then export diagnostics and file an issue if this persists.";
+    const failureMessages = attempts
+      .map((a) => a.failure?.message ?? "")
+      .filter(Boolean)
+      .join(" ");
+    if (/net::|ERR_INTERNET|network|ECONNREFUSED|ETIMEDOUT/i.test(failureMessages)) {
+      return "Network error — check your internet connection and try again.";
+    }
+    if (/timeout|timed out/i.test(failureMessages)) {
+      return "Provider timed out. The site may be slow or temporarily down. Try again shortly.";
+    }
+    if (/403|401|auth|forbidden|unauthorized/i.test(failureMessages)) {
+      return "Provider returned an auth or access error. The content may be region-locked or unavailable.";
+    }
+    return "Stream not found. Press R to retry, F to switch provider, or open Diagnostics for details.";
   }
 
   async execute(title: TitleInfo, context: PhaseContext): Promise<PhaseResult<PlaybackOutcome>> {
@@ -263,42 +310,58 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       });
 
       if (title.type === "series") {
-        // Check history for resume
-        const history = await historyStore.get(title.id);
-        if (history) {
-          logger.info("History found", {
-            season: history.season,
-            episode: history.episode,
-            timestamp: history.timestamp,
+        // When the title came from the history panel, auto-resume at the saved
+        // position without showing the start picker.
+        if (title.historyResume) {
+          const hint = title.historyResume;
+          const historyEntry = await historyStore.get(title.id);
+          const resumeTimestamp =
+            historyEntry && !isFinished(historyEntry) && hint.timestamp > 10 ? hint.timestamp : 0;
+          episode = { season: hint.season, episode: hint.episode };
+          pendingStartAt = resumeTimestamp;
+          logger.info("Auto-resuming from history panel", {
+            season: hint.season,
+            episode: hint.episode,
+            timestamp: resumeTimestamp,
           });
-        }
+        } else {
+          // Check history for resume
+          const history = await historyStore.get(title.id);
+          if (history) {
+            logger.info("History found", {
+              season: history.season,
+              episode: history.episode,
+              timestamp: history.timestamp,
+            });
+          }
 
-        // Session-flow owns the current season/episode selection rules until the
-        // mounted root shell fully absorbs the picker stack.
-        const { chooseStartingEpisode } = await import("@/session-flow");
-        const selection = await chooseStartingEpisode({
-          currentId: title.id,
-          isAnime: stateManager.getState().mode === "anime",
-          animeEpisodeCount: title.episodeCount,
-          animeEpisodes: initialAnimeEpisodes,
-          flags: {},
-          getHistoryEntry: () => Promise.resolve(history),
-          container,
-        });
-
-        if (!selection) {
-          logger.info("Episode selection cancelled before playback", {
-            titleId: title.id,
-            mode: stateManager.getState().mode,
+          // Session-flow owns the current season/episode selection rules until the
+          // mounted root shell fully absorbs the picker stack.
+          const { chooseStartingEpisode } = await import("@/session-flow");
+          const selection = await chooseStartingEpisode({
+            currentId: title.id,
+            isAnime: stateManager.getState().mode === "anime",
+            animeEpisodeCount: title.episodeCount,
+            animeEpisodes: initialAnimeEpisodes,
+            flags: {},
+            getHistoryEntry: () => Promise.resolve(history),
+            container,
           });
-          return { status: "success", value: "back_to_results" };
-        }
 
-        episode = {
-          season: selection.season,
-          episode: selection.episode,
-        };
-        pendingStartAt = selection.startAt ?? 0;
+          if (!selection) {
+            logger.info("Episode selection cancelled before playback", {
+              titleId: title.id,
+              mode: stateManager.getState().mode,
+            });
+            return { status: "success", value: "back_to_results" };
+          }
+
+          episode = {
+            season: selection.season,
+            episode: selection.episode,
+          };
+          pendingStartAt = selection.startAt ?? 0;
+        }
       } else {
         episode = { season: 1, episode: 1 };
       }
@@ -471,13 +534,22 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 },
               });
               const compatibleProviders = providerRegistry.getCompatible(title);
+              let providerAttemptCount = 0;
               const resolveResult = await resolveWithFallback<StreamInfo>({
                 signal: resolveController.signal,
                 candidates: compatibleProviders.map((p) => ({
                   providerId: p.metadata.id,
                   preferred: p.metadata.id === currentProvider.metadata.id,
-                  resolve: () =>
-                    p.resolveStream(
+                  resolve: () => {
+                    providerAttemptCount++;
+                    const isRetry = providerAttemptCount > 1;
+                    this.updatePlaybackFeedback(context, {
+                      detail: isRetry
+                        ? `Retrying with ${p.metadata.name ?? p.metadata.id}…`
+                        : `Resolving via ${p.metadata.name ?? p.metadata.id}`,
+                      note: "Esc cancels",
+                    });
+                    return p.resolveStream(
                       {
                         title,
                         episode: currentEpisode,
@@ -485,7 +557,8 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                         animeLang: config.animeLang,
                       },
                       resolveController.signal,
-                    ),
+                    );
+                  },
                 })),
               });
 
@@ -524,15 +597,22 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                   attempts: resolveResult.attempts,
                   capabilitySnapshot: container.capabilitySnapshot,
                 });
-                return {
-                  status: "error",
-                  error: {
-                    code: "STREAM_NOT_FOUND",
-                    message: `Could not resolve stream from any provider. ${failureHint}`,
-                    retryable: true,
+                diagnosticsStore.record({
+                  category: "provider",
+                  message: "Stream resolution failed — all providers exhausted",
+                  context: {
                     provider: currentProvider.metadata.id,
+                    failureHint,
+                    attempts: resolveResult.attempts.map((a) => ({
+                      providerId: a.providerId,
+                      failure: a.failure,
+                    })),
                   },
-                };
+                });
+                workControl.setActive(null);
+                await this.showPlaybackError(context, failureHint);
+                stateManager.dispatch({ type: "SET_STREAM", stream: null });
+                return { status: "success", value: "back_to_results" };
               }
 
               if (stream.providerResolveResult) {
@@ -570,15 +650,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               attempts: [],
               capabilitySnapshot: container.capabilitySnapshot,
             });
-            return {
-              status: "error",
-              error: {
-                code: "STREAM_NOT_FOUND",
-                message: `Could not resolve stream from any provider. ${failureHint}`,
-                retryable: true,
-                provider: currentProvider.metadata.id,
-              },
-            };
+            workControl.setActive(null);
+            await this.showPlaybackError(context, failureHint);
+            stateManager.dispatch({ type: "SET_STREAM", stream: null });
+            return { status: "success", value: "back_to_results" };
           }
 
           stream = applyPreferredStreamSelection(stream, {

@@ -109,6 +109,14 @@ export class ConfigServiceImpl implements ConfigService {
     return { ...this.config.mpvKunaiScriptOpts };
   }
 
+  get mpvInProcessStreamReconnect(): boolean {
+    return this.config.mpvInProcessStreamReconnect;
+  }
+
+  get mpvInProcessStreamReconnectMaxAttempts(): number {
+    return this.config.mpvInProcessStreamReconnectMaxAttempts;
+  }
+
   getRaw(): KitsuneConfig {
     return { ...this.config };
   }

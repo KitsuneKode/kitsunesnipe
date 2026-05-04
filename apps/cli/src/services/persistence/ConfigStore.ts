@@ -33,4 +33,6 @@ export const DEFAULT_CONFIG: KitsuneConfig = {
   quitNearEndThresholdMode: "credits-or-90-percent",
   mpvKunaiScriptPath: "",
   mpvKunaiScriptOpts: {},
+  mpvInProcessStreamReconnect: true,
+  mpvInProcessStreamReconnectMaxAttempts: 3,
 };

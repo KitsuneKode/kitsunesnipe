@@ -99,6 +99,11 @@ export async function routeSearchShellAction({
         id: selection.titleId,
         type: selection.entry.type,
         name: selection.entry.title,
+        historyResume: {
+          season: selection.entry.season,
+          episode: selection.entry.episode,
+          timestamp: selection.entry.timestamp,
+        },
       },
     };
   }
@@ -174,6 +179,11 @@ export async function routePlaybackShellAction({
         id: selection.titleId,
         type: selection.entry.type,
         name: selection.entry.title,
+        historyResume: {
+          season: selection.entry.season,
+          episode: selection.entry.episode,
+          timestamp: selection.entry.timestamp,
+        },
       },
     };
   }

@@ -194,7 +194,7 @@ export class PlayerServiceImpl implements PlayerService {
       autoNextEnabled: true,
       onPlayerReady: options.onPlayerReady,
       onPlaybackEvent: this.wrapPlaybackEventHandler(options.onPlaybackEvent),
-      onMpvActionRequest: (action: "next" | "previous" | "pick-quality") => {
+      onMpvActionRequest: (action: "next" | "previous" | "pick-quality" | "refresh") => {
         this.deps.playerControl.signalPlaybackAction(action);
       },
       onNearEof: options.onNearEof,

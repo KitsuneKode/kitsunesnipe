@@ -29,11 +29,22 @@ export type PlayerPlaybackEvent =
   | { type: "late-subtitles-attached"; trackCount: number }
   | { type: "player-ready" }
   | { type: "playback-started" }
-  | { type: "stream-stalled"; secondsWithoutProgress: number }
+  | {
+      type: "stream-stalled";
+      secondsWithoutProgress: number;
+      /** When set, the stall matched demuxer/network starvation heuristics (see playback-watchdog). */
+      stallKind?: "progress" | "network-read-dead";
+    }
   | { type: "seek-stalled"; secondsSeeking: number }
   | { type: "player-closing" }
   | { type: "player-closed" }
-  | { type: "segment-skipped"; kind: PlaybackSkipKind; automatic: boolean };
+  | { type: "segment-skipped"; kind: PlaybackSkipKind; automatic: boolean }
+  | {
+      type: "mpv-in-process-reconnect";
+      phase: "started" | "complete" | "failed";
+      attempt: number;
+      detail?: string;
+    };
 
 export interface PlayerOptions {
   url: string;

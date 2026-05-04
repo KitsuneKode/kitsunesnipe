@@ -55,6 +55,9 @@ function formatMpvRuntimeDetail(event: DiagnosticEvent | undefined): string {
   if (typeof event.context.secondsWithoutProgress === "number") {
     parts.push(`${event.context.secondsWithoutProgress}s without progress`);
   }
+  if (typeof event.context.stallKind === "string") {
+    parts.push(`kind ${event.context.stallKind}`);
+  }
   if (typeof event.context.secondsSeeking === "number") {
     parts.push(`${event.context.secondsSeeking}s seeking`);
   }
