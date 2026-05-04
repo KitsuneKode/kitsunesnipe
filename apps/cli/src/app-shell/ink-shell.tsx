@@ -368,9 +368,7 @@ function AppRoot({ container }: { container: Container }) {
   const canGoPrevious = Boolean(isSeriesPlayback && state.episodeNavigation.hasPrevious);
   const canToggleAutoplay = Boolean(isSeriesPlayback);
   const canStopAfterCurrent = Boolean(isSeriesPlayback);
-  const playbackCanCancel =
-    state.playbackStatus === "loading" ||
-    state.playbackStatus === "ready";
+  const playbackCanCancel = state.playbackStatus === "loading" || state.playbackStatus === "ready";
 
   return (
     <Box
@@ -426,7 +424,7 @@ function AppRoot({ container }: { container: Container }) {
                     state.playbackStatus === "seeking" ||
                     state.playbackStatus === "stalled"
                       ? "playing"
-                    : state.playbackStatus === "loading"
+                      : state.playbackStatus === "loading"
                         ? "loading"
                         : "resolving",
                   details: state.playbackDetail ?? `Provider: ${state.provider}`,

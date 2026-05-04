@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 
-import type { StreamInfo } from "@/domain/types";
 import {
   applyPreferredStreamSelection,
   buildQualityPickerOptions,
   buildSourcePickerOptions,
 } from "@/app/source-quality";
+import type { StreamInfo } from "@/domain/types";
 
 const streamWithCandidates: StreamInfo = {
   url: "https://cdn.example/1080.m3u8",
