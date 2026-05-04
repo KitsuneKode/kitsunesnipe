@@ -370,10 +370,7 @@ function AppRoot({ container }: { container: Container }) {
   const canStopAfterCurrent = Boolean(isSeriesPlayback);
   const playbackCanCancel =
     state.playbackStatus === "loading" ||
-    state.playbackStatus === "ready" ||
-    state.playbackStatus === "buffering" ||
-    state.playbackStatus === "seeking" ||
-    state.playbackStatus === "stalled";
+    state.playbackStatus === "ready";
 
   return (
     <Box
@@ -424,15 +421,19 @@ function AppRoot({ container }: { container: Container }) {
                   title: state.currentTitle?.name || "Resolving...",
                   subtitle: playbackSubtitle,
                   operation:
-                    state.playbackStatus === "playing"
+                    state.playbackStatus === "playing" ||
+                    state.playbackStatus === "buffering" ||
+                    state.playbackStatus === "seeking" ||
+                    state.playbackStatus === "stalled"
                       ? "playing"
-                      : state.playbackStatus === "loading" || state.playbackStatus === "buffering"
+                    : state.playbackStatus === "loading"
                         ? "loading"
                         : "resolving",
                   details: state.playbackDetail ?? `Provider: ${state.provider}`,
                   subtitleStatus:
                     state.playbackStatus === "playing" ||
                     state.playbackStatus === "buffering" ||
+                    state.playbackStatus === "seeking" ||
                     state.playbackStatus === "stalled"
                       ? playbackSubtitleStatus
                       : undefined,
@@ -442,6 +443,7 @@ function AppRoot({ container }: { container: Container }) {
                   stopHint:
                     state.playbackStatus === "playing" ||
                     state.playbackStatus === "buffering" ||
+                    state.playbackStatus === "seeking" ||
                     state.playbackStatus === "stalled"
                       ? state.currentTitle?.type === "series"
                         ? `q stop  ·  ${canGoNext ? "n next" : "n unavailable"}  ·  ${canGoPrevious ? "p previous" : "p unavailable"}  ·  ${state.stopAfterCurrent ? "x resume chain" : "x stop after current"}`
@@ -450,6 +452,7 @@ function AppRoot({ container }: { container: Container }) {
                   controlHint:
                     state.playbackStatus === "playing" ||
                     state.playbackStatus === "buffering" ||
+                    state.playbackStatus === "seeking" ||
                     state.playbackStatus === "stalled"
                       ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  b skip segment  ·  o source  ·  k quality  ·  s reload subtitles  ·  r refresh  ·  f fallback  ·  Ctrl+C hard exit`
                       : undefined,
