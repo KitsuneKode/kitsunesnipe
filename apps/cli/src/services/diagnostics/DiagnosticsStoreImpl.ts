@@ -20,6 +20,10 @@ export class DiagnosticsStoreImpl implements DiagnosticsStore {
     return this.events.slice(-limit).reverse();
   }
 
+  getSnapshot(): readonly DiagnosticEvent[] {
+    return [...this.events];
+  }
+
   clear(): void {
     this.events = [];
   }

@@ -14,5 +14,7 @@ export interface DiagnosticEvent {
 export interface DiagnosticsStore {
   record(event: Omit<DiagnosticEvent, "timestamp">): void;
   getRecent(limit?: number): readonly DiagnosticEvent[];
+  /** Oldest-first snapshot for exports (bounded buffer, same backing store as getRecent). */
+  getSnapshot(): readonly DiagnosticEvent[];
   clear(): void;
 }
