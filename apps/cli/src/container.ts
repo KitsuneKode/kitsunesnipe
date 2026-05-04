@@ -151,6 +151,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     tracer,
     diagnosticsStore,
     playerControl,
+    config,
     mpv: options?.mpv,
   });
 

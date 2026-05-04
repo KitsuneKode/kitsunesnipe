@@ -207,6 +207,11 @@ export async function launchMpv(opts: {
   return finalizePlaybackResult(telemetry, { socketPathCleanedUp });
 }
 
+/** True when we should seek / pass --start for a resume position (any positive second). */
+export function shouldApplyStartAtSeek(startAt: number | undefined): boolean {
+  return typeof startAt === "number" && Number.isFinite(startAt) && startAt > 0;
+}
+
 export function buildMpvArgs(
   opts: {
     url: string;
@@ -222,6 +227,8 @@ export function buildMpvArgs(
     includeStartArg?: boolean;
     mpv?: MpvRuntimeOptions;
     scriptPath?: string;
+    /** Single `--script-opts=` value (comma-separated key=value). */
+    scriptOpts?: string;
   },
 ): string[] {
   const args: string[] = [opts.url];
@@ -237,7 +244,7 @@ export function buildMpvArgs(
     args.push(`--sub-file=${opts.subtitle}`);
   }
 
-  if ((config?.includeStartArg ?? true) && opts.startAt && opts.startAt > 5) {
+  if ((config?.includeStartArg ?? true) && shouldApplyStartAtSeek(opts.startAt)) {
     args.push(`--start=${opts.startAt}`);
   }
   args.push(`--force-media-title=${opts.displayTitle}`);
@@ -274,6 +281,7 @@ export function buildMpvArgs(
   }
   if (ipcPath) args.push(`--input-ipc-server=${ipcPath}`);
   if (config?.scriptPath) args.push(`--script=${config.scriptPath}`);
+  if (config?.scriptOpts) args.push(`--script-opts=${config.scriptOpts}`);
 
   return args;
 }

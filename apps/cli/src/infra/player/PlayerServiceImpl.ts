@@ -9,6 +9,7 @@ import type { Logger } from "@/infra/logger/Logger";
 import type { Tracer } from "@/infra/tracer/Tracer";
 import { launchMpv } from "@/mpv";
 import type { DiagnosticsStore } from "@/services/diagnostics/DiagnosticsStore";
+import type { ConfigService } from "@/services/persistence/ConfigService";
 
 import type { MpvRuntimeOptions } from "./mpv-runtime-options";
 import { PersistentMpvSession } from "./PersistentMpvSession";
@@ -29,6 +30,7 @@ export class PlayerServiceImpl implements PlayerService {
       tracer: Tracer;
       diagnosticsStore: DiagnosticsStore;
       playerControl: PlayerControlService;
+      config: ConfigService;
       mpv?: MpvRuntimeOptions;
     },
   ) {}
@@ -190,6 +192,7 @@ export class PlayerServiceImpl implements PlayerService {
         stream,
         options: sharedOptions,
         mpv: this.deps.mpv,
+        kitsuneConfig: this.deps.config.getRaw(),
         onControlReady: (control) => this.deps.playerControl.setActive(control),
       });
       const result = await this.persistentSession.waitForCurrentPlayback();

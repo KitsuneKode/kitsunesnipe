@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { buildMpvArgs, collectAdditionalSubtitleTracks } from "@/mpv";
+import { buildMpvArgs, collectAdditionalSubtitleTracks, shouldApplyStartAtSeek } from "@/mpv";
 
 test("buildMpvArgs only attaches the primary subtitle during initial launch", () => {
   const args = buildMpvArgs(
@@ -26,6 +26,42 @@ test("buildMpvArgs only attaches the primary subtitle during initial launch", ()
   expect(args).toContain("--input-ipc-server=/tmp/kunai-test.sock");
   expect(args).toContain("--sub-file=https://sub.example/en.srt");
   expect(args).not.toContain("--sub-file=https://sub.example/ar.srt");
+});
+
+test("buildMpvArgs passes --script-opts when scriptOpts is set", () => {
+  const args = buildMpvArgs(
+    {
+      url: "https://cdn.example/master.m3u8",
+      headers: {},
+      subtitle: null,
+      displayTitle: "Test",
+    },
+    "/tmp/kunai-test.sock",
+    { scriptOpts: "kunai-bridge-margin_bottom=130" },
+  );
+  expect(args).toContain("--script-opts=kunai-bridge-margin_bottom=130");
+});
+
+test("shouldApplyStartAtSeek is true for small resume offsets", () => {
+  expect(shouldApplyStartAtSeek(3)).toBe(true);
+  expect(shouldApplyStartAtSeek(0.5)).toBe(true);
+  expect(shouldApplyStartAtSeek(undefined)).toBe(false);
+  expect(shouldApplyStartAtSeek(0)).toBe(false);
+});
+
+test("buildMpvArgs passes --start for small offsets when includeStartArg is true", () => {
+  const args = buildMpvArgs(
+    {
+      url: "https://cdn.example/master.m3u8",
+      headers: {},
+      subtitle: null,
+      displayTitle: "Test",
+      startAt: 4,
+    },
+    "/tmp/kunai-test.sock",
+    { includeStartArg: true },
+  );
+  expect(args).toContain("--start=4");
 });
 
 test("buildMpvArgs can defer resume seeking to IPC for persistent playback", () => {

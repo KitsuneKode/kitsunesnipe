@@ -9,7 +9,8 @@ import type {
   StreamInfo,
   SubtitleTrack,
 } from "@/domain/types";
-import { buildMpvArgs, collectAdditionalSubtitleTracks } from "@/mpv";
+import { buildMpvArgs, collectAdditionalSubtitleTracks, shouldApplyStartAtSeek } from "@/mpv";
+import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 
 import type { MpvIpcSession } from "./mpv-ipc";
 import { openMpvIpcSession, waitForMpvIpcSocket } from "./mpv-ipc";
@@ -33,6 +34,12 @@ import {
 import { createPlaybackWatchdog, type PlaybackWatchdog } from "./playback-watchdog";
 import type { ActivePlayerControl } from "./PlayerControlService";
 import type { LateSubtitleAttachment, PlayerPlaybackEvent } from "./PlayerService";
+import {
+  buildKunaiBridgeScriptOptsArg,
+  isEphemeralKunaiLuaScript,
+  parseSkipPromptDurationMs,
+  resolveKunaiMpvBridgeScriptPath,
+} from "./kunai-mpv-bridge";
 
 type MpvProcess = {
   readonly exited: Promise<number>;
@@ -99,6 +106,11 @@ export class PersistentMpvSession {
   private skipAutoTimer: ReturnType<typeof setTimeout> | null = null;
   /** Bumped whenever skip user-data changes so mpv Lua resets its 3s prompt timer. */
   private skipUserDataRev = 0;
+  /** Suppress segment OSD/skip until initial resume seek has run (avoids time-pos@0 races). */
+  private resumeSeekPending = false;
+  private scriptOptsArg: string | undefined;
+  /** Bun delayed auto-skip timer; must match Lua chip countdown (`user-data/kunai-skip-prompt-ms`). */
+  private skipPromptDurationMs = 3000;
 
   private constructor(
     private readonly initialStream: StreamInfo,
@@ -140,9 +152,14 @@ export class PersistentMpvSession {
     stream: StreamInfo;
     options: PlayerCycleOptions;
     mpv?: MpvRuntimeOptions;
+    kitsuneConfig: KitsuneConfig;
     onControlReady: (control: ActivePlayerControl | null) => void;
   }): Promise<PersistentMpvSession> {
     const session = new PersistentMpvSession(opts.stream, opts.options, opts.onControlReady);
+    const cfg = opts.kitsuneConfig;
+    session.skipPromptDurationMs = parseSkipPromptDurationMs(cfg.mpvKunaiScriptOpts);
+    session.scriptOptsArg = buildKunaiBridgeScriptOptsArg(cfg.mpvKunaiScriptOpts);
+    session.luaScriptPath = await resolveKunaiMpvBridgeScriptPath(cfg);
     await session.spawn(opts.mpv);
     return session;
   }
@@ -248,8 +265,6 @@ export class PersistentMpvSession {
     this.beginCycle(this.initialOptions);
     this.initialOptions.onPlaybackEvent?.({ type: "launching-player" });
 
-    this.luaScriptPath = await writeLuaScript(this.id);
-
     const args = buildMpvArgs(
       {
         url: this.initialStream.url,
@@ -265,6 +280,7 @@ export class PersistentMpvSession {
         includeStartArg: false,
         mpv: mpvOptions,
         scriptPath: this.luaScriptPath ?? undefined,
+        scriptOpts: this.scriptOptsArg,
       },
     );
 
@@ -496,24 +512,29 @@ export class PersistentMpvSession {
 
     if (!this.ipcSession) return;
 
-    // Ensure playback is not paused when a new file loads. With --keep-open=no this is
-    // normally a no-op, but guards against pause=yes persisting from a previous cycle
-    // (e.g. user paused mid-episode then pressed N, or a keep-open edge case).
-    await this.ipcSession.send(["set_property", "pause", false], 500);
+    this.resumeSeekPending = shouldApplyStartAtSeek(options.startAt);
+    try {
+      // Ensure playback is not paused when a new file loads. With --keep-open=no this is
+      // normally a no-op, but guards against pause=yes persisting from a previous cycle
+      // (e.g. user paused mid-episode then pressed N, or a keep-open edge case).
+      await this.ipcSession.send(["set_property", "pause", false], 500);
 
-    // Always push the display title for this episode so the mpv window title and
-    // OSD stay correct across persistent-session episode transitions.
-    await this.ipcSession.send(["set_property", "force-media-title", options.displayTitle], 1_000);
+      // Always push the display title for this episode so the mpv window title and
+      // OSD stay correct across persistent-session episode transitions.
+      await this.ipcSession.send(["set_property", "force-media-title", options.displayTitle], 1_000);
 
-    if (options.startAt && options.startAt > 5) {
-      options.onPlaybackEvent?.({ type: "resolving-playback" });
-      const seekResult = await this.ipcSession.send(["seek", options.startAt, "absolute"], 2_000);
-      // IPC time-pos may lag behind the seek; autoskip uses currentPositionSeconds — sync so
-      // recap/intro windows are evaluated from the resume point, not from 0 (which would
-      // incorrectly skip earlier segments after a mid-episode resume).
-      if (seekResult.ok) {
-        this.currentPositionSeconds = options.startAt;
+      if (shouldApplyStartAtSeek(options.startAt)) {
+        options.onPlaybackEvent?.({ type: "resolving-playback" });
+        const seekResult = await this.ipcSession.send(["seek", options.startAt!, "absolute"], 2_000);
+        // IPC time-pos may lag behind the seek; autoskip uses currentPositionSeconds — sync so
+        // recap/intro windows are evaluated from the resume point, not from 0 (which would
+        // incorrectly skip earlier segments after a mid-episode resume).
+        if (seekResult.ok) {
+          this.currentPositionSeconds = options.startAt!;
+        }
       }
+    } finally {
+      this.resumeSeekPending = false;
     }
 
     await this.replaceSubtitleInventory(
@@ -639,6 +660,7 @@ export class PersistentMpvSession {
     this.ipcSession.sendUnchecked(["set_property", "user-data/kunai-skip-auto", "0"]);
     this.ipcSession.sendUnchecked(["set_property", "user-data/kunai-skip-kind", ""]);
     this.ipcSession.sendUnchecked(["set_property", "user-data/kunai-skip-label", ""]);
+    this.ipcSession.sendUnchecked(["set_property", "user-data/kunai-skip-prompt-ms", 0]);
     this.bumpSkipUserDataRev();
   }
 
@@ -659,6 +681,11 @@ export class PersistentMpvSession {
       "set_property",
       "user-data/kunai-skip-label",
       playbackSkipKindLabel(segment.kind),
+    ]);
+    this.ipcSession.sendUnchecked([
+      "set_property",
+      "user-data/kunai-skip-prompt-ms",
+      this.skipPromptDurationMs,
     ]);
     this.bumpSkipUserDataRev();
   }
@@ -729,6 +756,7 @@ export class PersistentMpvSession {
 
   private async handleSegmentSkipProgress(options: PlayerCycleOptions): Promise<void> {
     if (!this.ipcSession) return;
+    if (this.resumeSeekPending) return;
 
     if (!this.luaScriptPath) {
       await this.maybeAutoSkipLegacy(options);
@@ -764,7 +792,7 @@ export class PersistentMpvSession {
       const expectedKey = segment.key;
       this.skipAutoTimer = setTimeout(() => {
         void this.fireScheduledAutoSkip(options, expectedKey);
-      }, 3_000);
+      }, this.skipPromptDurationMs);
     }
   }
 
@@ -864,156 +892,10 @@ export class PersistentMpvSession {
     if (!this.luaScriptPath) return;
     const path = this.luaScriptPath;
     this.luaScriptPath = null;
-    if (existsSync(path)) await unlink(path).catch(() => {});
+    if (isEphemeralKunaiLuaScript(path) && existsSync(path)) {
+      await unlink(path).catch(() => {});
+    }
   }
-}
-
-async function writeLuaScript(id: string): Promise<string | null> {
-  if (process.platform === "win32") return null;
-  const path = join(tmpdir(), `kunai-mpv-keys-${id}.lua`);
-  const content = `
--- kunai mpv bridge: N/P episode nav, I / click skip, Netflix-style skip chip (3s)
-local overlay = mp.create_osd_overlay("ass-events")
-overlay.z = 1600
-
-local prompt_redraw_timer = nil
-local prompt_deadline_wall = nil
-local prompt_is_auto = false
-local prompt_label = ""
-
-local function signal(action)
-  mp.set_property("user-data/kunai-request", action)
-end
-
-local function clear_prompt_timers()
-  if prompt_redraw_timer ~= nil then
-    prompt_redraw_timer:kill()
-    prompt_redraw_timer = nil
-  end
-  prompt_deadline_wall = nil
-  pcall(function() mp.remove_key_binding("kunai-skip-click") end)
-end
-
-local function hide_prompt_visual()
-  clear_prompt_timers()
-  overlay.data = ""
-  overlay:remove()
-end
-
-local function hit_skip_chip(mx, my)
-  local dim = mp.get_property_native("osd-dimensions", {})
-  local w = dim.w or 0
-  local h = dim.h or 0
-  if w < 1 or h < 1 then return false end
-  local bw, bh = 260, 52
-  local padx, pady = 48, 128
-  local x0 = w - bw - padx
-  local y0 = h - bh - pady
-  return mx >= x0 and mx <= x0 + bw and my >= y0 and my <= y0 + bh
-end
-
-local function draw_prompt_frame()
-  if not prompt_deadline_wall then return end
-  local skip_to = mp.get_property_number("user-data/kunai-skip-to", -1)
-  if skip_to <= 0 then
-    hide_prompt_visual()
-    return
-  end
-  local dim = mp.get_property_native("osd-dimensions", {})
-  local w = dim.w or 1280
-  local h = dim.h or 720
-  local remaining = prompt_deadline_wall - mp.get_time()
-  if remaining < 0 then remaining = 0 end
-  local sec = math.max(0, math.ceil(remaining))
-  local subline
-  if prompt_is_auto then
-    subline = "Auto-skip in " .. tostring(sec) .. "s  ·  i / click now"
-  else
-    subline = (sec > 0) and (tostring(sec) .. "s  ·  i / click") or "i / click to skip"
-  end
-  local ax = w - 24
-  local ay = h - 36
-  overlay.res_x = w
-  overlay.res_y = h
-  overlay.data = string.format(
-    "{\\an3\\pos(%d,%d)\\fs26\\b1\\bord1\\3c&HFFFFFF&\\1c&H181818&}%s\\N{\\fs17\\b0\\1c&HDDDDDD&}%s",
-    ax, ay, prompt_label, subline
-  )
-  overlay:update()
-end
-
-local function on_skip_click(e)
-  if e and e.event ~= "up" then return end
-  local pos = mp.get_property_native("mouse-pos", {})
-  if not pos or not pos.x then return end
-  if hit_skip_chip(pos.x, pos.y) and mp.get_property_number("user-data/kunai-skip-to", -1) > 0 then
-    signal("skip")
-  end
-end
-
-local function restart_skip_prompt()
-  hide_prompt_visual()
-  local skip_to = mp.get_property_number("user-data/kunai-skip-to", -1)
-  if skip_to <= 0 then return end
-  prompt_is_auto = mp.get_property("user-data/kunai-skip-auto") == "1"
-  prompt_label = mp.get_property("user-data/kunai-skip-label", "SKIP")
-  if prompt_label == "" then prompt_label = "SKIP" end
-  prompt_deadline_wall = mp.get_time() + 3.0
-  overlay.hidden = false
-  draw_prompt_frame()
-  prompt_redraw_timer = mp.add_periodic_timer(0.05, function()
-    local st = mp.get_property_number("user-data/kunai-skip-to", -1)
-    if st <= 0 then
-      hide_prompt_visual()
-      return
-    end
-    local remaining = prompt_deadline_wall - mp.get_time()
-    draw_prompt_frame()
-    if remaining <= 0 then
-      if prompt_redraw_timer ~= nil then
-        prompt_redraw_timer:kill()
-        prompt_redraw_timer = nil
-      end
-      pcall(function() mp.remove_key_binding("kunai-skip-click") end)
-      overlay.data = ""
-      overlay:remove()
-      if prompt_is_auto then
-        signal("auto-skip")
-      end
-    end
-  end)
-  mp.add_forced_key_binding("MBTN_LEFT", "kunai-skip-click", on_skip_click, { complex = true })
-end
-
-mp.observe_property("user-data/kunai-skip-rev", "native", function()
-  restart_skip_prompt()
-end)
-
-local function do_next()
-  signal("next")
-  mp.commandv("stop")
-end
-
-local function do_previous()
-  signal("previous")
-  mp.commandv("stop")
-end
-
-local function do_skip()
-  if mp.get_property_number("user-data/kunai-skip-to", -1) > 0 then
-    signal("skip")
-  end
-end
-
-mp.add_key_binding("n", "kunai-next",           do_next,     {repeatable=false})
-mp.add_key_binding("N", "kunai-next-shift",     do_next,     {repeatable=false})
-mp.add_key_binding("p", "kunai-prev",           do_previous, {repeatable=false})
-mp.add_key_binding("P", "kunai-prev-shift",     do_previous, {repeatable=false})
-mp.add_key_binding("i", "kunai-skip",           do_skip,     {repeatable=false})
-mp.add_key_binding("I", "kunai-skip-shift",     do_skip,     {repeatable=false})
-`;
-  await Bun.write(path, content);
-  return path;
 }
 
 function extractExternalSubtitleIds(trackList: unknown): number[] {
