@@ -12,6 +12,10 @@
       "cache": false,
       "outputs": []
     },
+    "fmt:check": {
+      "cache": false,
+      "outputs": []
+    },
     "test": {
       "dependsOn": ["typecheck"],
       "outputs": []
