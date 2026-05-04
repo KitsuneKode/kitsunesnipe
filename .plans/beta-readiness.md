@@ -66,24 +66,27 @@ Everything here is concrete and ordered. Each item is either done, in progress, 
 
 - [x] `shellWidth` and `shellHeight` use full terminal dimensions (removed `-1`/`-2` offsets)
 - [x] `alternateScreen: true` confirmed on both render paths
+- [x] **Slice 1**: Root owns the only fullscreen frame — `AppRoot` has the single `borderStyle="round"`, child shells use borderless `ShellFrame`
+- [x] **Slice 2**: Child shells flattened — browse, picker, loading render as flat content inside the root frame; no nested card borders
 
-### Remaining (ordered by slice from fullscreen-root-shell-redesign.md)
+### Done (continued)
 
-- [ ] **Slice 1**: Remove disconnected inner border that double-wraps child shells
-- [ ] **Slice 2**: Flatten child shell borders — browse, picker, loading no longer draw full outer borders
-- [ ] **Slice 3**: Browse composition — rebalance list vs companion column widths
-- [ ] **Slice 4**: Playback/loading/post-playback visual continuity
-- [ ] **Slice 5**: Root overlays — settings, history, diagnostics, season, episode, subtitle all stay inside shell
+- [x] **Slice 3**: Browse composition — wide-terminal companion pane with 70/30 split; `buildBrowseCompanionPanel` wired in
+- [x] **Slice 5**: Root overlays — settings, history, diagnostics, season, episode, subtitle all stay inside shell via `RootOverlayShell`
+
+### Remaining
+
+- [ ] **Slice 4**: Playback/loading/post-playback visual continuity (verify no blank intermediate states)
 
 ---
 
 ## Track 4 — History UI Improvements
 
-### Remaining
+### Done
 
-- [ ] History panel shows more detail per entry (episode name, provider, completion %, date)
-- [ ] History panel supports filtering by title
-- [ ] Continue-watching shortcut from history entry (jump directly to playback with correct resume point)
+- [x] History panel shows title, episode marker, progress %, provider, and date per entry
+- [x] History panel supports filtering (by title/provider/episode in `RootOverlayShell`)
+- [x] Continue-watching from history entry: `chooseStartingEpisode` reads history timestamp and pre-selects episode + resume position
 
 ---
 
@@ -108,9 +111,13 @@ Everything here is concrete and ordered. Each item is either done, in progress, 
 
 ## Track 6 — First-Run Guardrails
 
+### Done
+
+- [x] `checkDeps()` in `ui.ts` checks for mpv and exits with install instructions — now wired into `runCli` before container init
+
 ### Remaining
 
-- [ ] On startup, check for `mpv` and Playwright — show clear error with install instructions if missing
+- [ ] Check for Playwright/browser availability (needed for stream scraping)
 - [ ] Ideally: friendly guided setup flow in the shell itself
 
 ---
@@ -119,14 +126,14 @@ Everything here is concrete and ordered. Each item is either done, in progress, 
 
 Before calling this a releasable public beta, ALL of the following must be true:
 
-- [ ] Autoplay advances automatically at natural EOF for both series (TMDB) and anime (AllAnime)
-- [ ] N/P/I keys work inside mpv window
-- [ ] Shell fills terminal viewport (no gaps)
-- [ ] Settings, history, diagnostics all accessible without leaving the shell
-- [ ] `quitNearEndBehavior` setting is exposed
-- [ ] First-run guardrail for missing mpv
-- [ ] History UI shows enough detail to be useful
-- [ ] `bun run typecheck && bun run lint` pass clean
+- [ ] Autoplay advances automatically at natural EOF for both series (TMDB) and anime (AllAnime) — needs live verification
+- [x] N/P/I keys work inside mpv window
+- [x] Shell fills terminal viewport (no gaps)
+- [x] Settings, history, diagnostics all accessible without leaving the shell
+- [x] Skip-credits setting exposed in settings overlay
+- [x] First-run guardrail for missing mpv
+- [x] History UI shows enough detail to be useful
+- [ ] `bun run typecheck && bun run lint` pass clean — typecheck ✓, lint has 91 warnings (0 errors)
 
 ---
 

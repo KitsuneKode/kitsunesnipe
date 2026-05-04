@@ -67,6 +67,7 @@ type SettingsAction =
   | "autoNext"
   | "skipRecap"
   | "skipIntro"
+  | "skipCredits"
   | "skipPreview"
   | "footerHints"
   | "clearCache"
@@ -160,6 +161,11 @@ export function buildSettingsOptions(
       value: "skipIntro",
       label: `Skip intros  ·  ${config.skipIntro ? "on" : "off"}`,
       detail: "Auto-skip intro segments when IntroDB timing exists",
+    },
+    {
+      value: "skipCredits",
+      label: `Skip credits  ·  ${config.skipCredits ? "on" : "off"}`,
+      detail: "Auto-skip credits segments when IntroDB or AniSkip timing exists",
     },
     {
       value: "skipPreview",

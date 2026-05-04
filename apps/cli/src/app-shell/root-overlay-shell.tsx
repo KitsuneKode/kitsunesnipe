@@ -386,6 +386,11 @@ export function RootOverlayShell({
           setSettingsError(null);
           return;
         }
+        if (picked.value === "skipCredits") {
+          setSettingsDraft({ ...settingsDraft, skipCredits: !settingsDraft.skipCredits });
+          setSettingsError(null);
+          return;
+        }
         if (picked.value === "skipPreview") {
           setSettingsDraft({ ...settingsDraft, skipPreview: !settingsDraft.skipPreview });
           setSettingsError(null);

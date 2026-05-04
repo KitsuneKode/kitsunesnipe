@@ -17,6 +17,7 @@ import { SessionController } from "@/app/SessionController";
 import { createContainer } from "@/container";
 import type { TitleInfo } from "@/domain/types";
 import type { MpvRuntimeOptions } from "@/infra/player/mpv-runtime-options";
+import { checkDeps } from "@/ui";
 
 // Simple CLI arg parser
 export function parseArgs(argv: string[]): {
@@ -75,6 +76,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 
   // Parse CLI arguments
   const args = parseArgs(argv);
+
+  // Guard: verify required system dependencies before touching the shell
+  await checkDeps();
 
   // Bootstrap the DI container
   const container = await createContainer({ debug: args.debug, mpv: args.mpv });
