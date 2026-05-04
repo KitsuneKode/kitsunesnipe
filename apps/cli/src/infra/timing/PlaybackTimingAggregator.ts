@@ -1,4 +1,4 @@
-import { mergeTimingMetadata } from "@/aniskip";
+import { mergeTimingMetadata } from "./merge-timing";
 import type { EpisodeInfo, PlaybackTimingMetadata, TitleInfo } from "@/domain/types";
 
 import type { PlaybackTimingSource, TimingContentMode } from "./PlaybackTimingSource";
