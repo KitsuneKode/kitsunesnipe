@@ -268,14 +268,43 @@ export function resolveAnimeEpisodeString(
 
 const KNOWN_SOURCES = new Set(["Default", "Yt-mp4", "S-mp4", "Luf-Mp4"]);
 
+function parseHttpUrl(url: string): URL | null {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function linkIsWixmpRepackager(link: string): boolean {
+  const parsed = parseHttpUrl(link);
+  return parsed !== null && parsed.hostname.toLowerCase() === "repackager.wixmp.com";
+}
+
+function linkIsMasterPlaylist(link: string): boolean {
+  const parsed = parseHttpUrl(link);
+  if (!parsed) {
+    return false;
+  }
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  return segments[segments.length - 1]?.toLowerCase() === "master.m3u8";
+}
+
 function isDirectStream(url: string): boolean {
-  const l = url.toLowerCase();
+  const parsed = parseHttpUrl(url);
+  if (!parsed) {
+    return false;
+  }
+  const host = parsed.hostname.toLowerCase();
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  const leaf = segments[segments.length - 1]?.toLowerCase() ?? "";
   return (
-    l.includes(".m3u8") ||
-    l.includes(".mp4") ||
-    l.includes(".mkv") ||
-    l.includes("repackager.wixmp.com") ||
-    l.includes("tools.fast4speed.rsvp")
+    leaf.endsWith(".m3u8") ||
+    leaf.endsWith(".mp4") ||
+    leaf.endsWith(".mkv") ||
+    host === "repackager.wixmp.com" ||
+    host === "tools.fast4speed.rsvp"
   );
 }
 
@@ -314,7 +343,7 @@ async function fetchStreamLinks(
         if (!l.link) continue;
 
         // wixmp repackager — extract quality variants (ani-cli get_links wixmp branch)
-        if (l.link.includes("repackager.wixmp.com")) {
+        if (linkIsWixmpRepackager(l.link)) {
           const base = l.link.replace(/repackager\.wixmp\.com\//g, "").replace(/\.urlset.*/, "");
           const qMatch = /\/,([^/]*),\/mp4/.exec(l.link);
           const variants = qMatch?.[1]?.split(",").filter(Boolean) ?? [];
@@ -328,7 +357,7 @@ async function fetchStreamLinks(
 
         // master.m3u8 — resolve quality variants (ani-cli get_links m3u8 branch)
         // Uses the Referer extracted from the JSON body, not cfg.referer (ani-cli: m3u8_refr).
-        if (l.link.includes("master.m3u8")) {
+        if (linkIsMasterPlaylist(l.link)) {
           const m3uRes = await fetch(l.link, {
             headers: { Referer: m3u8Referer, "User-Agent": ua },
           });

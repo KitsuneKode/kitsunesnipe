@@ -8,6 +8,8 @@ import { openMpvIpcSession, waitForMpvIpcEndpoint } from "@/infra/player/mpv-ipc
 import {
   createMpvIpcEndpoint,
   ipcServerCliArg,
+  mpvIpcTransportTag,
+  newMpvIpcSessionId,
   shouldUnlinkUnixSocket,
 } from "@/infra/player/mpv-ipc-endpoint";
 import type { MpvRuntimeOptions } from "@/infra/player/mpv-runtime-options";
@@ -23,6 +25,7 @@ import { createPlaybackWatchdog } from "@/infra/player/playback-watchdog";
 import type { ActivePlayerControl } from "@/infra/player/PlayerControlService";
 import type { PlayerPlaybackEvent } from "@/infra/player/PlayerService";
 import type { LateSubtitleAttachment } from "@/infra/player/PlayerService";
+import { dbg } from "@/logger";
 
 export async function launchMpv(opts: {
   url: string;
@@ -42,8 +45,8 @@ export async function launchMpv(opts: {
   onPlaybackEvent?: (event: PlayerPlaybackEvent) => void;
   mpv?: MpvRuntimeOptions;
 }): Promise<PlaybackResult> {
-  const nonce = `${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-  const ipcEndpoint = createMpvIpcEndpoint(nonce);
+  const sessionId = newMpvIpcSessionId();
+  const ipcEndpoint = createMpvIpcEndpoint(sessionId);
 
   if (shouldUnlinkUnixSocket(ipcEndpoint)) {
     await unlinkIfExists(ipcEndpoint.path);
@@ -102,7 +105,7 @@ export async function launchMpv(opts: {
     return true;
   };
   const control: ActivePlayerControl = {
-    id: nonce,
+    id: sessionId,
     async stop() {
       if (stopRequested) return;
       stopRequested = true;
@@ -137,6 +140,7 @@ export async function launchMpv(opts: {
   }));
 
   const ipcBootstrap = (async () => {
+    const ipcBootstrapStarted = Date.now();
     const ready = await waitForMpvIpcEndpoint(ipcEndpoint, 5_000);
     if (!ready) {
       notifyPlayerReady();
@@ -177,6 +181,13 @@ export async function launchMpv(opts: {
           }
         }
       },
+    });
+
+    dbg("mpv-ipc", "ipc-bootstrap-complete", {
+      ipcTransport: mpvIpcTransportTag(ipcEndpoint),
+      endpoint: ipcServerCliArg(ipcEndpoint),
+      bootstrapMs: Date.now() - ipcBootstrapStarted,
+      mode: "launchMpv",
     });
 
     emitPlaybackEvent({ type: "ipc-connected" });

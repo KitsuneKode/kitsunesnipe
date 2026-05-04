@@ -517,7 +517,7 @@ async function fetchStreamLinks(
           continue;
         }
 
-        if (link.link.includes("repackager.wixmp.com")) {
+        if (linkIsWixmpRepackager(link.link)) {
           const base = link.link.replace(/repackager\.wixmp\.com\//g, "").replace(/\.urlset.*/, "");
           const qualityMatch = /\/,([^/]*),\/mp4/.exec(link.link);
           const variants = qualityMatch?.[1]?.split(",").filter(Boolean) ?? [];
@@ -534,7 +534,7 @@ async function fetchStreamLinks(
           continue;
         }
 
-        if (link.link.includes("master.m3u8")) {
+        if (linkIsMasterPlaylist(link.link)) {
           links.push(
             ...(await fetchM3u8Variants({
               url: link.link,
@@ -609,14 +609,43 @@ async function fetchM3u8Variants({
   return links;
 }
 
+function parseHttpUrl(url: string): URL | null {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function linkIsWixmpRepackager(link: string): boolean {
+  const parsed = parseHttpUrl(link);
+  return parsed !== null && parsed.hostname.toLowerCase() === "repackager.wixmp.com";
+}
+
+function linkIsMasterPlaylist(link: string): boolean {
+  const parsed = parseHttpUrl(link);
+  if (!parsed) {
+    return false;
+  }
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  return segments[segments.length - 1]?.toLowerCase() === "master.m3u8";
+}
+
 function isDirectStream(url: string): boolean {
-  const lower = url.toLowerCase();
+  const parsed = parseHttpUrl(url);
+  if (!parsed) {
+    return false;
+  }
+  const host = parsed.hostname.toLowerCase();
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  const leaf = segments[segments.length - 1]?.toLowerCase() ?? "";
   return (
-    lower.includes(".m3u8") ||
-    lower.includes(".mp4") ||
-    lower.includes(".mkv") ||
-    lower.includes("repackager.wixmp.com") ||
-    lower.includes("tools.fast4speed.rsvp")
+    leaf.endsWith(".m3u8") ||
+    leaf.endsWith(".mp4") ||
+    leaf.endsWith(".mkv") ||
+    host === "repackager.wixmp.com" ||
+    host === "tools.fast4speed.rsvp"
   );
 }
 

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 
 /** Where Bun connects for mpv JSON IPC (`--input-ipc-server` value). */
@@ -12,6 +13,11 @@ function ipcPipeSuffix(sessionId: string): string {
 
 function unixSocketTempDir(): string {
   return Bun.env.TMPDIR ?? Bun.env.TMP ?? "/tmp";
+}
+
+/** Unpredictable id for IPC socket/pipe paths (not `Math.random`). */
+export function newMpvIpcSessionId(): string {
+  return `${process.pid}-${Date.now().toString(36)}-${randomBytes(4).toString("hex")}`;
 }
 
 /**
@@ -39,4 +45,16 @@ export function ipcServerCliArg(endpoint: MpvIpcEndpoint): string {
 
 export function shouldUnlinkUnixSocket(endpoint: MpvIpcEndpoint): boolean {
   return endpoint.kind === "unix_socket";
+}
+
+export function mpvIpcTransportTag(endpoint: MpvIpcEndpoint): "unix" | "pipe" {
+  return endpoint.kind === "unix_socket" ? "unix" : "pipe";
+}
+
+/** Appended to ipc-bootstrap failures (shell diagnostics + PlaybackPhase player notes). */
+export function mpvIpcBootstrapDiagnosticsHintSuffix(): string {
+  if (process.platform === "win32") {
+    return " Windows: Bun uses a duplex named pipe (//./pipe/…). Use native Windows mpv on PATH in the same environment as Bun (not WSL↔host split).";
+  }
+  return " Unix: IPC is a socket under TMPDIR/TMP; check permissions and stale .sock files.";
 }

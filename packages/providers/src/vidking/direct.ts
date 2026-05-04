@@ -756,16 +756,33 @@ function inferSubtitleFormat(url: string): SubtitleCandidate["format"] {
   return "unknown";
 }
 
+function stripOutermostParenSegment(value: string): string {
+  const openIdx = value.indexOf("(");
+  if (openIdx < 0) {
+    return value;
+  }
+  const closeIdx = value.indexOf(")", openIdx + 1);
+  if (closeIdx < 0) {
+    return value;
+  }
+  return `${value.slice(0, openIdx)} ${value.slice(closeIdx + 1)}`;
+}
+
 function normalizeLanguage(value: string | undefined): string | undefined {
-  const raw = value?.trim().toLowerCase();
+  let raw = value?.trim().toLowerCase();
   if (!raw) {
     return undefined;
   }
 
-  const normalized = raw
-    .replace(/\s*\([^)]*\)\s*/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  for (let i = 0; i < 32; i += 1) {
+    const next = stripOutermostParenSegment(raw);
+    if (next === raw) {
+      break;
+    }
+    raw = next;
+  }
+
+  const normalized = raw.replace(/\s+/g, " ").trim();
 
   const map: Record<string, string> = {
     eng: "en",

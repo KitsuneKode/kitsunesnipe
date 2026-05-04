@@ -7,6 +7,7 @@ import type {
   StreamInfo,
   SubtitleTrack,
 } from "@/domain/types";
+import { dbg } from "@/logger";
 import { buildMpvArgs, collectAdditionalSubtitleTracks, shouldApplyStartAtSeek } from "@/mpv";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 
@@ -18,7 +19,14 @@ import {
 } from "./kunai-mpv-bridge";
 import type { MpvIpcSession } from "./mpv-ipc";
 import { openMpvIpcSession, waitForMpvIpcEndpoint } from "./mpv-ipc";
-import { createMpvIpcEndpoint, ipcServerCliArg, shouldUnlinkUnixSocket } from "./mpv-ipc-endpoint";
+import {
+  createMpvIpcEndpoint,
+  ipcServerCliArg,
+  mpvIpcBootstrapDiagnosticsHintSuffix,
+  mpvIpcTransportTag,
+  newMpvIpcSessionId,
+  shouldUnlinkUnixSocket,
+} from "./mpv-ipc-endpoint";
 import type { MpvRuntimeOptions } from "./mpv-runtime-options";
 import {
   applyEndFileEvent,
@@ -78,7 +86,7 @@ type PlayerCycleState = {
 };
 
 export class PersistentMpvSession {
-  private readonly id = `${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  private readonly id = newMpvIpcSessionId();
   private readonly ipcEndpoint = createMpvIpcEndpoint(this.id);
   private luaScriptPath: string | null = null;
   private mpv: MpvProcess | null = null;
@@ -318,12 +326,14 @@ export class PersistentMpvSession {
     });
 
     {
+      const ipcBootstrapStarted = Date.now();
       const ready = await waitForMpvIpcEndpoint(this.ipcEndpoint, 5_000);
+      const waitedMs = Date.now() - ipcBootstrapStarted;
       if (!ready) {
         this.currentCycleOptions().onPlaybackEvent?.({
           type: "ipc-command-failed",
           command: "ipc-bootstrap",
-          error: `IPC endpoint was not ready at ${ipcServerCliArg(this.ipcEndpoint)}`,
+          error: `IPC endpoint was not ready after ${waitedMs}ms at ${ipcServerCliArg(this.ipcEndpoint)}.${mpvIpcBootstrapDiagnosticsHintSuffix()}`,
         });
         proc.kill("SIGTERM");
         await this.handleProcessTermination({ code: 1, signal: null });
@@ -429,15 +439,24 @@ export class PersistentMpvSession {
           },
         });
       } catch (error) {
+        const totalMs = Date.now() - ipcBootstrapStarted;
+        const message = error instanceof Error ? error.message : String(error);
         this.currentCycleOptions().onPlaybackEvent?.({
           type: "ipc-command-failed",
           command: "ipc-bootstrap",
-          error: error instanceof Error ? error.message : String(error),
+          error: `${message} (${totalMs}ms total)${mpvIpcBootstrapDiagnosticsHintSuffix()}`,
         });
         proc.kill("SIGTERM");
         await this.handleProcessTermination({ code: 1, signal: null });
         return;
       }
+
+      dbg("mpv-ipc", "ipc-bootstrap-complete", {
+        ipcTransport: mpvIpcTransportTag(this.ipcEndpoint),
+        endpoint: ipcServerCliArg(this.ipcEndpoint),
+        bootstrapMs: Date.now() - ipcBootstrapStarted,
+        mode: "PersistentMpvSession",
+      });
 
       this.currentCycleOptions().onPlaybackEvent?.({ type: "ipc-connected" });
       this.currentCycleOptions().onPlaybackEvent?.({ type: "opening-stream" });
