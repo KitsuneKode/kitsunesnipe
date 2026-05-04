@@ -76,6 +76,22 @@ Forwarded into the player service for this process (see `MpvRuntimeOptions`):
 | `--no-user-mpv-config` | — | Do not load the user mpv config for this run. |
 | `--mpv-log-file` | path | Write mpv logs to the given file path. |
 
+### mpv bridge script (persistent autoplay)
+
+For **autoplay-chain** playback on **Linux and macOS**, Kunai loads the bundled **`kunai-bridge.lua`** and mirrors it to **`getKunaiPaths().mpvBridgePath`** (Kunai config directory + **`mpv/kunai-bridge.lua`**), updated when the bundled copy is newer.
+
+| OS | Typical `mpvBridgePath` |
+| -- | ----------------------- |
+| Linux | `$XDG_CONFIG_HOME/kunai/mpv/kunai-bridge.lua` (fallback under `~/.config/kunai/`) |
+| macOS | `~/Library/Application Support/kunai/mpv/kunai-bridge.lua` |
+| Windows | `%APPDATA%/kunai/mpv/kunai-bridge.lua` (same Kunai config layout; default bridge is **not** auto-loaded until IPC is wired — set **`mpvKunaiScriptPath`** to load a script explicitly if you need one) |
+
+Override the script path with **`mpvKunaiScriptPath`** in Kunai **`config.json`** for a custom build (checked on all platforms before the Windows default skip).
+
+**`mpvKunaiScriptOpts`** is forwarded as mpv `--script-opts` for the `kunai-bridge` script id (see [mpv script-opts](https://mpv.io/manual/master/#scripting)). Supported keys include **`margin_bottom`**, **`margin_right`**, **`chip_width`**, **`chip_height`**, **`prompt_seconds`** (Lua-only fallback when `user-data/kunai-skip-prompt-ms` is unset; Bun still reads `prompt_seconds` for the delayed auto-skip timer).
+
+**IPC contract (Bun ↔ Lua):** Lua writes `user-data/kunai-request` with `next`, `previous`, `skip`, or `auto-skip`. Bun sets `user-data/kunai-skip-to`, `kunai-skip-auto`, `kunai-skip-kind`, `kunai-skip-label`, `kunai-skip-prompt-ms`, and bumps `kunai-skip-rev` so the overlay timer resets. Keys **n** / **p** / **i** and mouse click on the chip are handled inside mpv.
+
 ---
 
 ## Environment
