@@ -12,6 +12,7 @@ export type KitsuneConfig = {
   headless: boolean;
   showMemory: boolean;
   autoNext: boolean;
+  resumeStartChoicePrompt: boolean;
   skipRecap: boolean;
   skipIntro: boolean;
   skipPreview: boolean;
@@ -32,6 +33,7 @@ export const DEFAULT_CONFIG: KitsuneConfig = {
   headless: true,
   showMemory: false,
   autoNext: true,
+  resumeStartChoicePrompt: true,
   skipRecap: true,
   skipIntro: true,
   skipPreview: true,

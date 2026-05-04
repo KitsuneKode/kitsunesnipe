@@ -17,6 +17,11 @@ export interface KitsuneConfig {
   headless: boolean;
   showMemory: boolean;
   autoNext: boolean;
+  /**
+   * When true (default), persistent autoplay with a positive resume offset shows an mpv overlay
+   * to choose resume vs start over before seeking.
+   */
+  resumeStartChoicePrompt: boolean;
   skipRecap: boolean;
   skipIntro: boolean;
   skipPreview: boolean;

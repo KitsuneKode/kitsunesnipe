@@ -69,6 +69,10 @@ export class ConfigServiceImpl implements ConfigService {
     return this.config.autoNext;
   }
 
+  get resumeStartChoicePrompt(): boolean {
+    return this.config.resumeStartChoicePrompt;
+  }
+
   get skipRecap(): boolean {
     return this.config.skipRecap;
   }
