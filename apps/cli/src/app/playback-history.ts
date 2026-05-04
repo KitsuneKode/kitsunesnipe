@@ -29,5 +29,10 @@ export function toHistoryTimestamp(
     return Math.max(result.watchedSeconds, result.duration);
   }
 
+  const lastNon = result.lastNonZeroPositionSeconds ?? 0;
+  if (result.watchedSeconds <= 0 && lastNon > 0) {
+    return lastNon;
+  }
+
   return result.watchedSeconds;
 }

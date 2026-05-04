@@ -55,6 +55,17 @@ describe("playback-history", () => {
     ).toBe(false);
   });
 
+  test("toHistoryTimestamp prefers lastNonZero when watchedSeconds is zero on quit", () => {
+    expect(
+      toHistoryTimestamp({
+        watchedSeconds: 0,
+        duration: 1_500,
+        endReason: "quit",
+        lastNonZeroPositionSeconds: 420,
+      }),
+    ).toBe(420);
+  });
+
   test("treats playback as complete once credits timing is reached", () => {
     const result = {
       watchedSeconds: 1201,

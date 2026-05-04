@@ -98,6 +98,30 @@ describe("mpv-telemetry", () => {
     });
   });
 
+  test("uses last non-zero position when quit with final sample stuck at zero", () => {
+    const telemetry = createPlayerTelemetryState("/tmp/mpv.sock");
+    applyObservedPropertySample(telemetry, {
+      name: "playback-time",
+      value: 300,
+      observedAt: 100,
+    });
+    applyObservedPropertySample(telemetry, {
+      name: "duration",
+      value: 1_500,
+      observedAt: 110,
+    });
+    applyObservedPropertySample(telemetry, {
+      name: "playback-time",
+      value: 0,
+      observedAt: 120,
+    });
+    recordPlayerExit(telemetry, { code: 0, signal: "SIGTERM" });
+
+    const result = finalizePlaybackResult(telemetry, { socketPathCleanedUp: true });
+    expect(result.watchedSeconds).toBe(300);
+    expect(result.endReason).toBe("quit");
+  });
+
   test("maps clean instant exits without eof evidence to quit", () => {
     const telemetry = createPlayerTelemetryState("/tmp/mpv.sock");
     recordPlayerExit(telemetry, { code: 0, signal: null });

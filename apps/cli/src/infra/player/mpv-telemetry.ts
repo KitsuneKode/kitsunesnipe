@@ -263,6 +263,15 @@ export function finalizePlaybackResult(
     watchedSeconds = Math.max(watchedSeconds, duration);
   }
 
+  const lastNonZeroPos = state.lastNonZeroSample?.positionSeconds ?? 0;
+  if (
+    watchedSeconds <= 0 &&
+    lastNonZeroPos > 0 &&
+    (endReason === "quit" || endReason === "error" || endReason === "unknown")
+  ) {
+    watchedSeconds = lastNonZeroPos;
+  }
+
   if (
     watchedSeconds <= 0 &&
     duration <= 0 &&
