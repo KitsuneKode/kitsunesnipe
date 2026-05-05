@@ -439,8 +439,7 @@ Split poster handling into three layers:
    - never stores live terminal placement state
 2. `PosterRenderer`
    - `kitty-graphics`
-   - `chafa-text`
-   - optional future helper backend
+   - optional future real terminal graphics backend
 3. `PosterPlacementController`
    - one root-owned place responsible for render/replace/clear semantics
    - one root-owned place responsible for render/replace/clear semantics
@@ -449,7 +448,7 @@ Split poster handling into three layers:
 ### Important Decisions
 
 - Raw Kitty/Ghostty graphics stays the primary backend
-- `chafa` remains the fallback backend
+- Text-only unsupported states are preferred over degraded block-art fallbacks
 - `kitten icat` can be considered later as an optional helper backend, not the main architecture
 - TMDB size should be adaptive:
   - normal browse preview: `w342`/`w500`

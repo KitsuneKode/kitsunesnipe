@@ -8,10 +8,14 @@ const posterInflight = new Map<string, Promise<PosterResult>>();
 const MAX_CACHE = 12;
 
 export function deleteAllKittyImages(): void {
+  clearRenderedPosterImages();
+  clearPosterSourceCache();
+}
+
+export function clearRenderedPosterImages(): void {
   deleteAllTerminalImages();
   posterCache.clear();
   posterInflight.clear();
-  clearPosterSourceCache();
 }
 
 function evictPosterCacheEntry(key: string): void {
@@ -73,6 +77,5 @@ export async function fetchPoster(
   }
 }
 
-export { isChafaAvailable } from "./poster-renderer";
 export { resolvePosterUrl } from "./poster-source-cache";
 export type { PosterResult } from "./poster-types";

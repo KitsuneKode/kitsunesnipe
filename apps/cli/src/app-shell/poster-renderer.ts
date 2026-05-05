@@ -5,13 +5,6 @@ import { join } from "node:path";
 import { isKittyCompatible } from "../image";
 import type { PosterResult } from "./poster-types";
 
-let _chafaAvailable: boolean | null = null;
-export async function isChafaAvailable(): Promise<boolean> {
-  if (_chafaAvailable !== null) return _chafaAvailable;
-  _chafaAvailable = Boolean(Bun.which("chafa"));
-  return _chafaAvailable;
-}
-
 let _magickAvailable: boolean | null = null;
 async function isMagickAvailable(): Promise<boolean> {
   if (_magickAvailable !== null) return _magickAvailable;
@@ -26,26 +19,13 @@ function allocId(): number {
   return id;
 }
 
-const renderedChafaCache = new Map<string, string>();
-const MAX_RENDERED_CHAFA_CACHE = 32;
-
-function cacheKeyForRender(data: ArrayBuffer, rows: number, cols: number): string {
-  return `${Bun.hash(data)}:${rows}x${cols}`;
-}
-
-function rememberRenderedChafa(key: string, art: string): void {
-  if (renderedChafaCache.size >= MAX_RENDERED_CHAFA_CACHE) {
-    const first = renderedChafaCache.keys().next().value;
-    if (first) renderedChafaCache.delete(first);
-  }
-  renderedChafaCache.set(key, art);
-}
-
 export function deleteKittyImage(imageId: number): void {
+  if (!isKittyCompatible()) return;
   process.stdout.write(`\x1b_Ga=d,d=I,i=${imageId};\x1b\\`);
 }
 
 export function deleteAllTerminalImages(): void {
+  if (!isKittyCompatible()) return;
   process.stdout.write("\x1b_Ga=d,d=A;\x1b\\");
 }
 
@@ -169,74 +149,13 @@ async function renderKitty(data: ArrayBuffer, rows: number, cols: number): Promi
   };
 }
 
-async function renderChafa(data: ArrayBuffer, rows: number, cols: number): Promise<PosterResult> {
-  const cacheKey = cacheKeyForRender(data, rows, cols);
-  const cached = renderedChafaCache.get(cacheKey);
-  if (cached) return { kind: "chafa", art: cached, rows, cols };
-
-  const tmpPath = join(
-    tmpdir(),
-    `kunai-poster-${Date.now()}-${Math.random().toString(16).slice(2)}.img`,
-  );
-  await Bun.write(tmpPath, data);
-  try {
-    const proc = Bun.spawn(buildChafaArgs(tmpPath, rows, cols), {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const art = await new Response(proc.stdout).text();
-    await proc.exited;
-    if (!art.trim()) return { kind: "none" };
-    rememberRenderedChafa(cacheKey, art);
-    return { kind: "chafa", art, rows, cols };
-  } catch {
-    return { kind: "none" };
-  } finally {
-    try {
-      await unlink(tmpPath);
-    } catch {
-      // best-effort cleanup
-    }
-  }
-}
-
-export function buildChafaArgs(tmpPath: string, rows: number, cols: number): string[] {
-  return [
-    "chafa",
-    "--probe=off",
-    "--polite=on",
-    "--passthrough=none",
-    "--animate=off",
-    "--exact-size=on",
-    "--stretch",
-    "--work=9",
-    "--symbols",
-    "block+border+braille",
-    "--size",
-    `${cols}x${rows}`,
-    "--format",
-    "symbols",
-    "--colors",
-    "full",
-    tmpPath,
-  ];
-}
-
 export async function renderPoster(
   data: ArrayBuffer,
   { rows, cols, allowKitty = true }: { rows: number; cols: number; allowKitty?: boolean },
 ): Promise<PosterResult> {
   try {
     if (allowKitty && isKittyCompatible()) {
-      const kitty = await renderKitty(data, rows, cols);
-      if (kitty.kind !== "none") return kitty;
-      if (await isChafaAvailable()) {
-        return await renderChafa(data, rows, cols);
-      }
-      return { kind: "none" };
-    }
-    if (await isChafaAvailable()) {
-      return await renderChafa(data, rows, cols);
+      return await renderKitty(data, rows, cols);
     }
     return { kind: "none" };
   } catch {

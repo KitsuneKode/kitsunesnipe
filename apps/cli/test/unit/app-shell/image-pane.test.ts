@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import { resolvePosterUrl } from "@/app-shell/image-pane";
-import { buildChafaArgs } from "@/app-shell/poster-renderer";
 import { isKittyCompatible } from "@/image";
 
 describe("poster image helpers", () => {
@@ -33,13 +32,7 @@ describe("poster image helpers", () => {
     );
   });
 
-  test("renders chafa fallback without terminal probing and with high-quality symbols", () => {
-    const args = buildChafaArgs("/tmp/poster.jpg", 10, 24);
-
-    expect(args).toContain("--probe=off");
-    expect(args).toContain("--polite=on");
-    expect(args).toContain("--work=9");
-    expect(args).toContain("block+border+braille");
-    expect(args).toContain("24x10");
+  test("keeps image preview scoped to real terminal graphics protocols", () => {
+    expect(isKittyCompatible({ TERM_PROGRAM: "xterm-256color" })).toBe(false);
   });
 });

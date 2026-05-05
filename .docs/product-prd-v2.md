@@ -37,7 +37,7 @@ Non-technical users should never have to manually manage backend processes.
 1. **The Command Palette:** Pressing `Ctrl+K` or `/` opens a floating, fuzzy-search overlay over the UI. Users can instantly jump to `> Settings`, `> Search: Naruto`, or `> History`.
 2. **Zero-Latency Prefetching:** Hovering over an episode in the list for >400ms silently triggers the daemon to extract the `.m3u8` link. Pressing `Enter` results in a 0ms delay before `mpv` launches.
 3. **Zen Focus Mode:** Pressing `m` instantly hides the Bento details pane, posters, and trailers, collapsing the UI into a distraction-free, single-column list.
-4. **Terminal Video Trailers:** Highlighting an anime uses `chafa` or Kitty graphics to render a silent, low-fps preview loop directly in the terminal window.
+4. **Terminal Video Trailers:** Highlighting an anime can use Kitty/Ghostty graphics to render a silent, low-fps preview loop directly in supported terminal windows.
 
 ### D. MPV Mastery (Node IPC & Auto-Heal)
 

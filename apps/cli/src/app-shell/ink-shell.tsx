@@ -12,7 +12,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 import type { ResolvedAppCommand } from "./commands";
 import { buildBrowseCompanionPanel, buildBrowseDetailsPanel } from "./details-panel";
-import { deleteAllKittyImages, isChafaAvailable } from "./image-pane";
+import { deleteAllKittyImages } from "./image-pane";
 import { LoadingShell, useSpinner } from "./loading-shell";
 import { OverlayPanel } from "./overlay-panel";
 import type { BrowseOverlay } from "./overlay-panel";
@@ -303,20 +303,10 @@ function AppRoot({ container }: { container: Container }) {
   });
 
   useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      const chafaAvailable = await isChafaAvailable();
-      if (cancelled) return;
-      stateManager.dispatch({
-        type: "SET_IMAGE_SUPPORT",
-        supported: isKittyCompatible() || chafaAvailable,
-      });
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    stateManager.dispatch({
+      type: "SET_IMAGE_SUPPORT",
+      supported: isKittyCompatible(),
+    });
   }, [stateManager]);
 
   const activePlaybackStatuses = ["ready", "buffering", "seeking", "stalled", "playing"] as const;
@@ -1027,15 +1017,6 @@ function PlaybackShell({
                 <Box marginTop={1}>
                   {poster.kind === "kitty" ? (
                     <Text>{poster.placeholder}</Text>
-                  ) : poster.kind === "chafa" ? (
-                    <Box flexDirection="column">
-                      {poster.art
-                        .split("\n")
-                        .slice(0, poster.rows)
-                        .map((line) => (
-                          <Text key={`playback-poster-${line}`}>{line}</Text>
-                        ))}
-                    </Box>
                   ) : (
                     <Box flexDirection="column">
                       <Text
@@ -2063,14 +2044,7 @@ function BrowseShell<T>({
                 </Box>
                 {poster.kind !== "none" ? (
                   <Box flexDirection="column" marginTop={1} marginBottom={1}>
-                    {poster.kind === "kitty" ? (
-                      <Text>{poster.placeholder}</Text>
-                    ) : (
-                      poster.art
-                        .split("\n")
-                        .slice(0, poster.rows)
-                        .map((line) => <Text key={`browse-poster-${line}`}>{line}</Text>)
-                    )}
+                    <Text>{poster.placeholder}</Text>
                   </Box>
                 ) : selectedOption?.previewImageUrl ? (
                   <Box marginTop={1}>

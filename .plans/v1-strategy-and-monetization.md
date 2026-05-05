@@ -38,7 +38,7 @@ The terminal app will not feel like a script; it will feel like a $1,000 develop
 ### Visuals & Information Density
 
 - **High-Res Kitty/Sixel Posters:** Genuine, high-quality anime posters rendering natively inside the terminal next to the search list.
-- **Terminal Video Trailers:** When a user focuses on an anime, we use `chafa` (or Kitty graphics) to stream a low-fps, silent trailer loop directly in the terminal preview pane!
+- **Terminal Video Trailers:** When a user focuses on an anime, we can use Kitty/Ghostty graphics to stream a low-fps, silent trailer loop directly in supported terminal preview panes.
 - **The Bento Box Detail Pane:** A dense, gorgeously formatted sidebar showing:
   - MAL / AniList / IMDb / TMDB Ratings (Color-coded: Green > 8.0, Yellow > 6.0).
   - Episode counts, air dates, and studio info.

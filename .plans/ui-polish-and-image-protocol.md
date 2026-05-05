@@ -8,8 +8,9 @@
 
 Four areas of work, ordered by risk and dependency:
 
-1. **Image Protocol** — Kitty/Ghostty graphics via unicode placeholders, chafa block-art fallback,
-   integrated into the browse companion pane without breaking Ink's render cycle
+1. **Image Protocol** — Kitty/Ghostty graphics via unicode placeholders, with a clear unsupported
+   state when terminal graphics are unavailable, integrated into the browse companion pane without
+   breaking Ink's render cycle
 2. **Browse Shell Polish** — selection feel, result rows, companion pane layout, empty state
 3. **ShellFrame Redesign** — header layout, status strip, footer density
 4. **Post-Playback + Search Shell** — body content, exit polish, minor UX fixes
@@ -35,15 +36,14 @@ uploading an image you emit special Unicode characters that _are_ part of the te
 renders them as ordinary characters occupying known cell positions; the terminal GPU-composites
 the image on top. No cursor tricks, no Ink interference.
 
-For terminals without Kitty support, fall back to `chafa` rendered block art (UTF-8 block
-characters), which Ink can render as a plain `<Text>` child.
+For terminals without Kitty/Ghostty graphics support, do not render degraded block-art posters.
+Keep the companion pane textual and explain that poster preview needs a terminal graphics protocol.
 
 ### 1c. `src/app-shell/image-pane.ts` (new file)
 
 ```ts
 export type PosterResult =
   | { kind: "kitty"; placeholder: string; rows: number; cols: number }
-  | { kind: "chafa"; art: string; rows: number; cols: number }
   | { kind: "none" };
 
 // LRU-style map: url → PosterResult (capped at 12 entries)
@@ -65,13 +65,7 @@ export async function fetchPoster(
    `(image_id >> 24) & 0xFF` … `image_id & 0xFF`
 4. Return `{ kind: "kitty", placeholder, rows, cols }`
 
-**chafa fallback** (no Kitty, `chafa` binary found):
-
-1. Download image to tmp file
-2. `Bun.spawn(["chafa", "--size", `${cols}x${rows}`, "--format", "utf8", tmpPath])`
-3. Return `{ kind: "chafa", art: stdout, rows, cols }`
-
-**No-op fallback**: return `{ kind: "none" }`
+**Unsupported fallback**: return `{ kind: "none" }` and keep the UI textual.
 
 **Image IDs**: use a monotonically incrementing counter per session, wrapped at 16-bit. Delete
 previous placement when the URL changes: `\x1b_Ga=d,d=I,i=<old_id>;\x1b\\`
@@ -79,7 +73,6 @@ previous placement when the URL changes: `\x1b_Ga=d,d=I,i=<old_id>;\x1b\\`
 **Helper** (`src/image.ts` update):
 
 - Keep `isKittyCompatible()`
-- Add `isChafaAvailable(): boolean` — checks `which chafa` once, caches result
 - Move `displayPoster()` to a legacy export only; do not use in new code
 
 ### 1d. Integration into BrowseShell
@@ -120,13 +113,7 @@ useEffect(() => {
       {poster.kind === "kitty" ? (
         // Ink renders the placeholder chars; Kitty composites the image
         <Text>{poster.placeholder}</Text>
-      ) : (
-        // chafa block art: split by newlines, render each line
-        poster.art
-          .split("\n")
-          .slice(0, posterRows)
-          .map((line, i) => <Text key={i}>{line}</Text>)
-      )}
+      ) : null}
     </Box>
   );
 }
@@ -471,8 +458,8 @@ This is a small change to `stdinManager.cleanup()` and the `"quit"` resolve path
 
 | File                          | Change                                                                                                                                                   |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app-shell/image-pane.ts` | **new** — `fetchPoster()`, Kitty unicode placeholder builder, chafa fallback, cache                                                                      |
-| `src/image.ts`                | Add `isChafaAvailable()`, keep `isKittyCompatible()`, deprecate `displayPoster`                                                                          |
+| `src/app-shell/image-pane.ts` | **new** — `fetchPoster()`, Kitty unicode placeholder builder, cache                                                                                      |
+| `src/image.ts`                | Keep `isKittyCompatible()`, deprecate `displayPoster`                                                                                                    |
 | `src/app-shell/ink-shell.tsx` | `ShellFrame` header redesign; `BrowseShell` poster effect + row design + empty state; `PlaybackShell` body + poster + Esc fix; `SearchShell` placeholder |
 | `src/app-shell/types.ts`      | Add `posterUrl?: string` to `PlaybackShellState`                                                                                                         |
 | `src/app/PlaybackPhase.ts`    | Thread `title.posterUrl` into `PlaybackShellState`                                                                                                       |
@@ -500,7 +487,7 @@ This is a small change to `stdinManager.cleanup()` and the `"quit"` resolve path
 - [ ] Image changes without flicker when selection changes
 - [ ] Image is cleared when browse shell closes
 - [ ] On unsupported terminals: pane shows text-only companion, no errors
-- [ ] `chafa` is tried before giving up on non-Kitty terminals
+- [ ] Unsupported terminals stay text-only and do not attempt block-art poster rendering
 - [ ] Image never blocks selection — navigation remains instant
 
 ### Browse Shell

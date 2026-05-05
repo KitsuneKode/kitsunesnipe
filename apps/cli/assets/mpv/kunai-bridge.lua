@@ -421,9 +421,55 @@ mp.observe_property("user-data/kunai-resume-at", "native", function(_, val)
 	end
 end)
 
-local function trapezoid_path(w, h, slant)
-	slant = clamp(math.floor(slant), 0, math.floor(w * 0.45))
-	return string.format("m 0 0 l %d 0 l %d %d l 0 %d l 0 0", w, w - slant, h, h)
+local function rounded_rect_path(w, h, r)
+	w = math.max(0, math.floor(w))
+	h = math.max(0, math.floor(h))
+	r = clamp(math.floor(r), 0, math.floor(math.min(w, h) * 0.5))
+	if w <= 0 or h <= 0 then
+		return ""
+	end
+	if r <= 0 then
+		return string.format("m 0 0 l %d 0 l %d %d l 0 %d l 0 0", w, w, h, h)
+	end
+
+	local c = math.floor(r * 0.55228475 + 0.5)
+	return string.format(
+		"m %d %d l %d %d b %d %d %d %d %d %d l %d %d b %d %d %d %d %d %d l %d %d b %d %d %d %d %d %d l %d %d b %d %d %d %d %d %d",
+		r,
+		0,
+		w - r,
+		0,
+		w - r + c,
+		0,
+		w,
+		r - c,
+		w,
+		r,
+		w,
+		h - r,
+		w,
+		h - r + c,
+		w - r + c,
+		h,
+		w - r,
+		h,
+		r,
+		h,
+		r - c,
+		h,
+		0,
+		h - r + c,
+		0,
+		h - r,
+		0,
+		r,
+		0,
+		r - c,
+		r - c,
+		0,
+		r,
+		0
+	)
 end
 
 local function skip_icon_path(size)
@@ -596,15 +642,16 @@ function draw_prompt_frame()
 	local hovered = chip_hovered()
 
 	local pad = math.floor(chip_h * 0.16)
-	local slant = math.floor(chip_h * 0.52)
+	local radius = clamp(math.floor(chip_h * 0.19), 14, 24)
 
-	local icon_size = clamp(math.floor(chip_h * 0.30), 22, 34)
+	local icon_box = clamp(math.floor(chip_h * 0.48), 38, 54)
+	local icon_size = clamp(math.floor(chip_h * 0.27), 22, 32)
 
 	local title_fs = clamp(math.floor(chip_h * 0.32), 25, 39)
 	local sub_fs = clamp(math.floor(chip_h * 0.17), 13, 20)
 
 	local bar_h = clamp(math.floor(chip_h * 0.10), 6, 10)
-	local bar_w = chip_w - (pad * 2) - slant
+	local bar_w = chip_w - (pad * 2)
 	local fill_w = math.max(0, math.floor(bar_w * p))
 
 	local label = prompt_label
@@ -621,23 +668,26 @@ function draw_prompt_frame()
 	end
 	subline = esc_ass(subline)
 
-	local bg_path = trapezoid_path(chip_w, chip_h, slant)
-	local bar_bg_path = trapezoid_path(bar_w, bar_h, math.floor(bar_h * 0.65))
-	local bar_fill_path = fill_w > 0 and trapezoid_path(fill_w, bar_h, math.min(math.floor(bar_h * 0.65), fill_w)) or ""
+	local bg_path = rounded_rect_path(chip_w, chip_h, radius)
+	local icon_bg_path = rounded_rect_path(icon_box, icon_box, math.floor(icon_box * 0.5))
+	local bar_bg_path = rounded_rect_path(bar_w, bar_h, math.floor(bar_h * 0.5))
+	local bar_fill_path = fill_w > 0 and rounded_rect_path(fill_w, bar_h, math.min(math.floor(bar_h * 0.5), math.floor(fill_w * 0.5))) or ""
 	local icon_path = skip_icon_path(icon_size)
 
-	local bg_alpha = hovered and "06" or "18"
-	local border_alpha = hovered and "38" or "78"
-	-- Fill bar is only meaningful when auto-skip is counting down; hide it in manual mode.
-	local fill_alpha = (prompt_is_auto and (hovered and "00" or "18")) or "FF"
+	local bg_alpha = hovered and "04" or "18"
+	local border_alpha = hovered and "32" or "78"
+	local fill_alpha = hovered and "00" or (prompt_is_auto and "08" or "18")
+	local fill_color = prompt_is_auto and "H86F7A9&" or "H59D7FF&"
 
 	local title_color = hovered and "HFFFFFF&" or "HF4F4F4&"
 	local sub_color = hovered and "HE8E8E8&" or "HCFCFCF&"
 
-	local icon_x = x0 + pad
-	local icon_y = y0 + math.floor((chip_h - icon_size) * 0.42)
+	local icon_bg_x = x0 + pad
+	local icon_bg_y = y0 + math.floor((chip_h - icon_box) * 0.42)
+	local icon_x = icon_bg_x + math.floor((icon_box - icon_size) * 0.56)
+	local icon_y = icon_bg_y + math.floor((icon_box - icon_size) * 0.5)
 
-	local text_x = icon_x + icon_size + math.floor(chip_h * 0.18)
+	local text_x = icon_bg_x + icon_box + math.floor(chip_h * 0.17)
 	local title_y = y0 + math.floor(chip_h * 0.18)
 	local sub_y = y0 + math.floor(chip_h * 0.55)
 	local bar_y = y0 + chip_h - pad - bar_h
@@ -646,8 +696,8 @@ function draw_prompt_frame()
 		-- Big soft shadow.
 		string.format(
 			"{\\an7\\pos(%d,%d)\\bord0\\shad0\\blur4\\1c&H000000&\\1a&H70&\\p1}%s{\\p0}",
-			x0 + 5,
-			y0 + 6,
+			x0 + 4,
+			y0 + 5,
 			bg_path
 		),
 
@@ -669,6 +719,14 @@ function draw_prompt_frame()
 			bg_path
 		),
 
+		-- Icon well gives the asymmetrical skip glyph a stable visual anchor.
+		string.format(
+			"{\\an7\\pos(%d,%d)\\bord0\\shad0\\1c&HFFFFFF&\\1a&HDC&\\p1}%s{\\p0}",
+			icon_bg_x,
+			icon_bg_y,
+			icon_bg_path
+		),
+
 		-- Progress track.
 		string.format(
 			"{\\an7\\pos(%d,%d)\\bord0\\shad0\\1c&H555555&\\1a&H38&\\p1}%s{\\p0}",
@@ -678,9 +736,10 @@ function draw_prompt_frame()
 		),
 
 		fill_w > 0 and string.format(
-			"{\\an7\\pos(%d,%d)\\bord0\\shad0\\1c&HFFFFFF&\\1a&H%s&\\p1}%s{\\p0}",
+			"{\\an7\\pos(%d,%d)\\bord0\\shad0\\1c&%s\\1a&H%s&\\p1}%s{\\p0}",
 			x0 + pad,
 			bar_y,
+			fill_color,
 			fill_alpha,
 			bar_fill_path
 		) or "",

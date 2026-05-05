@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { fetchPoster } from "./image-pane";
+import { clearRenderedPosterImages, fetchPoster } from "./image-pane";
 import type { PosterResult, PosterState } from "./poster-types";
 
 export function usePosterPreview(
@@ -23,6 +23,10 @@ export function usePosterPreview(
 ): { poster: PosterResult; posterState: PosterState } {
   const [poster, setPoster] = useState<PosterResult>({ kind: "none" });
   const [posterState, setPosterState] = useState<PosterState>("idle");
+
+  useEffect(() => {
+    clearRenderedPosterImages();
+  }, [allowKitty, cols, enabled, rows, url, variant]);
 
   useEffect(() => {
     if (!url || !enabled) {

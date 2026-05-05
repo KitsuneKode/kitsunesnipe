@@ -198,7 +198,8 @@ Autoplay and next/previous actions should follow real episode availability from 
 - polish should support comprehension, not distract from it
 - use subtle transitions for overlays, loaders, and status changes
 - keep motion interruptible and cheap
-- treat Kitty graphics and `chafa` as enhancements, not assumptions
+- treat Kitty/Ghostty graphics as an enhancement, not an assumption
+- do not auto-fallback to terminal block-art poster renderers; show a clear unsupported state instead
 - load posters lazily and never block interaction for them
 - preserve a strong plain-text fallback path
 - footers should avoid long horizontal action sentences

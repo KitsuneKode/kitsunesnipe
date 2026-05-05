@@ -176,7 +176,7 @@ These are the current decisions and should be treated as the default direction u
 - Prefer “next action” semantics over forced restart when possible
 - Proposed shell-facing settings additions:
   - `posters`: `off | auto | always`
-  - `poster backend`: `auto | kitty | chafa | none`
+  - `posters`: `off | auto | always`
   - `image size`: `compact | large`
   - `recovery pattern`: `guided | fallback-first | manual`
   - `motion`: `full | reduced | off`
@@ -281,7 +281,7 @@ The goal is to stop mixing `clack`, `fzf`, and custom raw-mode screens as peers.
 - premium loading states
 - motion rules for overlays and status transitions
 - fox-themed startup and loader treatment
-- Kitty graphics and `chafa` progressive enhancement
+- Kitty/Ghostty graphics progressive enhancement
 - reduced-motion and low-capability fallbacks
 
 ## Component and Module Targets
@@ -321,13 +321,13 @@ The goal is to stop mixing `clack`, `fzf`, and custom raw-mode screens as peers.
 - Season and episode selection should always be metadata-backed in normal flow
 - Unsafe actions should be blocked before execution rather than rejected afterward
 - Provider switching should respect the current playback or resolve state
-- Missing capability states such as no Kitty graphics or no `chafa` should degrade cleanly without breaking the shell
+- Missing terminal graphics support should degrade cleanly without breaking the shell
 
 ## Capability Strategy
 
 - Plain terminal rendering is the baseline
 - Kitty graphics protocol is an enhancement path
-- `chafa` is a fallback enhancement path
+- Block-art poster rendering is intentionally not a fallback path
 - Motion should be subtle and automatically degradable
 
 ## Success Criteria

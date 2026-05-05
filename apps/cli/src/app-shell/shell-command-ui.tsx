@@ -9,6 +9,7 @@ import {
   type AppCommandId,
   type ResolvedAppCommand,
 } from "./commands";
+import { getWindowStart } from "./shell-text";
 import { palette } from "./shell-theme";
 import { toShellAction, type FooterAction, type ShellAction } from "./types";
 
@@ -19,8 +20,7 @@ export function getCommandMatches(
   const allowed = commands.map((command) => command.id);
   return suggestCommands(input, allowed)
     .map((command) => commands.find((resolved) => resolved.id === command.id))
-    .filter((command): command is ResolvedAppCommand => Boolean(command))
-    .slice(0, 6);
+    .filter((command): command is ResolvedAppCommand => Boolean(command));
 }
 
 export function getHighlightedCommand(
@@ -86,13 +86,19 @@ export function CommandPalette({
   cursor = input.length,
   commands,
   highlightedIndex,
+  maxVisible = 7,
 }: {
   input: string;
   cursor?: number;
   commands: readonly ResolvedAppCommand[];
   highlightedIndex: number;
+  maxVisible?: number;
 }) {
   const matches = getCommandMatches(input, commands);
+  const visibleCount = Math.max(3, maxVisible);
+  const windowStart = getWindowStart(highlightedIndex, matches.length, visibleCount);
+  const windowEnd = Math.min(windowStart + visibleCount, matches.length);
+  const visibleMatches = matches.slice(windowStart, windowEnd);
 
   return (
     <Box
@@ -108,27 +114,35 @@ export function CommandPalette({
         <Text color="white">/</Text>
         <LineEditorText value={input} cursor={cursor} focused placeholder="type a command" />
       </Box>
-      <Text color={palette.gray}>Tab autocomplete · ↑↓ choose · Enter run</Text>
+      <Text color={palette.gray}>
+        Tab autocomplete · ↑↓ choose · Enter run
+        {matches.length > visibleMatches.length ? ` · ${matches.length} commands` : ""}
+      </Text>
       <Box flexDirection="column" marginTop={1}>
         {matches.length > 0 ? (
-          matches.map((command, index) => {
-            const selected = index === highlightedIndex;
-            return (
-              <Box key={command.id} flexDirection="column">
-                <Text
-                  backgroundColor={selected ? palette.cyan : undefined}
-                  color={selected ? "black" : command.enabled ? palette.muted : palette.gray}
-                  bold={selected}
-                >
-                  <Text color={selected ? "black" : palette.gray}>{selected ? "❯ " : "  "}</Text>/
-                  {command.aliases[0]} {command.description}
-                </Text>
-                {!command.enabled && command.reason ? (
-                  <Text color={palette.gray}>{`  ·  ${command.reason}`}</Text>
-                ) : null}
-              </Box>
-            );
-          })
+          <>
+            {windowStart > 0 ? <Text color={palette.gray}> ▲ more</Text> : null}
+            {visibleMatches.map((command, index) => {
+              const absoluteIndex = windowStart + index;
+              const selected = absoluteIndex === highlightedIndex;
+              return (
+                <Box key={command.id} flexDirection="column">
+                  <Text
+                    backgroundColor={selected ? palette.cyan : undefined}
+                    color={selected ? "black" : command.enabled ? palette.muted : palette.gray}
+                    bold={selected}
+                  >
+                    <Text color={selected ? "black" : palette.gray}>{selected ? "❯ " : "  "}</Text>/
+                    {command.aliases[0]} {command.description}
+                  </Text>
+                  {!command.enabled && command.reason ? (
+                    <Text color={palette.gray}>{`  ·  ${command.reason}`}</Text>
+                  ) : null}
+                </Box>
+              );
+            })}
+            {windowEnd < matches.length ? <Text color={palette.gray}> ▼ more</Text> : null}
+          </>
         ) : (
           <Text color={palette.gray}>No matching commands</Text>
         )}
