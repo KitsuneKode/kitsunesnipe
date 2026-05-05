@@ -221,13 +221,21 @@ function setupSignalHandlers(): void {
     if (shutdownInProgress) return;
     shutdownInProgress = true;
     console.log(`\nReceived ${signal}, shutting down cleanly...`);
-    if (globalController) {
-      await globalController.shutdown();
+    // Force exit after 4 s so Playwright cleanup never stalls Ctrl+C
+    const forceExit = setTimeout(() => {
+      process.exit(0);
+    }, 4000);
+    if (forceExit.unref) forceExit.unref();
+    try {
+      if (globalController) {
+        await globalController.shutdown();
+      }
+      await shutdownShell();
+    } finally {
+      clearTimeout(forceExit);
+      if (process.stdin.isTTY) process.stdin.unref();
+      process.exit(0);
     }
-    await shutdownShell();
-    if (process.stdin.isTTY) process.stdin.unref();
-
-    process.exit(0);
   };
 
   process.on("SIGINT", () => shutdown("SIGINT"));

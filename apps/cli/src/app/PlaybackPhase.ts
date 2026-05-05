@@ -365,6 +365,18 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         const resolveController = new AbortController();
         const abortOnSessionStop = () => resolveController.abort();
         context.signal.addEventListener("abort", abortOnSessionStop, { once: true });
+        resolveController.signal.addEventListener(
+          "abort",
+          () => {
+            if (!context.signal.aborted) {
+              this.updatePlaybackFeedback(context, {
+                detail: "Cancelling…",
+                note: "Returning to results",
+              });
+            }
+          },
+          { once: true },
+        );
         workControl.setActive({
           id: `playback-resolve:${title.id}:${currentEpisode.season}:${currentEpisode.episode}`,
           label: `${title.name} S${String(currentEpisode.season).padStart(2, "0")}E${String(currentEpisode.episode).padStart(2, "0")}`,
@@ -577,6 +589,13 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               }
 
               if (!stream) {
+                workControl.setActive(null);
+                if (resolveController.signal.aborted && !context.signal.aborted) {
+                  stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" });
+                  stateManager.dispatch({ type: "SET_STREAM", stream: null });
+                  this.updatePlaybackFeedback(context, { detail: null, note: null });
+                  return { status: "success", value: "back_to_results" };
+                }
                 const failureHint = this.buildProviderFailureHint({
                   attempts: resolveResult.attempts,
                   capabilitySnapshot: container.capabilitySnapshot,
@@ -593,7 +612,6 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                     })),
                   },
                 });
-                workControl.setActive(null);
                 await this.showPlaybackError(context, failureHint);
                 stateManager.dispatch({ type: "SET_STREAM", stream: null });
                 return { status: "success", value: "back_to_results" };
@@ -630,11 +648,17 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
 
           // TypeScript cannot narrow `stream` across the conditional mutation above.
           if (!stream) {
+            workControl.setActive(null);
+            if (resolveController.signal.aborted && !context.signal.aborted) {
+              stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" });
+              stateManager.dispatch({ type: "SET_STREAM", stream: null });
+              this.updatePlaybackFeedback(context, { detail: null, note: null });
+              return { status: "success", value: "back_to_results" };
+            }
             const failureHint = this.buildProviderFailureHint({
               attempts: [],
               capabilitySnapshot: container.capabilitySnapshot,
             });
-            workControl.setActive(null);
             await this.showPlaybackError(context, failureHint);
             stateManager.dispatch({ type: "SET_STREAM", stream: null });
             return { status: "success", value: "back_to_results" };
