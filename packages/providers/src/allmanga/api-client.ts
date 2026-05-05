@@ -194,7 +194,10 @@ export async function decodeTobeparsed(
     const pattern = /"sourceUrl"\s*:\s*"--([^"]+)"[^}]*"sourceName"\s*:\s*"([^"]+)"/g;
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text)) !== null) {
-      results.push({ sourceUrl: match[1]!, sourceName: match[2]! });
+      const [, sourceUrl, sourceName] = match;
+      if (sourceUrl && sourceName) {
+        results.push({ sourceUrl, sourceName });
+      }
     }
     return results;
   } catch {

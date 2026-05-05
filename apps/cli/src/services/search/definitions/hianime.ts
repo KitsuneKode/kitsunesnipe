@@ -26,16 +26,27 @@ export class HiAnimeSearchService implements SearchService {
     const res = await fetch(url, { signal: signal ?? AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(`HiAnime search ${res.status}: ${url}`);
 
-    const data = (await res.json()) as any;
-    const raw = data?.data?.animes ?? data?.results ?? data?.animes ?? [];
+    const data = (await res.json()) as Record<string, unknown>;
+    const nested =
+      data.data && typeof data.data === "object" ? (data.data as Record<string, unknown>) : {};
+    const raw = nested.animes ?? data.results ?? data.animes ?? [];
 
-    return (raw as any[]).map(
+    return (Array.isArray(raw) ? raw : []).map(
       (a): SearchResult => ({
-        id: String(a.id ?? a.animeId ?? ""),
-        title: String(a.name ?? a.title ?? a.english ?? a.romaji ?? a.id ?? "Unknown"),
+        id: String(readRecord(a).id ?? readRecord(a).animeId ?? ""),
+        title: String(
+          readRecord(a).name ??
+            readRecord(a).title ??
+            readRecord(a).english ??
+            readRecord(a).romaji ??
+            readRecord(a).id ??
+            "Unknown",
+        ),
         type: "series",
-        year: a.premiered ? (String(a.premiered).split(" ").pop() ?? "") : "",
-        posterPath: a.poster,
+        year: readRecord(a).premiered
+          ? (String(readRecord(a).premiered).split(" ").pop() ?? "")
+          : "",
+        posterPath: readString(readRecord(a).poster) || null,
         overview: "",
       }),
     );
@@ -46,6 +57,16 @@ export class HiAnimeSearchService implements SearchService {
     // In this simple implementation, we don't have a separate details endpoint.
     return null;
   }
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value : "";
 }
 
 export function createHiAnimeSearchService(deps: SearchDeps): SearchService {

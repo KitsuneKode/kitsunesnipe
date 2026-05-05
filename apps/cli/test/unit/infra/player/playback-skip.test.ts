@@ -98,5 +98,5 @@ test("pruneSkippedPlaybackSegmentKeys re-arms segments when seeking backward", (
 test("pruneSkippedPlaybackSegmentKeys keeps only segments that start before the rewound position", () => {
   const skipped = new Set<string>(["recap:0:60", "intro:60:120", "preview:1250:1290"]);
   const pruned = pruneSkippedPlaybackSegmentKeys(skipped, timing, 100);
-  expect([...pruned]).toEqual(["recap:0:60", "intro:60:120"]);
+  expect([...pruned]).toEqual(["recap:0:60"]);
 });

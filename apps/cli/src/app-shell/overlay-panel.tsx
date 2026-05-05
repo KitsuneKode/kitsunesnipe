@@ -561,14 +561,18 @@ export function OverlayPanel({
           ) : null}
           {overlay.lines
             .slice(overlay.scrollIndex ?? 0, (overlay.scrollIndex ?? 0) + maxLines)
-            .map((line: ShellPanelLine, index: number) => (
-              <Box key={`${line.label}-${index}`} flexDirection="column" marginBottom={1}>
+            .map((line: ShellPanelLine) => (
+              <Box
+                key={`${line.label}-${line.detail ?? ""}`}
+                flexDirection="column"
+                marginBottom={1}
+              >
                 <Text color={resolvePanelTone(line.tone)}>
                   {truncateLine(line.label, contentWidth)}
                 </Text>
                 {line.detail
-                  ? wrapText(line.detail, contentWidth, 2).map((detailLine, detailIndex) => (
-                      <Text key={`${line.label}-${detailIndex}`} color={palette.gray}>
+                  ? wrapText(line.detail, contentWidth, 2).map((detailLine) => (
+                      <Text key={`${line.label}-${detailLine}`} color={palette.gray}>
                         {detailLine}
                       </Text>
                     ))

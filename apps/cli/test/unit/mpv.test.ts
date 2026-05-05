@@ -16,7 +16,7 @@ test("buildMpvArgs only attaches the primary subtitle during initial launch", ()
 
   expect(args).toContain("--keep-open=no");
   expect(args).toContain("--idle=no");
-  expect(args).toContain("--force-window=yes");
+  expect(args).toContain("--force-window=immediate");
   expect(args).toContain("--resume-playback=no");
   expect(args).toContain("--autofit-larger=90%x90%");
   expect(args).toContain("--cache=yes");

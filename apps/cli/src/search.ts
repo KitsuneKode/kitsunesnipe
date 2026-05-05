@@ -43,23 +43,35 @@ export async function searchVideasy(query: string): Promise<SearchResult[]> {
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`Search failed: ${res.status}`);
 
-  const data = (await res.json()) as any;
-  const results: SearchResult[] = ((data.results as any[]) ?? [])
+  const data = (await res.json()) as Record<string, unknown>;
+  const rawResults = Array.isArray(data.results) ? data.results : [];
+  const results: SearchResult[] = rawResults
+    .map(readSearchRecord)
     .filter((r) => r.media_type === "movie" || r.media_type === "tv")
     .slice(0, 12)
     .map((r) => ({
       id: String(r.id),
       type: (r.media_type === "tv" ? "series" : "movie") as "movie" | "series",
-      title: r.title || r.name || "Unknown",
-      year: (r.release_date || r.first_air_date || "").split("-")[0] || "?",
-      overview: (r.overview || "").slice(0, 120),
-      posterPath: r.poster_path || null,
+      title: readString(r.title) || readString(r.name) || "Unknown",
+      year: (readString(r.release_date) || readString(r.first_air_date)).split("-")[0] || "?",
+      overview: readString(r.overview).slice(0, 120),
+      posterPath: readString(r.poster_path) || null,
       rating: typeof r.vote_average === "number" ? r.vote_average : null,
       popularity: typeof r.popularity === "number" ? r.popularity : null,
     }));
 
   cache.set(key, results);
   return results;
+}
+
+function readSearchRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value : "";
 }
 
 // ── Search service registry ───────────────────────────────────────────────────

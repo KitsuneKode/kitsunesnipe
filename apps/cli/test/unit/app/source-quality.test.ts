@@ -20,6 +20,9 @@ const streamWithCandidates: StreamInfo = {
         providerId: "vidking",
         sourceId: "source-a",
         protocol: "hls",
+        container: "m3u8",
+        audioLanguage: "ja",
+        hardSubLanguage: "en",
         qualityLabel: "1080p",
         qualityRank: 1080,
         url: "https://cdn.example/1080.m3u8",
@@ -36,6 +39,8 @@ const streamWithCandidates: StreamInfo = {
         providerId: "vidking",
         sourceId: "source-a",
         protocol: "hls",
+        container: "m3u8",
+        audioLanguage: "en",
         qualityLabel: "720p",
         qualityRank: 720,
         url: "https://cdn.example/720.m3u8",
@@ -103,6 +108,13 @@ test("buildSourcePickerOptions includes current source label", () => {
   expect(options.map((option) => option.value)).toEqual(["source-a", "source-b"]);
 });
 
+test("buildSourcePickerOptions summarizes quality and language inventory", () => {
+  const options = buildSourcePickerOptions(streamWithCandidates);
+  expect(options[0]?.detail).toContain("quality 1080p/720p");
+  expect(options[0]?.detail).toContain("audio ja/en");
+  expect(options[0]?.detail).toContain("hardsub en");
+});
+
 test("buildQualityPickerOptions sorts by highest quality first", () => {
   const options = buildQualityPickerOptions(streamWithCandidates);
   expect(options.map((option) => option.value)).toEqual([
@@ -110,6 +122,12 @@ test("buildQualityPickerOptions sorts by highest quality first", () => {
     "stream-720",
     "stream-480-source-b",
   ]);
+});
+
+test("buildQualityPickerOptions exposes audio and hard-subtitle language details", () => {
+  const options = buildQualityPickerOptions(streamWithCandidates);
+  expect(options[0]?.detail).toBe("hls  ·  m3u8  ·  audio ja  ·  hardsub en");
+  expect(options[1]?.detail).toBe("hls  ·  m3u8  ·  audio en");
 });
 
 test("applyPreferredStreamSelection prefers explicit stream id override", () => {

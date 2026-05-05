@@ -4,7 +4,7 @@ import { createVidKingProvider } from "@/services/providers/definitions/vidking"
 import type { ProviderDeps } from "@/services/providers/Provider";
 import { createVidkingResultFromPayload } from "@kunai/providers";
 
-test("vidking resolves through the core provider result adapter", async () => {
+test("vidking attaches provider result metadata to browser fallback streams", async () => {
   const deps: ProviderDeps = {
     browser: {
       async scrape() {
@@ -88,7 +88,7 @@ test("vidking resolves through the core provider result adapter", async () => {
   expect(stream?.providerResolveResult?.providerId).toBe("vidking");
   expect(stream?.providerResolveResult?.streams[0]?.protocol).toBe("hls");
   expect(stream?.providerResolveResult?.subtitles[0]?.language).toBe("en");
-  expect(stream?.providerResolveResult?.trace.runtime).toBe("node-fetch");
+  expect(stream?.providerResolveResult?.trace.runtime).toBe("playwright-lease");
   expect(stream?.providerResolveResult?.cachePolicy?.keyParts).toContain("english");
 });
 

@@ -235,12 +235,17 @@ export async function openMpvIpcSession(options: SessionOptions): Promise<MpvIpc
           options.onCommandResult?.(result);
           return;
         }
+        let settled = false;
         const finish = (result: MpvIpcCommandResult) => {
+          if (settled) return;
+          settled = true;
           const pending = pendingCommands.get(requestId);
           if (pending) {
             clearTimeout(pending.timeout);
             pendingCommands.delete(requestId);
           }
+          // The `settled` guard above makes timeout/write-error/response races single-shot.
+          // eslint-disable-next-line promise/no-multiple-resolved
           resolve(result);
           options.onCommandResult?.(result);
         };

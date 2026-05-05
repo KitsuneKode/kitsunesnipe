@@ -1,4 +1,5 @@
 import type { StreamInfo } from "@/domain/types";
+import type { StreamCandidate } from "@kunai/types";
 
 type SourceOption = {
   readonly value: string;
@@ -23,7 +24,10 @@ export function buildSourcePickerOptions(stream: StreamInfo): readonly SourceOpt
         source.status === "selected"
           ? `${source.label ?? source.host ?? source.id}  ·  current`
           : (source.label ?? source.host ?? source.id),
-      detail: [source.kind, source.status, source.host].filter(Boolean).join("  ·  "),
+      detail: describeSourceDetail(
+        [source.kind, source.status, source.host],
+        result.streams.filter((candidate) => candidate.sourceId === source.id),
+      ),
     }));
   }
 
@@ -37,7 +41,10 @@ export function buildSourcePickerOptions(stream: StreamInfo): readonly SourceOpt
     options.push({
       value: sourceId,
       label: selected ? `${sourceId}  ·  current` : sourceId,
-      detail: candidate.protocol,
+      detail: describeSourceDetail(
+        [candidate.protocol],
+        result.streams.filter((streamCandidate) => streamCandidate.sourceId === sourceId),
+      ),
     });
   }
   return options;
@@ -55,9 +62,7 @@ export function buildQualityPickerOptions(stream: StreamInfo): readonly QualityO
         candidate.id === result.selectedStreamId
           ? `${candidate.qualityLabel ?? candidate.container ?? candidate.id}  ·  current`
           : (candidate.qualityLabel ?? candidate.container ?? candidate.id),
-      detail: [candidate.protocol, candidate.audioLanguage, candidate.hardSubLanguage]
-        .filter(Boolean)
-        .join("  ·  "),
+      detail: describeStreamCandidateDetail(candidate),
       rank: candidate.qualityRank ?? 0,
     }))
     .sort((left, right) => right.rank - left.rank);
@@ -99,4 +104,51 @@ export function applyPreferredStreamSelection(
       selectedStreamId: selected.id,
     },
   };
+}
+
+function describeSourceDetail(
+  parts: readonly unknown[],
+  streams: readonly StreamCandidate[],
+): string {
+  return [
+    ...parts.filter((part): part is string => typeof part === "string" && part.length > 0),
+    describeQualities(streams),
+    describeLanguages(
+      "audio",
+      streams.map((candidate) => candidate.audioLanguage),
+    ),
+    describeLanguages(
+      "hardsub",
+      streams.map((candidate) => candidate.hardSubLanguage),
+    ),
+  ]
+    .filter(Boolean)
+    .join("  ·  ");
+}
+
+function describeStreamCandidateDetail(candidate: StreamCandidate): string {
+  return [
+    candidate.protocol,
+    candidate.container,
+    candidate.audioLanguage ? `audio ${candidate.audioLanguage}` : null,
+    candidate.hardSubLanguage ? `hardsub ${candidate.hardSubLanguage}` : null,
+  ]
+    .filter((part): part is string => typeof part === "string" && part.length > 0)
+    .join("  ·  ");
+}
+
+function describeQualities(streams: readonly StreamCandidate[]): string | null {
+  const qualities = uniqueStrings(streams.map((candidate) => candidate.qualityLabel));
+  if (qualities.length === 0) return null;
+  return `quality ${qualities.slice(0, 3).join("/")}${qualities.length > 3 ? "+" : ""}`;
+}
+
+function describeLanguages(label: string, values: readonly (string | undefined)[]): string | null {
+  const languages = uniqueStrings(values);
+  if (languages.length === 0) return null;
+  return `${label} ${languages.slice(0, 3).join("/")}${languages.length > 3 ? "+" : ""}`;
+}
+
+function uniqueStrings(values: readonly (string | undefined)[]): readonly string[] {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }

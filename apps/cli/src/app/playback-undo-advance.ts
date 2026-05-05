@@ -86,7 +86,8 @@ export function consumeUndoAdvanceResume(
   timing?: PlaybackTimingMetadata | null,
 ): number {
   while (stack.length > 0) {
-    const top = stack[stack.length - 1]!;
+    const top = stack.at(-1);
+    if (!top) break;
     if (sameEpisode(top.episode, targetPreviousEpisode)) {
       stack.pop();
       return guardedUndoResumeSeconds(

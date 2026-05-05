@@ -38,7 +38,8 @@ async function fetchJson(url: string): Promise<unknown> {
 // Returns null if both the proxy and direct TMDB API are unreachable.
 export async function fetchSeasons(tmdbId: string): Promise<number[] | null> {
   const key = tmdbId;
-  if (seasonCache.has(key)) return seasonCache.get(key)!;
+  const cachedSeasons = seasonCache.get(key);
+  if (cachedSeasons) return cachedSeasons;
 
   try {
     // Try proxy first, fall back to direct
@@ -46,14 +47,12 @@ export async function fetchSeasons(tmdbId: string): Promise<number[] | null> {
       fetchJson(`${DIRECT}/tv/${tmdbId}?api_key=${TMDB_KEY}`),
     );
 
-    const seasons = ((data as any).seasons ?? []) as Array<{
-      season_number: number;
-      episode_count: number;
-    }>;
+    const payload = readRecord(data);
+    const seasons = Array.isArray(payload.seasons) ? payload.seasons.map(readRecord) : [];
 
     const nums = seasons
-      .filter((s) => s.season_number > 0 && s.episode_count > 0)
-      .map((s) => s.season_number)
+      .filter((s) => Number(s.season_number) > 0 && Number(s.episode_count) > 0)
+      .map((s) => Number(s.season_number))
       .sort((a, b) => a - b);
 
     seasonCache.set(key, nums);
@@ -68,18 +67,21 @@ export async function fetchSeasons(tmdbId: string): Promise<number[] | null> {
 // Returns null if both the proxy and direct TMDB API are unreachable.
 export async function fetchEpisodes(tmdbId: string, season: number): Promise<EpisodeInfo[] | null> {
   const key = `${tmdbId}:${season}`;
-  if (epCache.has(key)) return epCache.get(key)!;
+  const cachedEpisodes = epCache.get(key);
+  if (cachedEpisodes) return cachedEpisodes;
 
   try {
     const data = await fetchJson(`${PROXY}/tv/${tmdbId}/season/${season}`).catch(() =>
       fetchJson(`${DIRECT}/tv/${tmdbId}/season/${season}?api_key=${TMDB_KEY}`),
     );
 
-    const eps: EpisodeInfo[] = ((data as any).episodes ?? []).map((e: any) => ({
-      number: e.episode_number,
-      name: e.name || `Episode ${e.episode_number}`,
-      airDate: e.air_date || "",
-      overview: (e.overview || "").slice(0, 100),
+    const payload = readRecord(data);
+    const episodes = Array.isArray(payload.episodes) ? payload.episodes.map(readRecord) : [];
+    const eps: EpisodeInfo[] = episodes.map((e) => ({
+      number: Number(e.episode_number),
+      name: typeof e.name === "string" && e.name ? e.name : `Episode ${Number(e.episode_number)}`,
+      airDate: typeof e.air_date === "string" ? e.air_date : "",
+      overview: (typeof e.overview === "string" ? e.overview : "").slice(0, 100),
     }));
 
     epCache.set(key, eps);
@@ -88,6 +90,12 @@ export async function fetchEpisodes(tmdbId: string, season: number): Promise<Epi
     // Don't cache failures — a retry after reconnect should try again.
     return null;
   }
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 // Fetches seasons + first season episodes in parallel — reduces perceived latency.

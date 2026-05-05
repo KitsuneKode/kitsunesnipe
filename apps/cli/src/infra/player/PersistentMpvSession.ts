@@ -685,27 +685,29 @@ export class PersistentMpvSession {
       );
 
       let seekTarget: number | undefined;
-      if (shouldApplyStartAtSeek(options.startAt)) {
+      if (typeof options.startAt === "number" && shouldApplyStartAtSeek(options.startAt)) {
+        const startAt = options.startAt;
         if (options.offerResumeStartChoice) {
           const choice = await this.waitResumeOrStartOverChoice(
-            options.startAt!,
+            startAt,
             options.displayTitle,
             options.resumeChoiceTimeLabel,
           );
-          seekTarget = choice === "start" ? undefined : options.startAt;
+          seekTarget = choice === "start" ? undefined : startAt;
         } else {
-          seekTarget = options.startAt;
+          seekTarget = startAt;
         }
       }
 
-      if (shouldApplyStartAtSeek(seekTarget)) {
+      if (shouldApplyStartAtSeek(seekTarget) && seekTarget !== undefined) {
+        const target = seekTarget;
         options.onPlaybackEvent?.({ type: "resolving-playback" });
-        const seekResult = await this.ipcSession.send(["seek", seekTarget!, "absolute"], 2_000);
+        const seekResult = await this.ipcSession.send(["seek", target, "absolute"], 2_000);
         // IPC time-pos may lag behind the seek; autoskip uses currentPositionSeconds — sync so
         // recap/intro windows are evaluated from the resume point, not from 0 (which would
         // incorrectly skip earlier segments after a mid-episode resume).
         if (seekResult.ok) {
-          this.currentPositionSeconds = seekTarget!;
+          this.currentPositionSeconds = target;
         }
       }
     } finally {

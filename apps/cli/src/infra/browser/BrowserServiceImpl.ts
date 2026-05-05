@@ -40,7 +40,7 @@ export class BrowserServiceImpl implements BrowserService {
 
       if (requestedSubLang !== "none") {
         if (cached.subtitleList && cached.subtitleList.length > 0) {
-          const pick = selectSubtitle(cached.subtitleList as any, requestedSubLang);
+          const pick = selectSubtitle(cached.subtitleList, requestedSubLang);
           activeSubtitle = pick?.url ?? undefined;
         }
       }

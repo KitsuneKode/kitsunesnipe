@@ -594,7 +594,13 @@ function selectStreamCandidate(
     }
   }
 
-  return [...streams].sort((left, right) => (right.qualityRank ?? 0) - (left.qualityRank ?? 0))[0]!;
+  const [best] = [...streams].sort(
+    (left, right) => (right.qualityRank ?? 0) - (left.qualityRank ?? 0),
+  );
+  if (!best) {
+    throw new Error("Cannot select a preferred VidKing stream from an empty candidate list");
+  }
+  return best;
 }
 
 function orderSubtitleCandidates(

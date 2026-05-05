@@ -100,7 +100,7 @@ async function resolveMalIdForAniSkip(opts: {
 
   if (providerId === "allanime" && catalogTitleId && !isNumericAniListId(catalogTitleId)) {
     const fromAllAnime = await fetchMalIdFromAllAnimeShow(catalogTitleId, signal);
-    if (fromAllAnime != null) return fromAllAnime;
+    if (fromAllAnime !== null) return fromAllAnime;
   }
 
   if (isNumericAniListId(catalogTitleId)) {
