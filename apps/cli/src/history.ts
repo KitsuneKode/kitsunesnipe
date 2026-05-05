@@ -30,7 +30,8 @@ async function load(): Promise<HistoryFile> {
   if (!(await file.exists())) return {};
   try {
     return (await file.json()) as HistoryFile;
-  } catch {
+  } catch (e) {
+    console.error(`[kunai] history.json is corrupt and will be treated as empty: ${e}`);
     return {};
   }
 }

@@ -104,6 +104,7 @@ async function pickEpisodeSelection(
       opts.currentId,
       initSeason,
     );
+    if (!seasons) return null;
     const season = await chooseSeasonFromOptions(
       seasons,
       initSeason,
@@ -111,8 +112,9 @@ async function pickEpisodeSelection(
       opts.container,
     );
     if (!season) return null;
-    const episodes =
+    const fetchedEpisodes =
       season === initSeason ? initialEpisodes : await fetchEpisodes(opts.currentId, season);
+    const episodes = fetchedEpisodes ?? [];
     const episode = await chooseEpisodeFromOptions(
       episodes,
       season,

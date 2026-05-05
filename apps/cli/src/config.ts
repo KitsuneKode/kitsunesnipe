@@ -59,7 +59,8 @@ export async function loadConfig(): Promise<KitsuneConfig> {
   if (!(await file.exists())) return { ...DEFAULT_CONFIG };
   try {
     return { ...DEFAULT_CONFIG, ...(await file.json()) };
-  } catch {
+  } catch (e) {
+    console.error(`[kunai] config.json is corrupt, using defaults: ${e}`);
     return { ...DEFAULT_CONFIG };
   }
 }
@@ -79,7 +80,8 @@ export async function loadDomainOverrides(): Promise<DomainOverrides> {
   if (!(await file.exists())) return {};
   try {
     return (await file.json()) as DomainOverrides;
-  } catch {
+  } catch (e) {
+    console.error(`[kunai] providers.json is corrupt, using defaults: ${e}`);
     return {};
   }
 }

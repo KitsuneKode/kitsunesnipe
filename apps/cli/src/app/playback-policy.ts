@@ -29,8 +29,8 @@ type CatalogEpisode = {
 };
 
 export type EpisodeCatalogLoaders = {
-  loadSeasons: (titleId: string) => Promise<readonly number[]>;
-  loadEpisodes: (titleId: string, season: number) => Promise<readonly CatalogEpisode[]>;
+  loadSeasons: (titleId: string) => Promise<readonly number[] | null>;
+  loadEpisodes: (titleId: string, season: number) => Promise<readonly CatalogEpisode[] | null>;
 };
 
 function isReleased(episode: CatalogEpisode): boolean {
@@ -60,6 +60,8 @@ export type EpisodeAvailability = {
    * at the catalog end (episode count and/or max listed index). Autoplay stays off.
    */
   animeNextReleaseUnknown: boolean;
+  /** True when TMDB returned null for seasons or episodes — network unreachable. */
+  tmdbUnavailable: boolean;
 };
 
 export function getCompletionThresholdSeconds(
@@ -160,7 +162,7 @@ async function resolveCatalogUpcomingNext(
   const seasonsAsc = [...seasons].sort((a, b) => a - b);
   for (const season of seasonsAsc) {
     if (season < currentEpisode.season) continue;
-    const episodes = [...(await loaders.loadEpisodes(titleId, season))].sort(
+    const episodes = [...((await loaders.loadEpisodes(titleId, season)) ?? [])].sort(
       (a, b) => a.number - b.number,
     );
     for (const ep of episodes) {
@@ -217,6 +219,7 @@ export async function resolveEpisodeAvailability({
       nextSeasonEpisode: null,
       upcomingNext: null,
       animeNextReleaseUnknown: false,
+      tmdbUnavailable: false,
     };
   }
 
@@ -246,13 +249,18 @@ export async function resolveEpisodeAvailability({
       nextSeasonEpisode: null,
       upcomingNext: null,
       animeNextReleaseUnknown,
+      tmdbUnavailable: false,
     };
   }
 
-  const currentSeasonEpisodes = [...(await loaders.loadEpisodes(title.id, currentEpisode.season))]
+  const rawEpisodes = await loaders.loadEpisodes(title.id, currentEpisode.season);
+  const rawSeasons = await loaders.loadSeasons(title.id);
+  const tmdbUnavailable = rawEpisodes === null || rawSeasons === null;
+
+  const currentSeasonEpisodes = [...(rawEpisodes ?? [])]
     .filter(isReleased)
     .sort((a, b) => a.number - b.number);
-  const seasons = [...(await loaders.loadSeasons(title.id))].sort((a, b) => a - b);
+  const seasons = [...(rawSeasons ?? [])].sort((a, b) => a - b);
 
   const previousInSeason = [...currentSeasonEpisodes]
     .reverse()
@@ -267,12 +275,12 @@ export async function resolveEpisodeAvailability({
   const nextSeasonNumber = seasons.find((season) => season > currentEpisode.season);
 
   const previousSeasonEpisodes = previousSeasonNumber
-    ? [...(await loaders.loadEpisodes(title.id, previousSeasonNumber))]
+    ? [...((await loaders.loadEpisodes(title.id, previousSeasonNumber)) ?? [])]
         .filter(isReleased)
         .sort((a, b) => a.number - b.number)
     : [];
   const nextSeasonEpisodes = nextSeasonNumber
-    ? [...(await loaders.loadEpisodes(title.id, nextSeasonNumber))]
+    ? [...((await loaders.loadEpisodes(title.id, nextSeasonNumber)) ?? [])]
         .filter(isReleased)
         .sort((a, b) => a.number - b.number)
     : [];
@@ -295,7 +303,7 @@ export async function resolveEpisodeAvailability({
     : nextSeasonEpisode;
 
   const upcomingNext =
-    nextEpisode === null
+    !tmdbUnavailable && nextEpisode === null
       ? await resolveCatalogUpcomingNext(title.id, currentEpisode, seasons, loaders)
       : null;
 
@@ -305,6 +313,7 @@ export async function resolveEpisodeAvailability({
     nextSeasonEpisode,
     upcomingNext,
     animeNextReleaseUnknown: false,
+    tmdbUnavailable,
   };
 }
 

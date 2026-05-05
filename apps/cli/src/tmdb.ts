@@ -35,7 +35,8 @@ async function fetchJson(url: string): Promise<unknown> {
 }
 
 // Returns the list of season numbers for a series (excludes specials).
-export async function fetchSeasons(tmdbId: string): Promise<number[]> {
+// Returns null if both the proxy and direct TMDB API are unreachable.
+export async function fetchSeasons(tmdbId: string): Promise<number[] | null> {
   const key = tmdbId;
   if (seasonCache.has(key)) return seasonCache.get(key)!;
 
@@ -58,12 +59,14 @@ export async function fetchSeasons(tmdbId: string): Promise<number[]> {
     seasonCache.set(key, nums);
     return nums;
   } catch {
-    return [];
+    // Don't cache failures — a retry after reconnect should try again.
+    return null;
   }
 }
 
 // Returns episode list for a specific season.
-export async function fetchEpisodes(tmdbId: string, season: number): Promise<EpisodeInfo[]> {
+// Returns null if both the proxy and direct TMDB API are unreachable.
+export async function fetchEpisodes(tmdbId: string, season: number): Promise<EpisodeInfo[] | null> {
   const key = `${tmdbId}:${season}`;
   if (epCache.has(key)) return epCache.get(key)!;
 
@@ -82,20 +85,23 @@ export async function fetchEpisodes(tmdbId: string, season: number): Promise<Epi
     epCache.set(key, eps);
     return eps;
   } catch {
-    return [];
+    // Don't cache failures — a retry after reconnect should try again.
+    return null;
   }
 }
 
 // Fetches seasons + first season episodes in parallel — reduces perceived latency.
+// Returns null fields when TMDB is unreachable.
 export async function fetchSeriesData(
   tmdbId: string,
   preferredSeason?: number,
-): Promise<{ seasons: number[]; episodes: EpisodeInfo[] }> {
+): Promise<{ seasons: number[] | null; episodes: EpisodeInfo[] | null }> {
   // Run both in parallel: get the season list AND pre-load the likely season.
   const [seasons] = await Promise.all([
     fetchSeasons(tmdbId),
     fetchEpisodes(tmdbId, preferredSeason ?? 1), // warm the cache
   ]);
+  if (!seasons) return { seasons: null, episodes: null };
   const targetSeason = preferredSeason ?? seasons[0] ?? 1;
   const episodes = await fetchEpisodes(tmdbId, targetSeason);
   return { seasons, episodes };

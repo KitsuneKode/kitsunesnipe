@@ -891,6 +891,7 @@ export async function openSeasonPicker(
   container?: Container,
 ): Promise<number | null> {
   const seasons = await fetchSeasons(tmdbId);
+  if (!seasons) return null;
   return chooseSeasonFromOptions(seasons, currentSeason, actionContext, container);
 }
 
@@ -902,7 +903,7 @@ export async function openEpisodePicker(
   container?: Container,
 ): Promise<EpisodeInfo | null> {
   const episodes = await fetchEpisodes(tmdbId, season);
-  return chooseEpisodeFromOptions(episodes, season, currentEpisode, actionContext, container);
+  return chooseEpisodeFromOptions(episodes ?? [], season, currentEpisode, actionContext, container);
 }
 
 export async function openAnimeEpisodePicker(

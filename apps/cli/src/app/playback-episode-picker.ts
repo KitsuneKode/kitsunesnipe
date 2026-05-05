@@ -72,7 +72,7 @@ export async function buildPlaybackEpisodePickerOptions({
     };
   }
 
-  const episodes = await loadEpisodes(title.id, currentEpisode.season);
+  const episodes = (await loadEpisodes(title.id, currentEpisode.season)) ?? [];
   return {
     subtitle: `Season ${currentEpisode.season}  ·  ${episodes.length} episodes`,
     options: episodes.map((entry) => ({

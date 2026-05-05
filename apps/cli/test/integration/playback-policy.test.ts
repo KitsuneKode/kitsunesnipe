@@ -347,6 +347,7 @@ describe("getAutoAdvanceEpisode", () => {
         nextSeasonEpisode: null,
         upcomingNext: null,
         animeNextReleaseUnknown: false,
+        tmdbUnavailable: false,
       }),
     ).resolves.toBeNull();
   });
@@ -364,6 +365,7 @@ describe("getAutoAdvanceEpisode", () => {
           nextSeasonEpisode: null,
           upcomingNext: null,
           animeNextReleaseUnknown: false,
+          tmdbUnavailable: false,
         },
       ),
     ).resolves.toBeNull();
@@ -377,6 +379,7 @@ describe("getAutoAdvanceEpisode", () => {
         nextSeasonEpisode: null,
         upcomingNext: null,
         animeNextReleaseUnknown: false,
+        tmdbUnavailable: false,
       }),
     ).resolves.toBeNull();
   });
@@ -394,6 +397,7 @@ describe("getAutoAdvanceEpisode", () => {
           nextSeasonEpisode: null,
           upcomingNext: null,
           animeNextReleaseUnknown: false,
+          tmdbUnavailable: false,
         },
       ),
     ).resolves.toEqual({ season: 1, episode: 8 });
@@ -412,6 +416,7 @@ describe("getAutoAdvanceEpisode", () => {
           nextSeasonEpisode: null,
           upcomingNext: null,
           animeNextReleaseUnknown: false,
+          tmdbUnavailable: false,
         },
         CREDITS_TIMING,
       ),
@@ -451,6 +456,7 @@ describe("getAutoAdvanceEpisode", () => {
         nextSeasonEpisode: null,
         upcomingNext: null,
         animeNextReleaseUnknown: false,
+        tmdbUnavailable: false,
       }),
     ).resolves.toBeNull();
   });
@@ -481,6 +487,7 @@ describe("toEpisodeNavigationState", () => {
       nextSeasonEpisode: { season: 2, episode: 1 },
       upcomingNext: null,
       animeNextReleaseUnknown: false,
+      tmdbUnavailable: false,
     });
 
     expect(navigation.hasNext).toBe(true);
@@ -497,6 +504,7 @@ describe("toEpisodeNavigationState", () => {
         nextSeasonEpisode: null,
         upcomingNext: null,
         animeNextReleaseUnknown: false,
+        tmdbUnavailable: false,
       },
       { isAnime: true },
     );
@@ -514,6 +522,7 @@ describe("toEpisodeNavigationState", () => {
         nextSeasonEpisode: null,
         upcomingNext: null,
         animeNextReleaseUnknown: true,
+        tmdbUnavailable: false,
       },
       { isAnime: true },
     );
@@ -536,6 +545,7 @@ describe("toEpisodeNavigationState", () => {
           name: "Pilot",
         },
         animeNextReleaseUnknown: false,
+        tmdbUnavailable: false,
       },
       { isAnime: false },
     );

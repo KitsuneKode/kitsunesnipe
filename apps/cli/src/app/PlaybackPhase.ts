@@ -432,6 +432,18 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             }),
           });
 
+          if (episodeAvailability.tmdbUnavailable) {
+            diagnosticsStore.record({
+              category: "provider",
+              message: "TMDB metadata unavailable — episode navigation disabled",
+              context: {
+                titleId: title.id,
+                season: currentEpisode.season,
+                episode: currentEpisode.episode,
+              },
+            });
+          }
+
           // Resolve stream with loading UI
           if (!currentProvider) {
             return {

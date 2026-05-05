@@ -24,6 +24,7 @@ const nextSeasonAvailability: EpisodeAvailability = {
   nextSeasonEpisode: { season: 3, episode: 1 },
   upcomingNext: null,
   animeNextReleaseUnknown: false,
+  tmdbUnavailable: false,
 };
 
 const baseResult: PlaybackResult = {
@@ -327,6 +328,7 @@ describe("explainAutoplayBlockReason", () => {
           nextSeasonEpisode: null,
           upcomingNext: { season: 1, episode: 8, airDate: "3099-01-01", name: "Soon" },
           animeNextReleaseUnknown: false,
+          tmdbUnavailable: false,
         },
       }),
     ).toBe("next-episode-not-released-yet");
@@ -345,6 +347,7 @@ describe("explainAutoplayBlockReason", () => {
           nextSeasonEpisode: null,
           upcomingNext: null,
           animeNextReleaseUnknown: true,
+          tmdbUnavailable: false,
         },
       }),
     ).toBe("anime-next-uncertain");
@@ -363,6 +366,7 @@ describe("explainAutoplayBlockReason", () => {
           nextSeasonEpisode: null,
           upcomingNext: null,
           animeNextReleaseUnknown: false,
+          tmdbUnavailable: false,
         },
       }),
     ).toBe("no-next-episode");
@@ -376,6 +380,7 @@ describe("explainAutoplayNoNextEpisodeCatalogHint", () => {
     nextSeasonEpisode: null,
     upcomingNext: { season: 1, episode: 3, airDate: "2099-03-15", name: "Later" },
     animeNextReleaseUnknown: false,
+    tmdbUnavailable: false,
   };
 
   test("returns a TMDB upcoming banner when autoplay is blocked only by missing next", () => {
