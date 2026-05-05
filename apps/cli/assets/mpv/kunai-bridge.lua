@@ -25,6 +25,9 @@ end
 local overlay = mp.create_osd_overlay("ass-events")
 overlay.z = 1600
 
+local _snake_path = nil
+local _snake_visits = nil
+
 local prompt_redraw_timer = nil
 local prompt_deadline_wall = nil
 local prompt_is_auto = false
@@ -69,26 +72,11 @@ local function stop_loading_animation()
 	loading_started_wall = nil
 end
 
-local function action_details_from_loading_text(text)
-	local raw = tostring(text or "")
-	local lower = raw:lower()
-	if lower:find("next episode", 1, true) then
-		return "Preparing next episode", "Keeping your session warm while sources resolve."
-	end
-	if lower:find("previous episode", 1, true) then
-		return "Going to previous episode", "Restoring prior playback context."
-	end
-	if lower:find("quality picker", 1, true) then
-		return "Opening quality picker", "Collecting available streams and variants."
-	end
-	return "Loading playback", "Resolving stream links and initializing player state."
-end
-
 local function loading_hint_for_time(elapsed)
 	local hints = {
-		"Kunai is contacting providers and validating playback links.",
-		"Playback starts automatically as soon as the stream is ready.",
-		"Keep this window focused for instant hand-off to mpv.",
+		"Contacting stream providers and validating playback links.",
+		"Playback begins automatically once the stream is ready.",
+		"High-quality streams take a moment to initialize.",
 	}
 	local idx = math.floor((elapsed or 0) / 2.3) % #hints
 	return hints[idx + 1]
@@ -123,65 +111,123 @@ local function draw_kunai_loading_overlay()
 	local cy = math.floor(h / 2)
 	local elapsed = math.max(0, mp.get_time() - loading_started_wall)
 
-	local title_fs = clamp(math.floor(h * 0.058), 34, 58)
-	local body_fs = clamp(math.floor(h * 0.028), 16, 26)
-	local hint_fs = clamp(math.floor(h * 0.022), 13, 20)
-	local micro_fs = clamp(math.floor(h * 0.018), 11, 16)
+	-- Strip the "Kunai · " routing prefix so the main text is the actual title/action.
+	local display = kunai_loading_text
+	do
+		local prefix = "kunai \xc2\xb7 "
+		if display:lower():sub(1, #prefix) == prefix then
+			display = kunai_loading_text:sub(#prefix + 1)
+		end
+		-- Remove trailing ellipsis (… or ...) and whitespace.
+		display = display:gsub("\xe2\x80\xa6$", ""):gsub("%.%.%.$", ""):match("^%s*(.-)%s*$") or display
+	end
 
-	local spinner_frames = { "|", "/", "-", "\\" }
-	local spinner_idx = math.floor(elapsed * 10) % #spinner_frames
-	local spinner = spinner_frames[spinner_idx + 1]
-	local spinner_alpha = clamp(math.floor(34 + (math.sin(elapsed * 4.8) + 1) * 26), 26, 92)
+	local main_fs = clamp(math.floor(h * 0.052), 30, 54)
+	local sub_fs = clamp(math.floor(h * 0.022), 13, 20)
+	local brand_fs = clamp(math.floor(h * 0.014), 9, 12)
 
-	local title, subtitle = action_details_from_loading_text(kunai_loading_text)
-	local line = esc_ass(title)
-	local subline = esc_ass(subtitle)
-	local detail_line = esc_ass(kunai_loading_text)
-	local hint_line = esc_ass(loading_hint_for_time(elapsed))
-	local wait_line = esc_ass(string.format("Elapsed: %.1fs", elapsed))
+	-- Cycling hint appears only after 3 s to avoid noise on fast loads.
+	local hint_line = elapsed >= 3.0 and esc_ass(loading_hint_for_time(elapsed)) or ""
+
+	local main_y = math.floor(cy - h * 0.02)
+	local hint_y = math.floor(cy + h * 0.09)
+	local brand_y = h - clamp(math.floor(h * 0.055), 30, 52)
 
 	loading_overlay.res_x = w
 	loading_overlay.res_y = h
+
 	local ass_nl = "\\N"
-	loading_overlay.data = string.format(
-		"{\\an5\\bord7\\blur5\\shadow1\\shadowcolor&H50000000&\\fnSans\\fs%d\\pos(%d,%d)\\c&HFDFDFD&}%s"
-			.. ass_nl
-			.. "{\\an5\\bord2\\blur2\\shadow0\\fnSans\\fs%d\\pos(%d,%d)\\c&HFFFFFF&\\alpha&H%02X&}%s"
-			.. ass_nl
-			.. "{\\an5\\alpha&H95&\\fs%d\\pos(%d,%d)\\c&HE6E6E6&}%s"
-			.. ass_nl
-			.. "{\\an5\\alpha&HA8&\\fs%d\\pos(%d,%d)\\c&HD2D2D2&}%s"
-			.. ass_nl
-			.. "{\\an5\\alpha&HC0&\\fs%d\\pos(%d,%d)\\c&HBCBCBC&}%s"
-			.. ass_nl
-			.. "{\\an5\\alpha&HD2&\\fs%d\\pos(%d,%d)\\c&HB0B0B0&}%s",
-		title_fs,
-		cx,
-		cy - math.floor(h * 0.09),
-		line,
-		math.floor(title_fs * 1.2),
-		cx,
-		cy - math.floor(h * 0.17),
-		spinner_alpha,
-		spinner,
-		body_fs,
-		cx,
-		cy - math.floor(h * 0.01),
-		subline,
-		hint_fs,
-		cx,
-		cy + math.floor(h * 0.045),
-		detail_line,
-		hint_fs,
-		cx,
-		cy + math.floor(h * 0.09),
-		hint_line
-		,
-		micro_fs,
-		cx,
-		cy + math.floor(h * 0.13),
-		wait_line
+	local parts = {}
+
+	-- 5×5 snake dot-matrix loader (mirrors DotmSquare2 React component).
+	if not _snake_path then
+		_snake_path = {}
+		_snake_visits = {}
+		for i = 1, 25 do _snake_visits[i] = {} end
+		local function sp(r, c)
+			local idx = r * 5 + c + 1
+			table.insert(_snake_path, idx)
+			table.insert(_snake_visits[idx], #_snake_path - 1) -- 0-based step
+		end
+		for r = 4, 0, -1 do sp(r, 0) end
+		sp(0, 1); sp(0, 2)
+		for r = 1, 4 do sp(r, 2) end
+		sp(4, 1)
+		for r = 3, 0, -1 do sp(r, 1) end
+		sp(0, 2); sp(0, 3)
+		for r = 1, 4 do sp(r, 3) end
+		sp(4, 2)
+		for r = 3, 0, -1 do sp(r, 2) end
+		sp(0, 3); sp(0, 4)
+		for r = 1, 4 do sp(r, 4) end
+	end
+
+	local snake_tail = {1.0, 0.82, 0.68, 0.54, 0.42, 0.31, 0.22, 0.14}
+	local snake_base = 0.08
+	local route_len = #_snake_path
+	local head = math.floor(elapsed * (route_len / 1.5)) % route_len
+
+	local dot_r = clamp(math.floor(h * 0.008), 4, 8)
+	local dot_spacing = dot_r * 3 + 2
+	local grid_cx = cx
+	local grid_cy = math.floor(cy - h * 0.11)
+
+	local k_bez = math.floor(dot_r * 0.5523 + 0.5)
+	local circle_path = string.format(
+		"m %d %d b %d %d %d %d %d %d b %d %d %d %d %d %d b %d %d %d %d %d %d b %d %d %d %d %d %d",
+		-dot_r, 0,
+		-dot_r, -k_bez, -k_bez, -dot_r, 0, -dot_r,
+		k_bez, -dot_r, dot_r, -k_bez, dot_r, 0,
+		dot_r, k_bez, k_bez, dot_r, 0, dot_r,
+		-k_bez, dot_r, -dot_r, k_bez, -dot_r, 0
 	)
+
+	for row = 0, 4 do
+		for col = 0, 4 do
+			local index = row * 5 + col + 1
+			local visits = _snake_visits[index]
+			local opacity = snake_base
+			for _, step in ipairs(visits) do
+				local dist = (head - step + route_len) % route_len
+				if dist < #snake_tail then
+					local t = snake_tail[dist + 1]
+					if t > opacity then opacity = t end
+				end
+			end
+
+			local alpha_byte = clamp(math.floor((1 - opacity) * 255), 0, 255)
+			local alpha_str = string.format("%02X", alpha_byte)
+
+			local dot_x = grid_cx + (col - 2) * dot_spacing
+			local dot_y = grid_cy + (row - 2) * dot_spacing
+
+			table.insert(parts, string.format(
+				"{\\an5\\pos(%d,%d)\\bord0\\shad0\\blur0\\1c&HFFFFFF&\\1a&H%s&\\p1}%s{\\p0}",
+				dot_x, dot_y, alpha_str, circle_path
+			))
+		end
+	end
+
+	-- Main label: stripped loading text (media title, episode, action).
+	table.insert(parts, string.format(
+		"{\\an5\\bord3\\blur2\\shadow1\\shadowcolor&H55000000&\\fnSans\\b1\\fs%d\\pos(%d,%d)\\c&HFFFFFF&}%s",
+		main_fs, cx, main_y, esc_ass(display)
+	))
+
+	if hint_line ~= "" then
+		table.insert(parts, string.format(
+			"{\\an5\\bord0\\blur1\\fnSans\\fs%d\\pos(%d,%d)\\c&HC8C8C8&\\alpha&HA8&}%s",
+			sub_fs, cx, hint_y, hint_line
+		))
+	end
+
+	-- Subtle brand watermark anchored near the bottom edge.
+	table.insert(parts, string.format(
+		"{\\an5\\bord0\\blur2\\fnSans\\fs%d\\pos(%d,%d)\\c&HFFFFFF&\\alpha&HC8&}K U N A I",
+		brand_fs, cx, brand_y
+	))
+
+	loading_overlay.data = table.concat(parts, ass_nl)
 	loading_overlay:update()
 end
 
@@ -218,6 +264,19 @@ pcall(function()
 	sync_kunai_loading_text(mp.get_property_native("user-data/kunai-loading"))
 	draw_kunai_loading_overlay()
 	ensure_loading_animation()
+end)
+
+-- Seed the loading overlay immediately at launch so the window never shows
+-- as a raw black frame. Bun clears kunai-loading once file-loaded fires.
+-- Only activates when nothing else has already set the loading text.
+pcall(function()
+	if kunai_loading_text == "" then
+		local mt = mp.get_property("media-title", "")
+		if mt == "" or mt == "-" then
+			mt = "Connecting to stream"
+		end
+		mp.set_property("user-data/kunai-loading", "Kunai \xc2\xb7 " .. mt)
+	end
 end)
 
 mp.register_event("file-loaded", function()
