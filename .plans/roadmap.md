@@ -65,6 +65,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Provider SDK candidate model: provider -> source/mirror -> variant, with selected stream plus discovered candidates, subtitles, trace, cache policy, and health deltas
 - Runtime-browser package plan for JIT Playwright leases, interception, cooldown, evidence capture, and teardown
 - Interactive resolution UX follow-up is now mostly narrowed to richer non-playback cancel surfaces plus later source/quality/subtitle chooser polish
+- Deferred resolve UX items (provider-level Playwright abort, episode memory after cancel, per-provider timeout config, provider health indicator) tracked in [.plans/resolve-ux-and-playwright-lifecycle.md](.plans/resolve-ux-and-playwright-lifecycle.md)
 
 ### Recently Improved
 
@@ -98,6 +99,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 | Persistent shell implementation  | In Progress   | [.plans/persistent-shell-implementation.md](.plans/persistent-shell-implementation.md)               |
 | Ink UI migration                 | Planned       | [.plans/ink-migration.md](.plans/ink-migration.md)                                                   |
 | Provider hardening               | Planned       | [.plans/provider-hardening.md](.plans/provider-hardening.md)                                         |
+| Resolve UX & Playwright lifecycle | Planned      | [.plans/resolve-ux-and-playwright-lifecycle.md](.plans/resolve-ux-and-playwright-lifecycle.md)        |
 | Runtime entry consolidation      | Planned       | [.docs/architecture-v2.md](.docs/architecture-v2.md)                                                 |
 | Search/catalog service           | Active Design | [.plans/search-service.md](.plans/search-service.md)                                                 |
 | YouTube provider research        | Idea          | [.plans/yt-provider.md](.plans/yt-provider.md)                                                       |
