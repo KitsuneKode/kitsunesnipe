@@ -5,8 +5,8 @@
 // Keep it pure, explicit, and testable.
 // =============================================================================
 
-import type { EpisodeInfo, SearchResult, StreamInfo, TitleInfo } from "../types";
 import type { PlaybackProblem } from "../playback/playback-problem";
+import type { EpisodeInfo, SearchResult, StreamInfo, TitleInfo } from "../types";
 import type { AppCommandId } from "./command-registry";
 import {
   DEFAULT_LAYOUT_PREFERENCES,

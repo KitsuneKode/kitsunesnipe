@@ -77,7 +77,8 @@ export function recoveryForPlaybackFailure(
     case "player-exited":
       return {
         action: "relaunch",
-        label: "Relaunch mpv from the last trusted position; try another provider only if relaunch fails.",
+        label:
+          "Relaunch mpv from the last trusted position; try another provider only if relaunch fails.",
       };
     case "unknown":
       return {

@@ -42,7 +42,9 @@ export function buildStreamPickerOptions(stream: StreamInfo): readonly StreamOpt
         rank: candidate.qualityRank ?? 0,
       };
     })
-    .sort((left, right) => Number(right.selected) - Number(left.selected) || right.rank - left.rank);
+    .sort(
+      (left, right) => Number(right.selected) - Number(left.selected) || right.rank - left.rank,
+    );
 
   return options.map(({ selected: _selected, rank: _rank, ...option }) => option);
 }
