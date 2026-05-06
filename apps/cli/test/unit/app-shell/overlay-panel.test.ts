@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { formatPickerOptionRow } from "@/app-shell/overlay-panel";
+import { formatPickerDisplayRow, formatPickerOptionRow } from "@/app-shell/overlay-panel";
 
 test("formatPickerOptionRow keeps settings rows within the available width", () => {
   const row = formatPickerOptionRow({
@@ -25,4 +25,18 @@ test("formatPickerOptionRow reserves badge width before truncating text", () => 
 
   expect(row.badgeSuffix).toBe("  on");
   expect(row.text.length + row.badgeSuffix.length).toBeLessThanOrEqual(24);
+});
+
+test("formatPickerDisplayRow reserves prefix width before truncating episode rows", () => {
+  const row = formatPickerDisplayRow({
+    label: "Episode 5  ·  Shotgun",
+    detail:
+      "2011-08-14  ·  When Jesse goes missing, Walt fears the worst. Skyler has an unlikely reunion.",
+    badge: "watched",
+    width: 64,
+    selected: true,
+  });
+
+  expect(row.prefix).toBe("> ");
+  expect(row.prefix.length + row.text.length + row.badgeSuffix.length).toBeLessThanOrEqual(64);
 });

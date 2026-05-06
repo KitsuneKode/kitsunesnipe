@@ -2,8 +2,7 @@
 // Build script for kunai-cli.
 //
 // Bundles src/main.ts into a single dist/kunai.js.
-// Workspace packages (@kunai/*) are inlined; playwright stays external since
-// it resolves native browser binaries at runtime and cannot be bundled.
+// Workspace packages (@kunai/*) are inlined for a compact direct-provider CLI.
 // WASM assets (e.g. VidKing's module1_patched.wasm) are handled automatically
 // by Bun's bundler when it encounters new URL('./...', import.meta.url) references.
 // The mpv Lua bridge is copied separately since it is a runtime file path, not a JS import.
@@ -87,13 +86,6 @@ async function main(): Promise<void> {
      * @kunai/schemas, @kunai/types, etc.
      */
     packages: "bundle",
-
-    /**
-     * Keep Playwright external.
-     * Its Chromium/browser binaries are installed separately with:
-     * playwright install chromium
-     */
-    external: ["playwright", "playwright-core"],
 
     naming: {
       entry: "kunai.js",

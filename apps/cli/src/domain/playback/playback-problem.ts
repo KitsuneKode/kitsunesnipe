@@ -29,25 +29,12 @@ export interface PlaybackProblem {
 
 export function buildProviderResolveProblem({
   attempts,
-  capabilitySnapshot,
 }: {
   attempts: readonly {
     readonly failure?: { readonly code?: string; readonly message?: string } | undefined;
   }[];
-  capabilitySnapshot: { readonly chromiumForEmbeds: boolean } | null;
+  capabilitySnapshot?: unknown;
 }): PlaybackProblem {
-  if (!capabilitySnapshot?.chromiumForEmbeds) {
-    return {
-      stage: "provider-resolve",
-      severity: "blocking",
-      cause: "missing-chromium",
-      userMessage:
-        "Playwright Chromium is not installed. Install it before embed providers can resolve streams.",
-      recommendedAction: "diagnostics",
-      secondaryActions: [],
-    };
-  }
-
   if (hasRuntimeMissingFailure(attempts)) {
     return {
       stage: "provider-resolve",

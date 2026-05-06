@@ -24,7 +24,7 @@ export function createStreamCacheKey(input: StreamCacheKeyInput): string {
     normalizeKeyPart(input.audioLanguage),
     normalizeKeyPart(input.subtitleLanguage),
     normalizeKeyPart(input.qualityPreference),
-    input.resolverRuntime ?? "unknown-runtime"
+    input.resolverRuntime ?? "unknown-runtime",
   ]);
 }
 

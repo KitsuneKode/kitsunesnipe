@@ -84,7 +84,7 @@ export const TMDB_SERVICE: SearchService = {
   id: "tmdb",
   name: "TMDB / Videasy",
   description: "TMDB proxy (db.videasy.net) — movies, series, no API key",
-  compatibleProviders: ["vidking", "cineby", "bitcine", "braflix"],
+  compatibleProviders: ["vidking"],
   search: searchVideasy,
 };
 

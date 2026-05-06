@@ -30,7 +30,6 @@
         "@kunai/types": "workspace:*",
         "@types/react": "^19.2.14",
         "ink": "^7.0.1",
-        "playwright": "^1.59.1",
         "react": "^19.2.5",
       },
       "devDependencies": {

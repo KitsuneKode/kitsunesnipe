@@ -10,12 +10,11 @@ import type {
   TitleInfo,
 } from "@/domain/types";
 import { mergeSubtitleTracks, resolveSubtitlesByTmdbId, selectSubtitle } from "@/subtitle";
-import { buildVidkingEmbedUrl, createProviderRuntimeContext, vidkingManifest } from "@kunai/core";
+import { createProviderRuntimeContext, vidkingManifest } from "@kunai/core";
 import { resolveVidkingDirect } from "@kunai/providers";
 import type { ProviderResolveInput, ProviderResolveResult, SubtitleCandidate } from "@kunai/types";
 
 import {
-  attachProviderResolveResult,
   episodeToCoreIdentity,
   manifestToProviderCapabilities,
   manifestToProviderMetadata,
@@ -43,12 +42,6 @@ export class VidKingProvider implements Provider {
   async resolveStream(request: StreamRequest, signal?: AbortSignal): Promise<StreamInfo | null> {
     const resolveDirect = this.internals.resolveDirect ?? resolveVidkingDirect;
     const resolveWyzie = this.internals.resolveWyzie ?? resolveSubtitlesByTmdbId;
-    const url = buildVidkingEmbedUrl({
-      id: request.title.id,
-      mediaKind: request.title.type,
-      season: request.episode?.season,
-      episode: request.episode?.episode,
-    });
 
     let stream = providerResolveResultToStream(
       await resolveDirect(
@@ -89,35 +82,7 @@ export class VidKingProvider implements Provider {
       }
     }
 
-    if (!stream) {
-      stream = await this.deps.browser.scrape({
-        url,
-        needsClick: false, // autoPlay=true handles it
-        subLang: request.subLang,
-        signal,
-        tmdbId: request.title.id,
-        titleType: request.title.type,
-        season: request.episode?.season,
-        episode: request.episode?.episode,
-        playerDomains: this.deps.playerDomains,
-      });
-    }
-
-    if (!stream) {
-      return null;
-    }
-
-    if (resolvedDirect) {
-      return stream;
-    }
-
-    return attachProviderResolveResult({
-      manifest: vidkingManifest,
-      request,
-      stream,
-      mode: "series",
-      runtime: "playwright-lease",
-    });
+    return resolvedDirect ? stream : null;
   }
 }
 

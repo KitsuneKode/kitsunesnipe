@@ -16,8 +16,6 @@ import {
 
 import type { SessionStateManager } from "./domain/session/SessionStateManager";
 import { SessionStateManagerImpl } from "./domain/session/SessionStateManager";
-import type { BrowserService } from "./infra/browser/BrowserService";
-import { BrowserServiceImpl } from "./infra/browser/BrowserServiceImpl";
 import type { Logger } from "./infra/logger/Logger";
 // Import implementations
 import { StructuredLogger } from "./infra/logger/StructuredLogger";
@@ -70,7 +68,6 @@ export interface Container {
 
   // Infrastructure
   readonly shell: ShellService;
-  readonly browser: BrowserService;
   readonly player: PlayerService;
   readonly playerControl: PlayerControlService;
   readonly workControl: WorkControlService;
@@ -147,7 +144,6 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
 
   // Infrastructure services
   const shell = new ShellServiceImpl({ logger, tracer, stateManager });
-  const browser = new BrowserServiceImpl({ logger, tracer, config, cacheStore, diagnosticsStore });
   const playerControl = new PlayerControlServiceImpl({ logger, diagnosticsStore });
   const workControl = new WorkControlServiceImpl({ logger, diagnosticsStore });
   const player = new PlayerServiceImpl({
@@ -161,7 +157,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
 
   // Registries (depend on infrastructure)
   const providerRegistry = new ProviderRegistryImpl(
-    { browser, logger, tracer, config },
+    { logger, tracer, config },
     PROVIDER_DEFINITIONS,
   );
 
@@ -177,7 +173,6 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     providerRegistry,
     searchRegistry,
     shell,
-    browser,
     player,
     playerControl,
     workControl,

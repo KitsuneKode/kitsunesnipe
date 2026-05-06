@@ -1,19 +1,35 @@
 import { expect, test } from "bun:test";
 
 import {
+  allmangaProviderModule,
   createVidkingResultFromPayload,
   createProviderModuleRegistry,
   getProviderMigrationQueue,
   getProviderResearchProfile,
+  miruroProviderModule,
   providerResearchProfiles,
+  rivestreamProviderModule,
   vidkingProviderModule,
 } from "../src/index";
 
 test("provider module registry can expose migrated modules", () => {
-  const registry = createProviderModuleRegistry([vidkingProviderModule]);
+  const registry = createProviderModuleRegistry([
+    rivestreamProviderModule,
+    vidkingProviderModule,
+    miruroProviderModule,
+    allmangaProviderModule,
+  ]);
 
-  expect(registry.modules.map((module) => module.providerId)).toEqual(["vidking"]);
+  expect(registry.modules.map((module) => module.providerId)).toEqual([
+    "rivestream",
+    "vidking",
+    "miruro",
+    "allanime",
+  ]);
+  expect(registry.get("rivestream")).toBe(rivestreamProviderModule);
   expect(registry.get("vidking")).toBe(vidkingProviderModule);
+  expect(registry.get("miruro")).toBe(miruroProviderModule);
+  expect(registry.get("allanime")).toBe(allmangaProviderModule);
 });
 
 test("provider research profiles are dossier-backed and migration ordered", () => {
@@ -24,14 +40,14 @@ test("provider research profiles are dossier-backed and migration ordered", () =
   expect(queue.every((profile) => profile.dossierPath.startsWith(".docs/provider-dossiers/"))).toBe(
     true,
   );
-  expect(providerResearchProfiles.length).toBeGreaterThanOrEqual(8);
+  expect(providerResearchProfiles.length).toBeGreaterThanOrEqual(7);
 });
 
 test("provider research profiles separate direct providers from legacy fallbacks", () => {
   expect(getProviderResearchProfile("vidking")).toMatchObject({
     status: "production",
     migrationAction: "promote-direct-provider",
-    runtimeClass: "node-fetch direct Videasy payload decode, Playwright fallback only",
+    runtimeClass: "node-fetch direct Videasy payload decode",
   });
 
   expect(getProviderResearchProfile("cineby")).toMatchObject({

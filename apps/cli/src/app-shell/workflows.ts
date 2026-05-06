@@ -131,6 +131,10 @@ export async function chooseEpisodeFromOptions(
       overlay: {
         type: "episode_picker",
         season,
+        initialIndex: Math.max(
+          0,
+          episodes.findIndex((episode) => episode.number === currentEpisode),
+        ),
         options: episodes.map((episode) => {
           const status = episodeStatus.get(episode.number);
           return {
@@ -1031,11 +1035,6 @@ export async function openSettingsShell({
           detail: "Sub or dub preference",
         },
         {
-          value: "headless" as const,
-          label: `Browser mode  ·  ${next.headless ? "headless" : "visible"}`,
-          detail: "Playwright browser visibility",
-        },
-        {
           value: "showMemory" as const,
           label: `Memory panel  ·  ${next.showMemory ? "opens on playback" : "on demand"}`,
           detail: "Press m during playback for fresh app, mpv, total, heap, and swap usage",
@@ -1223,12 +1222,6 @@ export async function openSettingsShell({
         next.animeLang = picked;
         changed = true;
       }
-      continue;
-    }
-
-    if (action === "headless") {
-      next.headless = !next.headless;
-      changed = true;
       continue;
     }
 

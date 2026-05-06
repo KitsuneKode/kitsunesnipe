@@ -6,22 +6,10 @@ import {
 } from "@/domain/playback/playback-problem";
 
 describe("playback problem model", () => {
-  test("maps missing chromium to blocking setup problem", () => {
-    const problem = buildProviderResolveProblem({
-      attempts: [],
-      capabilitySnapshot: { chromiumForEmbeds: false },
-    });
-
-    expect(problem.stage).toBe("provider-resolve");
-    expect(problem.severity).toBe("blocking");
-    expect(problem.recommendedAction).toBe("diagnostics");
-    expect(problem.userMessage).toContain("Playwright Chromium");
-  });
-
   test("maps runtime dependency failures to blocking diagnostics", () => {
     const problem = buildProviderResolveProblem({
       attempts: [{ failure: { code: "RUNTIME_MISSING", message: "runtime dependency missing" } }],
-      capabilitySnapshot: { chromiumForEmbeds: true },
+      capabilitySnapshot: null,
     });
 
     expect(problem.cause).toBe("runtime-missing");

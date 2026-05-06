@@ -9,6 +9,7 @@ import type {
 import { Box, useInput, useStdout } from "ink";
 import React, { useEffect, useState } from "react";
 
+import { resolveCommands } from "./commands";
 import {
   buildSettingsChoiceOverlay,
   buildSettingsOptions,
@@ -34,6 +35,7 @@ import {
 } from "./root-history-bridge";
 import { hasPendingRootPicker, resolveRootPicker } from "./root-picker-bridge";
 import { type RootOwnedOverlay } from "./root-shell-state";
+import { CommandPalette, useShellInput } from "./shell-command-ui";
 import { InlineBadge, ShellFooter } from "./shell-primitives";
 import type { FooterAction, ShellPanelLine } from "./types";
 
@@ -69,6 +71,22 @@ export function RootOverlayShell({
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [historySelections, setHistorySelections] = useState<readonly RootHistorySelection[]>([]);
+  const overlayResetKey =
+    overlay.type === "episode_picker"
+      ? `${overlay.type}:${overlay.season}:${overlay.options.map((option) => option.value).join(",")}`
+      : overlay.type;
+  const overlayInitialIndex =
+    overlay.type === "episode_picker" ? Math.max(0, overlay.initialIndex ?? 0) : 0;
+  const commands = resolveCommands(state, [
+    "settings",
+    "provider",
+    "history",
+    "help",
+    "about",
+    "diagnostics",
+    "export-diagnostics",
+    "report-issue",
+  ]);
   const settingsSeriesProviderOptions = buildSettingsProviderOptions({
     providers: container.providerRegistry
       .getAll()
@@ -224,12 +242,57 @@ export function RootOverlayShell({
                       : overlay.type === "quality_picker"
                         ? `${overlay.options.length} quality options available`
                         : `Current provider ${state.provider}`;
-  const footerActions: readonly FooterAction[] = [{ key: "esc", label: "close", action: "quit" }];
+  const footerActions: readonly FooterAction[] = [
+    { key: "/", label: "commands", action: "command-mode" },
+    { key: "esc", label: "close", action: "quit" },
+  ];
+  const { commandMode, commandInput, commandCursor, highlightedIndex } = useShellInput({
+    footerActions,
+    commands,
+    escapeAction: null,
+    onResolve: (action) => {
+      if (
+        action === "settings" ||
+        action === "help" ||
+        action === "about" ||
+        action === "diagnostics" ||
+        action === "history" ||
+        action === "provider"
+      ) {
+        if (
+          hasPendingRootPicker() &&
+          (overlay.type === "season_picker" ||
+            overlay.type === "episode_picker" ||
+            overlay.type === "subtitle_picker" ||
+            overlay.type === "source_picker" ||
+            overlay.type === "quality_picker")
+        ) {
+          resolveRootPicker(null);
+        }
+        container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
+        container.stateManager.dispatch({
+          type: "OPEN_OVERLAY",
+          overlay:
+            action === "provider"
+              ? {
+                  type: "provider_picker",
+                  currentProvider: state.provider,
+                  isAnime: state.mode === "anime",
+                }
+              : action === "history"
+                ? { type: "history" }
+                : action === "settings"
+                  ? { type: "settings" }
+                  : { type: action },
+        });
+      }
+    },
+  });
 
   useEffect(() => {
     setScrollIndex(0);
     setFilterQuery("");
-    setSelectedIndex(0);
+    setSelectedIndex(overlayInitialIndex);
     setAsyncLines(null);
     setLoadingAsyncLines(false);
     setSettingsDraft(overlay.type === "settings" ? container.config.getRaw() : null);
@@ -238,7 +301,7 @@ export function RootOverlayShell({
     setSettingsBusy(false);
     setSettingsError(null);
     setHistorySelections([]);
-  }, [container.config, overlay.type]);
+  }, [container.config, overlay.type, overlayResetKey, overlayInitialIndex]);
 
   useEffect(() => {
     if (overlay.type !== "history") {
@@ -273,6 +336,9 @@ export function RootOverlayShell({
   }, [container.historyStore, overlay.type]);
 
   useInput((input, key) => {
+    if (commandMode) {
+      return;
+    }
     if (key.escape) {
       if (overlay.type === "settings" && settingsChoice) {
         setSettingsChoice(null);
@@ -323,11 +389,6 @@ export function RootOverlayShell({
           setSettingsChoice(null);
           setFilterQuery("");
           setSelectedIndex(settingsParentIndex);
-          setSettingsError(null);
-          return;
-        }
-        if (picked.value === "headless") {
-          setSettingsDraft({ ...settingsDraft, headless: !settingsDraft.headless });
           setSettingsError(null);
           return;
         }
@@ -596,6 +657,14 @@ export function RootOverlayShell({
       </Box>
 
       <Box flexDirection="column">
+        {commandMode ? (
+          <CommandPalette
+            input={commandInput}
+            cursor={commandCursor}
+            commands={commands}
+            highlightedIndex={highlightedIndex}
+          />
+        ) : null}
         <ShellFooter
           taskLabel={
             overlay.type === "provider_picker"
@@ -616,6 +685,7 @@ export function RootOverlayShell({
           }
           actions={footerActions}
           mode="detailed"
+          commandMode={commandMode}
         />
       </Box>
     </Box>

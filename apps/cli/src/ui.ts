@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -9,7 +8,7 @@ import { log } from "@clack/prompts";
 export type CapabilitySeverity = "fatal" | "degraded";
 
 export interface CapabilityIssue {
-  readonly id: "mpv-missing" | "playwright-chromium-missing";
+  readonly id: "mpv-missing";
   readonly severity: CapabilitySeverity;
   readonly message: string;
   readonly remediation: readonly string[];
@@ -17,7 +16,6 @@ export interface CapabilityIssue {
 
 export interface CapabilitySnapshot {
   readonly mpv: boolean;
-  readonly chromiumForEmbeds: boolean;
   readonly issues: readonly CapabilityIssue[];
 }
 
@@ -34,7 +32,7 @@ function capabilityFingerprint(snapshot: CapabilitySnapshot): string {
     .map((issue) => `${issue.id}:${issue.severity}`)
     .sort()
     .join(",");
-  return `mpv:${snapshot.mpv ? "1" : "0"}|chromium:${snapshot.chromiumForEmbeds ? "1" : "0"}|issues:${issueBits}`;
+  return `mpv:${snapshot.mpv ? "1" : "0"}|issues:${issueBits}`;
 }
 
 async function loadCapabilityNoticeState(): Promise<CapabilityNoticeState | null> {
@@ -75,33 +73,7 @@ export async function checkDeps(appVersion = "2.0.0-beta"): Promise<CapabilitySn
     log.error("mpv not found — required for playback.");
   }
 
-  let chromiumForEmbeds = false;
-  try {
-    const { chromium } = await import("playwright");
-    const executablePath = chromium.executablePath();
-    chromiumForEmbeds = existsSync(executablePath);
-  } catch {
-    chromiumForEmbeds = false;
-  }
-
-  if (!chromiumForEmbeds) {
-    const remediation = [
-      "bunx playwright install chromium",
-      "cd apps/cli && bunx playwright install chromium",
-    ] as const;
-    issues.push({
-      id: "playwright-chromium-missing",
-      severity: "degraded",
-      message:
-        "Playwright Chromium is missing — embedded (browser) providers will fail until Chromium is installed.",
-      remediation,
-    });
-    log.warn(
-      "Playwright Chromium is missing — embedded (browser) providers will fail until Chromium is installed.",
-    );
-  }
-
-  const snapshot: CapabilitySnapshot = { mpv, chromiumForEmbeds, issues };
+  const snapshot: CapabilitySnapshot = { mpv, issues };
   const fingerprint = capabilityFingerprint(snapshot);
   const previous = await loadCapabilityNoticeState();
   const shouldShowRemediation =

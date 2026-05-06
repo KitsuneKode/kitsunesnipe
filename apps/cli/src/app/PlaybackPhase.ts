@@ -391,7 +391,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           const currentProvider = providerRegistry.get(stateManager.getState().provider);
 
           // Kick off timing fetch in parallel with everything else — IntroDB is a
-          // lightweight API call and should resolve well before the Playwright scrape.
+          // lightweight API call and should resolve well before stream resolution.
           const timingFetch = this.getPlaybackTimingMetadata(
             title,
             currentEpisode,
@@ -545,7 +545,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                   episode: currentEpisode.episode,
                 },
               });
-              const compatibleProviders = providerRegistry.getCompatible(title);
+              const compatibleProviders = providerRegistry.getCompatible(
+                title,
+                stateManager.getState().mode,
+              );
               let providerAttemptCount = 0;
               const resolveResult = await resolveWithFallback<StreamInfo>({
                 signal: resolveController.signal,
@@ -871,7 +874,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               toHistoryTimestamp(result, effectiveTiming.current, quitThresholdMode),
             );
             const fallback = providerRegistry
-              .getCompatible(title)
+              .getCompatible(title, stateManager.getState().mode)
               .find((candidate) => candidate.metadata.id !== resolvedProviderId);
 
             if (fallback) {

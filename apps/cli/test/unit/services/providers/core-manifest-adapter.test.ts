@@ -7,7 +7,7 @@ import {
   manifestToProviderMetadata,
   titleToCoreIdentity,
 } from "@/services/providers/core-manifest-adapter";
-import { allanimeManifest, cinebyAnimeManifest, vidkingManifest } from "@kunai/core";
+import { allanimeManifest, miruroManifest, vidkingManifest } from "@kunai/core";
 
 test("core provider manifest maps to the current CLI provider shape", () => {
   const metadata = manifestToProviderMetadata(vidkingManifest);
@@ -39,19 +39,19 @@ test("cli title and episode identities map to shared provider identities", () =>
   });
 });
 
-test("anime core manifests remain anime providers but expose series-compatible CLI content type", () => {
+test("anime core manifests stay anime-only while CLI adapters own compatibility", () => {
   const allanimeMetadata = manifestToProviderMetadata(allanimeManifest);
-  const cinebyAnimeMetadata = manifestToProviderMetadata(cinebyAnimeManifest);
+  const miruroMetadata = manifestToProviderMetadata(miruroManifest);
 
   expect(allanimeMetadata.isAnimeProvider).toBe(true);
-  expect(cinebyAnimeMetadata.isAnimeProvider).toBe(true);
+  expect(miruroMetadata.isAnimeProvider).toBe(true);
   expect(manifestToProviderCapabilities(allanimeManifest).contentTypes).toEqual(["series"]);
-  expect(manifestToProviderCapabilities(cinebyAnimeManifest).contentTypes).toEqual(["series"]);
+  expect(manifestToProviderCapabilities(miruroManifest).contentTypes).toEqual([]);
 });
 
 test("attachProviderResolveResult adds shared trace and cache policy to an existing stream", () => {
   const stream = attachProviderResolveResult({
-    manifest: cinebyAnimeManifest,
+    manifest: miruroManifest,
     request: {
       title: { id: "demon-slayer", type: "series", name: "Demon Slayer" },
       episode: { season: 1, episode: 1 },
@@ -63,11 +63,11 @@ test("attachProviderResolveResult adds shared trace and cache policy to an exist
       timestamp: 1,
     },
     mode: "anime",
-    runtime: "playwright-lease",
+    runtime: "node-fetch",
   });
 
-  expect(stream.providerResolveResult?.providerId).toBe("cineby-anime");
+  expect(stream.providerResolveResult?.providerId).toBe("miruro");
   expect(stream.providerResolveResult?.trace.title.kind).toBe("anime");
-  expect(stream.providerResolveResult?.trace.runtime).toBe("playwright-lease");
+  expect(stream.providerResolveResult?.trace.runtime).toBe("node-fetch");
   expect(stream.providerResolveResult?.cachePolicy?.keyParts).toContain("english");
 });

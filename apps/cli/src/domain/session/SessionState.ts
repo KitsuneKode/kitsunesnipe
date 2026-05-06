@@ -76,7 +76,12 @@ export type OverlayState =
   | { type: "source_picker"; options: readonly OverlayPickerOption[] }
   | { type: "quality_picker"; options: readonly OverlayPickerOption[] }
   | { type: "season_picker"; currentSeason: number; options: readonly OverlayPickerOption[] }
-  | { type: "episode_picker"; season: number; options: readonly OverlayPickerOption[] }
+  | {
+      type: "episode_picker";
+      season: number;
+      options: readonly OverlayPickerOption[];
+      initialIndex?: number;
+    }
   | { type: "history" }
   | { type: "diagnostics" }
   | { type: "help" }

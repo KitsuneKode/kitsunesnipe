@@ -14,7 +14,7 @@ export const rivestreamManifest = defineProviderManifest({
     {
       runtime: "node-fetch",
       operations: ["resolve-stream", "resolve-subtitles", "health-check"],
-      browserSafe: false, 
+      browserSafe: false,
       relaySafe: true,
       localOnly: false,
     },
@@ -37,6 +37,6 @@ export const rivestreamManifest = defineProviderManifest({
   relaySafe: true,
   status: "production",
   notes: [
-    "Bypasses Playwright entirely by generating the 32-bit MurmurHash signature natively in Node.js."
+    "Bypasses Playwright entirely by generating the 32-bit MurmurHash signature natively in Node.js.",
   ],
 });

@@ -4,7 +4,7 @@
 // Manages provider registration and resolution.
 // =============================================================================
 
-import type { TitleInfo, ProviderMetadata } from "@/domain/types";
+import type { TitleInfo, ProviderMetadata, ShellMode } from "@/domain/types";
 
 import type { Provider, ProviderDefinition, ProviderDeps } from "./Provider";
 
@@ -12,26 +12,21 @@ export interface ProviderRegistry {
   get(id: string): Provider | undefined;
   getAll(): Provider[];
   getAllIds(): string[];
-  getCompatible(title: TitleInfo): Provider[];
+  getCompatible(title: TitleInfo, mode?: ShellMode): Provider[];
   getDefault(isAnime: boolean): Provider;
   getMetadata(id: string): ProviderMetadata | undefined;
 }
 
-export interface ProviderRegistryDeps extends Omit<ProviderDeps, "playerDomains"> {}
+export interface ProviderRegistryDeps extends ProviderDeps {}
 
 export class ProviderRegistryImpl implements ProviderRegistry {
   private providers = new Map<string, Provider>();
   private definitions = new Map<string, ProviderDefinition>();
 
   constructor(deps: ProviderRegistryDeps, definitions: ProviderDefinition[]) {
-    // Calculate global player domains
-    const playerDomains = Array.from(
-      new Set(definitions.map((d) => d.metadata.domain).filter((d): d is string => !!d)),
-    );
-
     // Instantiate all providers
     for (const def of definitions) {
-      const instance = def.factory({ ...deps, playerDomains });
+      const instance = def.factory(deps);
       this.providers.set(def.id, instance);
       this.definitions.set(def.id, def);
     }
@@ -49,8 +44,13 @@ export class ProviderRegistryImpl implements ProviderRegistry {
     return Array.from(this.providers.keys());
   }
 
-  getCompatible(title: TitleInfo): Provider[] {
-    return this.getAll().filter((p) => p.canHandle(title));
+  getCompatible(title: TitleInfo, mode?: ShellMode): Provider[] {
+    return this.getAll().filter((p) => {
+      if (mode && p.metadata.isAnimeProvider !== (mode === "anime")) {
+        return false;
+      }
+      return p.canHandle(title);
+    });
   }
 
   getDefault(isAnime: boolean): Provider {

@@ -37,7 +37,7 @@ export const providerResearchProfiles = [
       "apps/experiments/scratchpads/provider-vidking/HDTODAY_VIDKING_DECRYPT_REPORT.md",
       "apps/experiments/scratchpads/provider-vidking/VIDKING_NETWORK_ANALYSIS.md",
     ],
-    runtimeClass: "node-fetch direct Videasy payload decode, Playwright fallback only",
+    runtimeClass: "node-fetch direct Videasy payload decode",
     implementationSource: "mixed",
     supportedContent: ["movie", "series"],
     sourceStrategy:
@@ -120,21 +120,6 @@ export const providerResearchProfiles = [
       "Treat hard-sub/server language as first-class until soft-sub endpoint is proven.",
     productionGap:
       "Wait for runtime-browser lease/cookie-harvest package before production promotion.",
-  },
-  {
-    providerId: "braflix",
-    status: "production",
-    migrationAction: "keep-as-fallback",
-    migrationRank: 60,
-    dossierPath: ".docs/provider-dossiers/braflix.md",
-    evidencePaths: ["apps/cli/src/services/providers/definitions/braflix.ts"],
-    runtimeClass: "HTML fetch metadata plus Playwright embed scrape",
-    implementationSource: "production-code",
-    supportedContent: ["movie", "series"],
-    sourceStrategy: "HTML metadata scrape, then embedded player interception.",
-    subtitleStrategy: "Embed network sniffing until direct API extraction is proven.",
-    productionGap:
-      "Avoid using this as the SDK reference provider; stabilize regex fixtures first.",
   },
   {
     providerId: "cineby",

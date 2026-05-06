@@ -29,8 +29,6 @@ export interface ProviderDeps {
   logger: import("@/infra/logger/Logger").Logger;
   tracer: import("@/infra/tracer/Tracer").Tracer;
   config: import("@/services/persistence/ConfigService").ConfigService;
-  browser: import("@/infra/browser/BrowserService").BrowserService;
-  playerDomains: string[];
 }
 
 export interface Provider {

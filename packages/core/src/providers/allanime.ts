@@ -24,13 +24,6 @@ export const allanimeManifest = defineProviderManifest({
       relaySafe: false,
       localOnly: true,
     },
-    {
-      runtime: "playwright-lease",
-      operations: ["resolve-stream", "resolve-subtitles", "refresh-source"],
-      browserSafe: false,
-      relaySafe: false,
-      localOnly: true,
-    },
   ],
   cachePolicy: {
     ttlClass: "stream-manifest",
@@ -41,7 +34,7 @@ export const allanimeManifest = defineProviderManifest({
   browserSafe: false,
   relaySafe: false,
   notes: [
-    "AllManga-compatible client uses local fetch/decode logic for search, catalog, and many source paths.",
-    "Playwright remains declared because some extracted embed URLs can still require browser interception.",
+    "AllManga-compatible client uses local fetch/decode logic for search, catalog, and source resolution.",
+    "The active CLI path is browserless; unsupported extracted embeds should return deterministic failure.",
   ],
 });

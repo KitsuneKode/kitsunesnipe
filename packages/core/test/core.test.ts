@@ -5,17 +5,15 @@ import {
   adaptCliStreamResult,
   assertRuntimeAllowed,
   assertManifestHasRuntimePort,
-  bitcineManifest,
   buildBitcineEmbedUrl,
   buildCinebyEmbedUrl,
   buildVidkingEmbedUrl,
-  braflixManifest,
-  cinebyAnimeManifest,
-  cinebyManifest,
   createProviderCachePolicy,
   createProviderRuntimeContext,
   createProviderTraceEvent,
   DEFAULT_PROVIDER_RETRY_POLICY,
+  miruroManifest,
+  rivestreamManifest,
   resolveWithFallback,
   vidkingManifest,
 } from "../src/index";
@@ -32,8 +30,7 @@ test("vidking manifest declares capability, cache, and runtime boundaries", () =
   expect(directPort.localOnly).toBe(true);
   expect(directPort.browserSafe).toBe(false);
 
-  const fallbackPort = assertManifestHasRuntimePort(vidkingManifest, "playwright-lease");
-  expect(fallbackPort.operations).toContain("refresh-source");
+  expect(vidkingManifest.runtimePorts.map((port) => port.runtime)).toEqual(["node-fetch"]);
 });
 
 test("provider embed URL builders preserve production playback routes", () => {
@@ -72,37 +69,26 @@ test("provider embed URL builders reject incomplete series inputs", () => {
 });
 
 test("all production providers declare cache and runtime boundaries", () => {
-  const manifests = [
-    vidkingManifest,
-    cinebyManifest,
-    bitcineManifest,
-    braflixManifest,
-    allanimeManifest,
-    cinebyAnimeManifest,
-  ];
+  const manifests = [rivestreamManifest, vidkingManifest, allanimeManifest, miruroManifest];
 
   expect(manifests.map((manifest) => manifest.id)).toEqual([
+    "rivestream",
     "vidking",
-    "cineby",
-    "bitcine",
-    "braflix",
     "allanime",
-    "cineby-anime",
+    "miruro",
   ]);
 
   for (const manifest of manifests) {
     expect(manifest.cachePolicy.ttlClass).toBe("stream-manifest");
     expect(manifest.cachePolicy.keyParts).toContain("provider");
     expect(manifest.runtimePorts.length).toBeGreaterThan(0);
-    expect(manifest.browserSafe).toBe(false);
   }
 });
 
 test("anime manifests stay visible to CLI series mode while marked as anime-capable", () => {
   expect(allanimeManifest.mediaKinds).toContain("anime");
   expect(allanimeManifest.mediaKinds).toContain("series");
-  expect(cinebyAnimeManifest.mediaKinds).toContain("anime");
-  expect(cinebyAnimeManifest.mediaKinds).toContain("series");
+  expect(miruroManifest.mediaKinds).toContain("anime");
 });
 
 test("provider cache policy normalizes deterministic key parts", () => {
@@ -158,10 +144,10 @@ test("provider sdk helpers reject unavailable runtimes before provider work star
   expect(() =>
     assertRuntimeAllowed({
       providerId: "vidking",
-      runtime: "playwright-lease",
-      allowedRuntimes: ["node-fetch"],
+      runtime: "node-fetch",
+      allowedRuntimes: ["playwright-lease"],
     }),
-  ).toThrow("vidking requires playwright-lease");
+  ).toThrow("vidking requires node-fetch");
 });
 
 test("cli stream adapter returns shared provider resolve result with trace evidence", () => {
@@ -181,7 +167,7 @@ test("cli stream adapter returns shared provider resolve result with trace evide
       subtitleSource: "provider",
     },
     cachePolicy,
-    runtime: "playwright-lease",
+    runtime: "node-fetch",
     cacheHit: true,
   });
 
@@ -189,7 +175,7 @@ test("cli stream adapter returns shared provider resolve result with trace evide
   expect(result.streams[0]?.protocol).toBe("hls");
   expect(result.subtitles[0]?.language).toBe("en");
   expect(result.trace.cacheHit).toBe(true);
-  expect(result.trace.runtime).toBe("playwright-lease");
+  expect(result.trace.runtime).toBe("node-fetch");
   expect(result.trace.steps.map((step) => step.stage)).toContain("runtime");
 });
 

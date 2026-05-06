@@ -18,13 +18,6 @@ export const vidkingManifest = defineProviderManifest({
       relaySafe: false,
       localOnly: true,
     },
-    {
-      runtime: "playwright-lease",
-      operations: ["resolve-stream", "resolve-subtitles", "refresh-source", "health-check"],
-      browserSafe: false,
-      relaySafe: false,
-      localOnly: true,
-    },
   ],
   cachePolicy: {
     ttlClass: "stream-manifest",
@@ -43,8 +36,8 @@ export const vidkingManifest = defineProviderManifest({
   browserSafe: false,
   relaySafe: false,
   notes: [
-    "Current CLI implementation tries the direct api.videasy.net payload/decryption path first.",
-    "Playwright remains declared only as a fallback when direct payload extraction fails.",
+    "Current CLI implementation uses the direct api.videasy.net payload/decryption path only.",
+    "If the direct payload is unavailable, the CLI fails fast instead of leasing a browser.",
     "Do not mark browser-safe because the implementation depends on local WASM assets and Node runtime behavior.",
   ],
 });

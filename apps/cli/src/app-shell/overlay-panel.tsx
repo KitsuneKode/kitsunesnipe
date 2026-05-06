@@ -66,7 +66,6 @@ type SettingsAction =
   | "animeProvider"
   | "subLang"
   | "animeLang"
-  | "headless"
   | "showMemory"
   | "autoNext"
   | "resumeStartChoicePrompt"
@@ -174,11 +173,6 @@ export function buildSettingsOptions(
       value: "animeLang",
       label: `Anime audio  ·  ${config.animeLang}`,
       detail: "Sub or dub preference",
-    },
-    {
-      value: "headless",
-      label: `Browser mode  ·  ${config.headless ? "headless" : "visible"}`,
-      detail: "Playwright browser visibility",
     },
     {
       value: "showMemory",
@@ -378,6 +372,23 @@ export function formatPickerOptionRow(input: {
   return { text, badgeSuffix };
 }
 
+export function formatPickerDisplayRow(input: {
+  readonly label: string;
+  readonly detail?: string;
+  readonly badge?: string;
+  readonly width: number;
+  readonly selected: boolean;
+}): { readonly prefix: string; readonly text: string; readonly badgeSuffix: string } {
+  const prefix = input.selected ? "> " : "  ";
+  const row = formatPickerOptionRow({
+    label: input.label,
+    detail: input.detail,
+    badge: input.badge,
+    width: Math.max(0, input.width - prefix.length),
+  });
+  return { prefix, ...row };
+}
+
 function resolvePanelTone(tone: ShellPanelLine["tone"]): string {
   switch (tone) {
     case "success":
@@ -481,11 +492,12 @@ export function OverlayPanel({
             {visibleOptions.map((option, index) => {
               const optionIndex = optionWindowStart + index;
               const selected = optionIndex === overlay.selectedIndex;
-              const row = formatPickerOptionRow({
+              const row = formatPickerDisplayRow({
                 label: option.label,
                 detail: option.detail,
                 badge: option.badge,
-                width: Math.max(0, contentWidth - 2),
+                width: Math.max(0, contentWidth),
+                selected,
               });
               const accentColor =
                 option.tone === "success"
@@ -500,9 +512,7 @@ export function OverlayPanel({
                   bold={selected}
                   wrap="truncate-end"
                 >
-                  <Text color={selected ? pickerAccent : palette.gray}>
-                    {selected ? "❯ " : "  "}
-                  </Text>
+                  <Text color={selected ? pickerAccent : palette.gray}>{row.prefix}</Text>
                   <Text
                     color={selected ? pickerAccent : (accentColor ?? "white")}
                     dimColor={!selected && !accentColor}

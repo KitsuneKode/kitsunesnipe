@@ -221,7 +221,7 @@ function setupSignalHandlers(): void {
     if (shutdownInProgress) return;
     shutdownInProgress = true;
     console.log(`\nReceived ${signal}, shutting down cleanly...`);
-    // Force exit after 4 s so Playwright cleanup never stalls Ctrl+C
+    // Force exit after 4 s so stuck cleanup never stalls Ctrl+C.
     const forceExit = setTimeout(() => {
       process.exit(0);
     }, 4000);
