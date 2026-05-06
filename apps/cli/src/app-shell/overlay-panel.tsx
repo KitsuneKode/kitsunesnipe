@@ -182,8 +182,8 @@ export function buildSettingsOptions(
     },
     {
       value: "showMemory",
-      label: `Memory line  ·  ${config.showMemory ? "shown" : "hidden"}`,
-      detail: "Show memory usage in playback shell",
+      label: `Memory panel  ·  ${config.showMemory ? "opens on playback" : "on demand"}`,
+      detail: "Press m during playback for fresh app, mpv, total, heap, and swap usage",
     },
     {
       value: "autoNext",

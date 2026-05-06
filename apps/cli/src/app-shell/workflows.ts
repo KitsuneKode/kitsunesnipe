@@ -1037,8 +1037,8 @@ export async function openSettingsShell({
         },
         {
           value: "showMemory" as const,
-          label: `Memory line  ·  ${next.showMemory ? "shown" : "hidden"}`,
-          detail: "Show memory usage in playback shell",
+          label: `Memory panel  ·  ${next.showMemory ? "opens on playback" : "on demand"}`,
+          detail: "Press m during playback for fresh app, mpv, total, heap, and swap usage",
         },
         {
           value: "autoNext" as const,

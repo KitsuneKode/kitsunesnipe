@@ -277,6 +277,9 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       // Episode selection (for series)
       let episode: EpisodeInfo | undefined;
       let pendingStartAt = 0;
+      // Set when user already chose a resume action in the shell.
+      // Suppresses the in-mpv resume/start-over prompt so we don't ask twice.
+      let pendingSuppressResumePrompt = false;
       const provider = providerRegistry.get(stateManager.getState().provider);
       const initialAnimeEpisodes = await this.getAnimeEpisodeOptions({
         title,
@@ -340,6 +343,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           episode: selection.episode,
         };
         pendingStartAt = selection.startAt ?? 0;
+        pendingSuppressResumePrompt = selection.suppressResumePrompt === true;
       } else {
         episode = { season: 1, episode: 1 };
       }
@@ -350,9 +354,6 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       let pendingPrefetchedStream: import("@/domain/types").StreamInfo | null = null;
       /** One stack frame per forward advance (N / auto-next) so P can restore the left episode. */
       const undoAdvanceStack: UndoAdvanceFrame[] = [];
-      // Set when user explicitly chose to resume from the post-playback shell (c key).
-      // Suppresses the in-mpv resume/start-over prompt so we don't ask twice.
-      let pendingSuppressResumePrompt = false;
 
       // Inner playback loop
       while (true) {

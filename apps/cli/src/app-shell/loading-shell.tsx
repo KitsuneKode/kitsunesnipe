@@ -1,46 +1,52 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import React from "react";
 
+import { getLoadingShellTimerPolicy, shouldShowLoadingElapsed } from "./loading-shell-runtime";
+import { getRuntimeMemoryLine } from "./runtime-memory";
 import { ShellFrame } from "./shell-frame";
 import { Badge, DetailLine } from "./shell-primitives";
 import { palette } from "./shell-theme";
 import type { FooterAction, LoadingShellState } from "./types";
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const MEMORY_PANEL_AUTO_HIDE_MS = 8_000;
 
-export function useSpinner() {
+export function useSpinner(active = true) {
   const [frame, setFrame] = React.useState(0);
   React.useEffect(() => {
+    if (!active) return undefined;
     const timer = setInterval(() => {
       setFrame((f) => (f + 1) % SPINNER_FRAMES.length);
     }, 80);
     return () => clearInterval(timer);
-  }, []);
+  }, [active]);
   return SPINNER_FRAMES[frame];
 }
 
-function useElapsed(): number {
+function useElapsed(active = true): number {
   const [elapsed, setElapsed] = React.useState(0);
   React.useEffect(() => {
+    if (!active) return undefined;
     const start = Date.now();
     const timer = setInterval(() => {
       setElapsed(Math.floor((Date.now() - start) / 1000));
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [active]);
   return elapsed;
 }
 
-function usePulse(periodMs: number): boolean {
+function usePulse(periodMs: number, active = true): boolean {
   const [on, setOn] = React.useState(true);
   React.useEffect(() => {
+    if (!active) return undefined;
     const start = Date.now();
     const timer = setInterval(() => {
       const phase = ((Date.now() - start) % periodMs) / periodMs;
       setOn(phase < 0.5);
     }, 80);
     return () => clearInterval(timer);
-  }, [periodMs]);
+  }, [active, periodMs]);
   return on;
 }
 
@@ -50,10 +56,25 @@ function formatElapsed(seconds: number): string {
   return m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${String(s)}s`;
 }
 
-function formatMemoryUsage(): string {
-  const memory = process.memoryUsage();
-  const toMb = (bytes: number) => `${(bytes / 1_048_576).toFixed(1)} MB`;
-  return `Mem  RSS ${toMb(memory.rss)}  ·  Heap ${toMb(memory.heapUsed)}/${toMb(memory.heapTotal)}`;
+function useRuntimeMemoryLine(refreshMs: number | null): string {
+  const [memoryLine, setMemoryLine] = React.useState(() =>
+    refreshMs === null ? "" : getRuntimeMemoryLine(),
+  );
+
+  React.useEffect(() => {
+    if (refreshMs === null) {
+      setMemoryLine("");
+      return undefined;
+    }
+
+    setMemoryLine(getRuntimeMemoryLine());
+    const timer = setInterval(() => {
+      setMemoryLine(getRuntimeMemoryLine());
+    }, refreshMs);
+    return () => clearInterval(timer);
+  }, [refreshMs]);
+
+  return memoryLine;
 }
 
 function renderPhaseRail(active: LoadingShellState["operation"]): readonly {
@@ -103,10 +124,26 @@ export function LoadingShell({
   onToggleAutoplay?: () => void;
   onStopAfterCurrent?: () => void;
 }) {
-  const spinner = useSpinner();
-  const elapsed = useElapsed();
-  const pulse = usePulse(1400);
+  const [memoryPanelVisible, setMemoryPanelVisible] = React.useState(() =>
+    Boolean(state.showMemory),
+  );
+  const timerPolicy = getLoadingShellTimerPolicy({
+    operation: state.operation,
+    memoryPanelVisible,
+  });
+  const spinner = useSpinner(timerPolicy.animate);
+  const elapsed = useElapsed(timerPolicy.trackElapsed);
+  const pulse = usePulse(1400, timerPolicy.animate);
+  const memoryLine = useRuntimeMemoryLine(timerPolicy.memoryRefreshMs);
   const { stdout } = useStdout();
+
+  React.useEffect(() => {
+    if (!memoryPanelVisible) return undefined;
+    const timer = setTimeout(() => {
+      setMemoryPanelVisible(false);
+    }, MEMORY_PANEL_AUTO_HIDE_MS);
+    return () => clearTimeout(timer);
+  }, [memoryPanelVisible]);
 
   useInput((input, key) => {
     if ((input === "c" && key.ctrl) || input === "\x03") {
@@ -138,6 +175,9 @@ export function LoadingShell({
     }
     if (input.toLowerCase() === "b" && state.operation === "playing" && onSkipSegment) {
       onSkipSegment();
+    }
+    if (input.toLowerCase() === "m" && state.operation === "playing") {
+      setMemoryPanelVisible(true);
     }
     if (input.toLowerCase() === "k" && state.operation === "playing" && onPickStreams) {
       onPickStreams();
@@ -266,10 +306,12 @@ export function LoadingShell({
             }
             tone={isPlaying ? "success" : "info"}
           />
-          {!isPlaying && elapsed >= 10 ? (
+          {shouldShowLoadingElapsed(state.operation, elapsed) ? (
             <DetailLine label="Elapsed" value={formatElapsed(elapsed)} />
           ) : null}
-          {state.showMemory ? <DetailLine label="Memory" value={formatMemoryUsage()} /> : null}
+          {memoryPanelVisible && memoryLine ? (
+            <DetailLine label="Memory" value={memoryLine} />
+          ) : null}
         </Box>
 
         {state.trace && (

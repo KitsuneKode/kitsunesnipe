@@ -21,6 +21,7 @@ export type EpisodeSelection = {
   season: number;
   episode: number;
   startAt?: number;
+  suppressResumePrompt?: boolean;
 };
 
 export type EpisodeSelectionResult = EpisodeSelection | null;
@@ -46,6 +47,36 @@ type NextHistoryEpisodeArgs = {
     loadEpisodes: typeof fetchEpisodes;
   };
 };
+
+export type StartingEpisodeChoice = "resume" | "restart" | "next" | "pick";
+
+export function resolveStartingEpisodeChoice(args: {
+  choice: StartingEpisodeChoice;
+  isAnime: boolean;
+  history: HistoryEntry;
+  nextEpisode: EpisodeSelection | null;
+}): EpisodeSelection | null {
+  const historyEpisode = {
+    season: args.isAnime ? 1 : args.history.season,
+    episode: args.history.episode,
+  };
+
+  if (args.choice === "resume") {
+    return {
+      ...historyEpisode,
+      startAt: args.history.timestamp,
+      suppressResumePrompt: true,
+    };
+  }
+  if (args.choice === "restart") {
+    return historyEpisode;
+  }
+  if (args.choice === "next") {
+    return args.nextEpisode;
+  }
+
+  return null;
+}
 
 function createPickerActionContext(container: Container | undefined, taskLabel: string) {
   return container ? buildPickerActionContext({ container, taskLabel }) : undefined;
@@ -216,22 +247,13 @@ export async function chooseStartingEpisode(opts: SelectionOpts): Promise<Episod
     return null;
   }
 
-  if (choice === "resume") {
-    return {
-      season: opts.isAnime ? 1 : history.season,
-      episode: history.episode,
-      startAt: history.timestamp,
-    };
-  }
-  if (choice === "restart") {
-    return { season: opts.isAnime ? 1 : history.season, episode: history.episode };
-  }
-  if (choice === "next") {
-    if (!nextEpisode) {
-      return null;
-    }
-    return nextEpisode;
-  }
+  const resolvedChoice = resolveStartingEpisodeChoice({
+    choice,
+    isAnime: opts.isAnime,
+    history,
+    nextEpisode,
+  });
+  if (resolvedChoice) return resolvedChoice;
 
   return pickEpisodeSelection(history.season, history.episode, opts);
 }

@@ -440,7 +440,7 @@ function AppRoot({ container }: { container: Container }) {
                       : undefined,
                   cancellable: playbackCanCancel,
                   trace: playbackTrace,
-                  showMemory: false,
+                  showMemory: container.config.showMemory,
                   stopHint:
                     state.playbackStatus === "playing" ||
                     state.playbackStatus === "buffering" ||
@@ -455,7 +455,7 @@ function AppRoot({ container }: { container: Container }) {
                     state.playbackStatus === "buffering" ||
                     state.playbackStatus === "seeking" ||
                     state.playbackStatus === "stalled"
-                      ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  b skip  ·  k streams  ·  r recover  ·  / commands`
+                      ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  b skip  ·  m memory  ·  k streams  ·  r recover  ·  / commands`
                       : undefined,
                   commands: fallbackCommandState([
                     "settings",
