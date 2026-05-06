@@ -55,12 +55,17 @@ export function toHistoryTimestamp(
   timing?: PlaybackTimingMetadata | null,
   thresholdMode: QuitNearEndThresholdMode = "credits-or-90-percent",
 ): number {
+  const trusted = result.lastTrustedProgressSeconds ?? 0;
   if (
     (didPlaybackReachCompletionThreshold(result, timing, thresholdMode) ||
-      (result.endReason === "eof" && result.duration > 0)) &&
+      (result.endReason === "eof" && result.duration > 0 && trusted <= 0)) &&
     result.duration > 0
   ) {
     return Math.max(result.watchedSeconds, result.duration);
+  }
+
+  if (trusted > 0) {
+    return trusted;
   }
 
   const lastNon = result.lastNonZeroPositionSeconds ?? 0;

@@ -103,6 +103,7 @@ export interface PlaybackResult {
   readonly socketPathCleanedUp?: boolean;
   readonly lastNonZeroPositionSeconds?: number;
   readonly lastNonZeroDurationSeconds?: number;
+  readonly lastTrustedProgressSeconds?: number;
 }
 
 export interface PlaybackTimingSegment {

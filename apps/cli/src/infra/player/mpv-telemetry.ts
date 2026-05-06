@@ -451,6 +451,7 @@ export function finalizePlaybackResult(
   const endReason = chosen?.endReason ?? state.endReason;
   let watchedSeconds = chosen?.positionSeconds ?? 0;
   const duration = chosen?.durationSeconds ?? 0;
+  const lastTrustedProgressSeconds = state.maxTrustedProgressSeconds;
 
   if (endReason === "eof" && duration > 0) {
     watchedSeconds = Math.max(watchedSeconds, duration);
@@ -482,6 +483,7 @@ export function finalizePlaybackResult(
       socketPathCleanedUp: cleanup.socketPathCleanedUp,
       lastNonZeroPositionSeconds: 0,
       lastNonZeroDurationSeconds: 0,
+      lastTrustedProgressSeconds: 0,
     };
   }
 
@@ -496,5 +498,6 @@ export function finalizePlaybackResult(
     socketPathCleanedUp: cleanup.socketPathCleanedUp,
     lastNonZeroPositionSeconds: state.lastNonZeroSample?.positionSeconds ?? 0,
     lastNonZeroDurationSeconds: state.lastNonZeroSample?.durationSeconds ?? 0,
+    lastTrustedProgressSeconds,
   };
 }

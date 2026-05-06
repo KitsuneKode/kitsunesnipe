@@ -91,10 +91,16 @@ export function didPlaybackReachCompletionThreshold(
   timing?: PlaybackTimingMetadata | null,
   thresholdMode: QuitNearEndThresholdMode = "credits-or-90-percent",
 ): boolean {
+  const trusted = result.lastTrustedProgressSeconds;
+  const watchedSeconds =
+    typeof trusted === "number" && Number.isFinite(trusted) && trusted > 0
+      ? Math.min(result.watchedSeconds, trusted)
+      : result.watchedSeconds;
+
   return (
     result.duration > 0 &&
-    result.watchedSeconds > 0 &&
-    result.watchedSeconds >= getCompletionThresholdSeconds(result.duration, timing, thresholdMode)
+    watchedSeconds > 0 &&
+    watchedSeconds >= getCompletionThresholdSeconds(result.duration, timing, thresholdMode)
   );
 }
 
@@ -108,7 +114,7 @@ export function didPlaybackEndNearNaturalEnd(
   // Fallback for sources where mpv never reports a reliable duration (HLS/m3u8).
   // If the last known non-zero position is ≥ 95% of the last known non-zero duration,
   // treat playback as having ended near the natural end.
-  const pos = result.lastNonZeroPositionSeconds ?? 0;
+  const pos = result.lastTrustedProgressSeconds ?? result.lastNonZeroPositionSeconds ?? 0;
   const dur = result.lastNonZeroDurationSeconds ?? 0;
   if (dur > 30 && pos / dur >= 0.95) return true;
 

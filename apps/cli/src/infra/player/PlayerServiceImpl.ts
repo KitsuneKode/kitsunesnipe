@@ -78,6 +78,7 @@ export class PlayerServiceImpl implements PlayerService {
         playerExitSignal: result.playerExitSignal ?? null,
         lastNonZeroPositionSeconds: result.lastNonZeroPositionSeconds ?? 0,
         lastNonZeroDurationSeconds: result.lastNonZeroDurationSeconds ?? 0,
+        lastTrustedProgressSeconds: result.lastTrustedProgressSeconds ?? 0,
       });
       this.deps.diagnosticsStore.record({
         category: "playback",
@@ -93,6 +94,7 @@ export class PlayerServiceImpl implements PlayerService {
           socketPathCleanedUp: result.socketPathCleanedUp ?? true,
           lastNonZeroPositionSeconds: result.lastNonZeroPositionSeconds ?? 0,
           lastNonZeroDurationSeconds: result.lastNonZeroDurationSeconds ?? 0,
+          lastTrustedProgressSeconds: result.lastTrustedProgressSeconds ?? 0,
           failureClass: classifyPlaybackFailureFromResult(result),
           recovery: recoveryForPlaybackFailure(classifyPlaybackFailureFromResult(result)),
         },

@@ -49,6 +49,7 @@ describe("mpv-telemetry", () => {
       socketPathCleanedUp: true,
       lastNonZeroPositionSeconds: 1440,
       lastNonZeroDurationSeconds: 1440,
+      lastTrustedProgressSeconds: 1437,
     });
   });
 
@@ -96,6 +97,7 @@ describe("mpv-telemetry", () => {
       socketPathCleanedUp: true,
       lastNonZeroPositionSeconds: 612,
       lastNonZeroDurationSeconds: 1440,
+      lastTrustedProgressSeconds: 612,
     });
   });
 
@@ -142,6 +144,7 @@ describe("mpv-telemetry", () => {
       socketPathCleanedUp: true,
       lastNonZeroPositionSeconds: 0,
       lastNonZeroDurationSeconds: 0,
+      lastTrustedProgressSeconds: 0,
     });
   });
 
@@ -164,6 +167,7 @@ describe("mpv-telemetry", () => {
       socketPathCleanedUp: false,
       lastNonZeroPositionSeconds: 0,
       lastNonZeroDurationSeconds: 0,
+      lastTrustedProgressSeconds: 0,
     });
   });
 
@@ -249,6 +253,7 @@ describe("mpv-telemetry", () => {
     const result = finalizePlaybackResult(telemetry, { socketPathCleanedUp: true });
     expect(result.endReason).toBe("unknown");
     expect(result.watchedSeconds).toBe(400);
+    expect(result.lastTrustedProgressSeconds).toBe(400);
   });
 
   test("demotes eof without stall when trusted progress is still very early in a long file", () => {

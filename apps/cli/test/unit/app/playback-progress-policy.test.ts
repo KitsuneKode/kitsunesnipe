@@ -72,3 +72,13 @@ test("toHistoryTimestamp preserves last non-zero quit position", () => {
 test("toHistoryTimestamp marks eof as complete duration", () => {
   expect(toHistoryTimestamp(resultAt(590, 600, "eof"))).toBe(600);
 });
+
+test("toHistoryTimestamp uses trusted progress when eof jumps to duration", () => {
+  expect(
+    toHistoryTimestamp({
+      ...resultAt(2_000, 2_000, "eof"),
+      lastNonZeroPositionSeconds: 2_000,
+      lastTrustedProgressSeconds: 420,
+    }),
+  ).toBe(420);
+});

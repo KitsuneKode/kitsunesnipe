@@ -121,6 +121,21 @@ describe("SessionState overlays", () => {
     state = reduceState(state, { type: "CLOSE_COMMAND_BAR" });
     expect(resolveEscTransition(state)).toEqual({ type: "CLOSE_TOP_OVERLAY" });
   });
+
+  test("mounted root content remains primary while overlays render inside it", () => {
+    let state = createInitialState("vidking", "allanime");
+    state = reduceState(state, {
+      type: "OPEN_OVERLAY",
+      overlay: { type: "diagnostics" },
+    });
+
+    expect(
+      resolveRootShellSurface(state, {
+        hasRootContent: true,
+        hasMountedScreen: false,
+      }),
+    ).toBe("root-content");
+  });
 });
 
 describe("SessionState responsive layout", () => {

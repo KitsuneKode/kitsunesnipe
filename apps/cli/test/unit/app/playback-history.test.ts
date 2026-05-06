@@ -76,4 +76,18 @@ describe("playback-history", () => {
     expect(shouldPersistHistory(result, creditsTiming)).toBe(true);
     expect(toHistoryTimestamp(result, creditsTiming)).toBe(1500);
   });
+
+  test("does not complete a network-style eof jump beyond trusted progress", () => {
+    const result = {
+      watchedSeconds: 1500,
+      duration: 1500,
+      endReason: "eof" as const,
+      lastNonZeroPositionSeconds: 1500,
+      lastNonZeroDurationSeconds: 1500,
+      lastTrustedProgressSeconds: 420,
+    };
+
+    expect(shouldPersistHistory(result)).toBe(true);
+    expect(toHistoryTimestamp(result)).toBe(420);
+  });
 });

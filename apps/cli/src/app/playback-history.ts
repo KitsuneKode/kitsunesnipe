@@ -10,9 +10,11 @@ export function shouldPersistHistory(
   timing?: PlaybackTimingMetadata | null,
   thresholdMode: QuitNearEndThresholdMode = "credits-or-90-percent",
 ): boolean {
+  const trusted = result.lastTrustedProgressSeconds ?? 0;
   return (
     result.watchedSeconds > 10 ||
+    trusted > 10 ||
     didPlaybackReachCompletionThreshold(result, timing, thresholdMode) ||
-    (result.endReason === "eof" && result.duration > 0)
+    (result.endReason === "eof" && result.duration > 0 && trusted <= 0)
   );
 }
