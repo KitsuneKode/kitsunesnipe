@@ -1,8 +1,5 @@
-import { toHistoryTimestamp } from "@/app/playback-history";
-import {
-  didPlaybackReachCompletionThreshold,
-  type QuitNearEndThresholdMode,
-} from "@/app/playback-policy";
+import type { QuitNearEndThresholdMode } from "@/app/playback-policy";
+import { resumeSecondsFromProgressPoint, toHistoryTimestamp } from "@/app/playback-progress-policy";
 import type { EpisodeInfo, PlaybackResult, PlaybackTimingMetadata } from "@/domain/types";
 
 export type UndoAdvanceFrame = {
@@ -15,19 +12,6 @@ export function sameEpisode(a: EpisodeInfo, b: EpisodeInfo): boolean {
   return a.season === b.season && a.episode === b.episode;
 }
 
-function syntheticResultForUndoCheck(
-  positionSeconds: number,
-  durationSeconds: number,
-): PlaybackResult {
-  return {
-    watchedSeconds: positionSeconds,
-    duration: durationSeconds,
-    endReason: "quit",
-    lastNonZeroPositionSeconds: positionSeconds,
-    lastNonZeroDurationSeconds: durationSeconds,
-  };
-}
-
 /** Resume seconds for an undo frame, or 0 when we should start the episode from the beginning. */
 export function guardedUndoResumeSeconds(
   positionSeconds: number,
@@ -35,18 +19,11 @@ export function guardedUndoResumeSeconds(
   thresholdMode: QuitNearEndThresholdMode,
   timing?: PlaybackTimingMetadata | null,
 ): number {
-  if (positionSeconds <= 10) return 0;
-  if (durationSeconds > 0 && positionSeconds >= Math.max(0, durationSeconds - 5)) return 0;
-
-  const synthetic = syntheticResultForUndoCheck(positionSeconds, durationSeconds);
-  if (
-    durationSeconds > 0 &&
-    didPlaybackReachCompletionThreshold(synthetic, timing, thresholdMode)
-  ) {
-    return 0;
-  }
-
-  return positionSeconds;
+  return resumeSecondsFromProgressPoint(
+    { positionSeconds, durationSeconds },
+    thresholdMode,
+    timing,
+  );
 }
 
 /** Call when leaving an episode via next / auto-next so P can restore the prior position. */

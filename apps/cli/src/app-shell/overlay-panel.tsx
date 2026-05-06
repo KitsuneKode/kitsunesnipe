@@ -366,6 +366,18 @@ export function settingsEqual(
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
+export function formatPickerOptionRow(input: {
+  readonly label: string;
+  readonly detail?: string;
+  readonly badge?: string;
+  readonly width: number;
+}): { readonly text: string; readonly badgeSuffix: string } {
+  const badgeSuffix = input.badge ? `  ${input.badge}` : "";
+  const textWidth = Math.max(0, input.width - badgeSuffix.length);
+  const text = truncateLine(`${input.label}${input.detail ? `  ${input.detail}` : ""}`, textWidth);
+  return { text, badgeSuffix };
+}
+
 function resolvePanelTone(tone: ShellPanelLine["tone"]): string {
   switch (tone) {
     case "success":
@@ -467,11 +479,12 @@ export function OverlayPanel({
             {visibleOptions.map((option, index) => {
               const optionIndex = optionWindowStart + index;
               const selected = optionIndex === overlay.selectedIndex;
-              const badgeSuffix = option.badge ? `  ${option.badge}` : "";
-              const row = truncateLine(
-                `${option.label}${option.detail ? `  ${option.detail}` : ""}`,
-                contentWidth - badgeSuffix.length,
-              );
+              const row = formatPickerOptionRow({
+                label: option.label,
+                detail: option.detail,
+                badge: option.badge,
+                width: Math.max(0, contentWidth - 2),
+              });
               const accentColor =
                 option.tone === "success"
                   ? palette.green
@@ -483,6 +496,7 @@ export function OverlayPanel({
                   key={`${option.value}-${optionIndex}`}
                   backgroundColor={selected ? palette.surfaceElevated : undefined}
                   bold={selected}
+                  wrap="truncate-end"
                 >
                   <Text color={selected ? pickerAccent : palette.gray}>
                     {selected ? "❯ " : "  "}
@@ -490,15 +504,17 @@ export function OverlayPanel({
                   <Text
                     color={selected ? pickerAccent : (accentColor ?? "white")}
                     dimColor={!selected && !accentColor}
+                    wrap="truncate-end"
                   >
-                    {row}
+                    {row.text}
                   </Text>
-                  {badgeSuffix ? (
+                  {row.badgeSuffix ? (
                     <Text
                       color={selected ? pickerAccent : (accentColor ?? palette.gray)}
                       dimColor={!selected && !accentColor}
+                      wrap="truncate-end"
                     >
-                      {badgeSuffix}
+                      {row.badgeSuffix}
                     </Text>
                   ) : null}
                 </Text>

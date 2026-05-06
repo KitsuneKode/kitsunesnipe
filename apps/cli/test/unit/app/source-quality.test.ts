@@ -5,6 +5,8 @@ import {
   buildQualityPickerOptions,
   buildSourcePickerOptions,
   buildStreamPickerOptions,
+  streamSelectionFromSource,
+  streamSelectionFromStream,
 } from "@/app/source-quality";
 import type { StreamInfo } from "@/domain/types";
 
@@ -146,18 +148,19 @@ test("buildStreamPickerOptions combines source quality audio and subtitle detail
 });
 
 test("applyPreferredStreamSelection prefers explicit stream id override", () => {
-  const next = applyPreferredStreamSelection(streamWithCandidates, {
-    preferredStreamId: "stream-720",
-    preferredSourceId: "source-b",
-  });
+  const next = applyPreferredStreamSelection(
+    streamWithCandidates,
+    streamSelectionFromStream("stream-720"),
+  );
   expect(next.url).toBe("https://cdn.example/720.m3u8");
   expect(next.providerResolveResult?.selectedStreamId).toBe("stream-720");
 });
 
 test("applyPreferredStreamSelection falls back to best quality in preferred source", () => {
-  const next = applyPreferredStreamSelection(streamWithCandidates, {
-    preferredSourceId: "source-b",
-  });
+  const next = applyPreferredStreamSelection(
+    streamWithCandidates,
+    streamSelectionFromSource("source-b"),
+  );
   expect(next.url).toBe("https://cdn.example/source-b-480.m3u8");
   expect(next.providerResolveResult?.selectedStreamId).toBe("stream-480-source-b");
 });

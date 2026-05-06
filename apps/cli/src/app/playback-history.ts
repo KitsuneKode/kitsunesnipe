@@ -2,6 +2,7 @@ import {
   didPlaybackReachCompletionThreshold,
   type QuitNearEndThresholdMode,
 } from "@/app/playback-policy";
+export { toHistoryTimestamp } from "@/app/playback-progress-policy";
 import type { PlaybackResult, PlaybackTimingMetadata } from "@/domain/types";
 
 export function shouldPersistHistory(
@@ -14,25 +15,4 @@ export function shouldPersistHistory(
     didPlaybackReachCompletionThreshold(result, timing, thresholdMode) ||
     (result.endReason === "eof" && result.duration > 0)
   );
-}
-
-export function toHistoryTimestamp(
-  result: PlaybackResult,
-  timing?: PlaybackTimingMetadata | null,
-  thresholdMode: QuitNearEndThresholdMode = "credits-or-90-percent",
-): number {
-  if (
-    (didPlaybackReachCompletionThreshold(result, timing, thresholdMode) ||
-      (result.endReason === "eof" && result.duration > 0)) &&
-    result.duration > 0
-  ) {
-    return Math.max(result.watchedSeconds, result.duration);
-  }
-
-  const lastNon = result.lastNonZeroPositionSeconds ?? 0;
-  if (result.watchedSeconds <= 0 && lastNon > 0) {
-    return lastNon;
-  }
-
-  return result.watchedSeconds;
 }

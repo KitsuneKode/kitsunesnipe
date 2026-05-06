@@ -50,6 +50,9 @@ import {
   buildQualityPickerOptions,
   buildSourcePickerOptions,
   buildStreamPickerOptions,
+  emptyStreamSelectionIntent,
+  streamSelectionFromSource,
+  streamSelectionFromStream,
 } from "@/app/source-quality";
 import { choosePlaybackSubtitle } from "@/app/subtitle-selection";
 import { effectiveFooterHints } from "@/container";
@@ -275,8 +278,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     let playbackSession: PlaybackSessionState = createPlaybackSessionState({
       autoNextEnabled: config.autoNext,
     });
-    let preferredSourceId: string | null = null;
-    let preferredStreamId: string | null = null;
+    let preferredStreamSelection = emptyStreamSelectionIntent();
 
     try {
       // Episode selection (for series)
@@ -675,10 +677,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             return { status: "success", value: "back_to_results" };
           }
 
-          stream = applyPreferredStreamSelection(stream, {
-            preferredSourceId,
-            preferredStreamId,
-          });
+          stream = applyPreferredStreamSelection(stream, preferredStreamSelection);
 
           // Await timing — stream resolve takes much longer so this is nearly free.
           // If IntroDB timed out and returned null, schedule a background retry that
@@ -998,8 +997,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 container,
               );
               if (pickedSource) {
-                preferredSourceId = pickedSource;
-                preferredStreamId = null;
+                preferredStreamSelection = streamSelectionFromSource(pickedSource);
                 pendingStart = startAtResumePoint(
                   toHistoryTimestamp(
                     result,
@@ -1035,7 +1033,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 container,
               );
               if (pickedStreamId) {
-                preferredStreamId = pickedStreamId;
+                preferredStreamSelection = streamSelectionFromStream(pickedStreamId);
                 pendingStart = startAtResumePoint(
                   toHistoryTimestamp(
                     result,
@@ -1071,7 +1069,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 container,
               );
               if (pickedQualityStreamId) {
-                preferredStreamId = pickedQualityStreamId;
+                preferredStreamSelection = streamSelectionFromStream(pickedQualityStreamId);
                 pendingStart = startAtResumePoint(
                   toHistoryTimestamp(
                     result,
@@ -1365,8 +1363,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               if (!pickedSource) {
                 continue postPlayback;
               }
-              preferredSourceId = pickedSource;
-              preferredStreamId = null;
+              preferredStreamSelection = streamSelectionFromSource(pickedSource);
               pendingStart = startAtResumePoint(resumeSeconds);
               break postPlayback;
             } else if (routedAction === "quality") {
@@ -1385,7 +1382,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               if (!pickedQualityStreamId) {
                 continue postPlayback;
               }
-              preferredStreamId = pickedQualityStreamId;
+              preferredStreamSelection = streamSelectionFromStream(pickedQualityStreamId);
               pendingStart = startAtResumePoint(resumeSeconds);
               break postPlayback;
             } else if (routedAction === "streams") {
@@ -1404,7 +1401,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               if (!pickedStreamId) {
                 continue postPlayback;
               }
-              preferredStreamId = pickedStreamId;
+              preferredStreamSelection = streamSelectionFromStream(pickedStreamId);
               pendingStart = startAtResumePoint(resumeSeconds);
               break postPlayback;
             } else if (routedAction === "back-to-search") {

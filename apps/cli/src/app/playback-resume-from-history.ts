@@ -1,8 +1,6 @@
-import {
-  didPlaybackReachCompletionThreshold,
-  type QuitNearEndThresholdMode,
-} from "@/app/playback-policy";
-import type { EpisodeInfo, PlaybackResult } from "@/domain/types";
+import type { QuitNearEndThresholdMode } from "@/app/playback-policy";
+import { resumeSecondsFromProgressPoint } from "@/app/playback-progress-policy";
+import type { EpisodeInfo } from "@/domain/types";
 import type { HistoryStore } from "@/services/persistence/HistoryStore";
 import { isFinished } from "@/services/persistence/HistoryStore";
 
@@ -22,22 +20,8 @@ export async function resumeSecondsFromHistoryForEpisode(
   if (isFinished(entry)) return 0;
 
   const ts = entry.timestamp;
-  if (ts <= 10) return 0;
-  if (entry.duration > 0 && ts >= Math.max(0, entry.duration - 5)) return 0;
-
-  const synthetic: PlaybackResult = {
-    watchedSeconds: ts,
-    duration: entry.duration,
-    endReason: "quit",
-    lastNonZeroPositionSeconds: ts,
-    lastNonZeroDurationSeconds: entry.duration,
-  };
-  if (
-    entry.duration > 0 &&
-    didPlaybackReachCompletionThreshold(synthetic, null, quitNearEndThresholdMode)
-  ) {
-    return 0;
-  }
-
-  return ts;
+  return resumeSecondsFromProgressPoint(
+    { positionSeconds: ts, durationSeconds: entry.duration },
+    quitNearEndThresholdMode,
+  );
 }

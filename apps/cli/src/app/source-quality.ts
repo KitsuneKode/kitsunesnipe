@@ -19,6 +19,23 @@ type StreamOption = {
   readonly detail?: string;
 };
 
+export type StreamSelectionIntent = {
+  readonly sourceId: string | null;
+  readonly streamId: string | null;
+};
+
+export function emptyStreamSelectionIntent(): StreamSelectionIntent {
+  return { sourceId: null, streamId: null };
+}
+
+export function streamSelectionFromSource(sourceId: string): StreamSelectionIntent {
+  return { sourceId, streamId: null };
+}
+
+export function streamSelectionFromStream(streamId: string): StreamSelectionIntent {
+  return { sourceId: null, streamId };
+}
+
 export function buildStreamPickerOptions(stream: StreamInfo): readonly StreamOption[] {
   const result = stream.providerResolveResult;
   if (!result) return [];
@@ -108,23 +125,20 @@ export function buildQualityPickerOptions(stream: StreamInfo): readonly QualityO
 
 export function applyPreferredStreamSelection(
   stream: StreamInfo,
-  preferences: {
-    readonly preferredSourceId?: string | null;
-    readonly preferredStreamId?: string | null;
-  },
+  selection: StreamSelectionIntent,
 ): StreamInfo {
   const result = stream.providerResolveResult;
   if (!result || result.streams.length === 0) return stream;
 
   let selected =
-    (preferences.preferredStreamId
-      ? result.streams.find((candidate) => candidate.id === preferences.preferredStreamId)
+    (selection.streamId
+      ? result.streams.find((candidate) => candidate.id === selection.streamId)
       : null) ?? null;
 
-  if (!selected && preferences.preferredSourceId) {
+  if (!selected && selection.sourceId) {
     selected =
       [...result.streams]
-        .filter((candidate) => candidate.sourceId === preferences.preferredSourceId)
+        .filter((candidate) => candidate.sourceId === selection.sourceId)
         .sort((left, right) => (right.qualityRank ?? 0) - (left.qualityRank ?? 0))[0] ?? null;
   }
 
