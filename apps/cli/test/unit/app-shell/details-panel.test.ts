@@ -58,7 +58,13 @@ describe("buildBrowseDetailsPanel", () => {
     expect(panel.title).toBe("Demon Slayer");
     expect(panel.badges.map((badge) => badge.label)).toEqual(["Series", "2019", "8.5/10 TMDB"]);
     expect(panel.badges.find((badge) => badge.label === "8.5/10 TMDB")?.tone).toBe("success");
-    expect(panel.facts.map((fact) => fact.label)).toEqual(["Provider data", "Next step"]);
-    expect(panel.facts.find((fact) => fact.label === "Provider data")?.tone).toBe("success");
+    expect(panel.facts.map((fact) => fact.label)).toEqual([
+      "Type",
+      "Year",
+      "Rating",
+      "Poster",
+      "Next step",
+    ]);
+    expect(panel.facts.find((fact) => fact.label === "Poster")?.tone).toBe("success");
   });
 });

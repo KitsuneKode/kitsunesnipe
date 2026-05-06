@@ -2,20 +2,47 @@ import type { SearchResult, ShellMode, TitleAlias } from "@/domain/types";
 
 const VIDEASY_TRENDING_URL = "https://db.videasy.net/3/trending/all/week?language=en-US&page=1";
 const ANILIST_GRAPHQL_URL = "https://graphql.anilist.co";
+const DISCOVERY_CACHE_TTL_MS = 30 * 60 * 1000;
 
-const discoveryCache = new Map<string, readonly SearchResult[]>();
+type DiscoveryCacheEntry = {
+  readonly expiresAt: number;
+  readonly results: readonly SearchResult[];
+};
+
+const discoveryCache = new Map<string, DiscoveryCacheEntry>();
+const discoveryInflight = new Map<string, Promise<readonly SearchResult[]>>();
+
+export function clearDiscoveryListCache(): void {
+  discoveryCache.clear();
+  discoveryInflight.clear();
+}
 
 export async function loadDiscoveryList(
   mode: ShellMode,
   signal?: AbortSignal,
 ): Promise<SearchResult[]> {
   const key = mode;
+  const now = Date.now();
   const cached = discoveryCache.get(key);
-  if (cached) return [...cached];
+  if (cached && cached.expiresAt > now) return [...cached.results];
 
-  const results =
-    mode === "anime" ? await loadAnimeDiscoveryList(signal) : await loadTmdbDiscoveryList(signal);
-  discoveryCache.set(key, results);
+  const inflight = discoveryInflight.get(key);
+  if (inflight) return [...(await inflight)];
+
+  const task = (
+    mode === "anime" ? loadAnimeDiscoveryList(signal) : loadTmdbDiscoveryList(signal)
+  ).then((results) => {
+    discoveryCache.set(key, {
+      expiresAt: Date.now() + DISCOVERY_CACHE_TTL_MS,
+      results,
+    });
+    return results;
+  });
+  discoveryInflight.set(key, task);
+
+  const results = await task.finally(() => {
+    discoveryInflight.delete(key);
+  });
   return [...results];
 }
 

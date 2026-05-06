@@ -1595,6 +1595,7 @@ function BrowseShell<T>({
   loadAboutPanel: _loadAboutPanel,
   onChangeProvider: _onChangeProvider,
   onSearch,
+  onLoadDiscovery,
   footerMode = "detailed",
   settings: _settings,
   settingsSeriesProviderOptions: _settingsSeriesProviderOptions,
@@ -1619,6 +1620,7 @@ function BrowseShell<T>({
   loadAboutPanel?: () => Promise<readonly ShellPanelLine[]>;
   onChangeProvider?: (providerId: string) => Promise<void>;
   onSearch: (query: string) => Promise<BrowseShellSearchResponse<T>>;
+  onLoadDiscovery?: () => Promise<BrowseShellSearchResponse<T>>;
   footerMode?: ShellFooterMode;
   settings?: KitsuneConfig;
   settingsSeriesProviderOptions?: readonly ShellPickerOption<string>[];
@@ -1738,6 +1740,40 @@ function BrowseShell<T>({
     }
   };
 
+  const loadDiscovery = async () => {
+    if (!onLoadDiscovery || searchState === "loading") return;
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    setQuery("");
+    setSearchState("loading");
+    setErrorMessage(null);
+    setEmptyMessage("Loading trending…");
+    setSelectedDetail("Loading cached trending titles…");
+
+    try {
+      const response = await onLoadDiscovery();
+      if (requestIdRef.current !== requestId) return;
+
+      setLastSearchedQuery("");
+      setOptions(response.options);
+      setSelectedIndex(0);
+      setResultSubtitle(response.subtitle);
+      setEmptyMessage(response.emptyMessage ?? "Trending is unavailable right now.");
+      setSearchState("ready");
+      setSelectedDetail(response.options[0]?.detail ?? "Use ↑↓ to move through trending titles.");
+    } catch (error) {
+      if (requestIdRef.current !== requestId) return;
+
+      setSearchState("error");
+      setOptions([]);
+      setSelectedIndex(0);
+      setErrorMessage(String(error));
+      setEmptyMessage("Trending failed.");
+      setSelectedDetail("Trending failed. Use search or press Ctrl+T to retry.");
+    }
+  };
+
   const closeOverlay = () => {
     setActiveOverlay(null);
   };
@@ -1759,6 +1795,13 @@ function BrowseShell<T>({
   const handleLocalAction = (action: ShellAction): boolean => {
     if (action === "details") {
       openDetailsOverlay();
+      return true;
+    }
+    if (action === "trending") {
+      setCommandMode(false);
+      setCommandInput("");
+      setHighlightedCommandIndex(0);
+      void loadDiscovery();
       return true;
     }
     return false;
@@ -1904,6 +1947,11 @@ function BrowseShell<T>({
       setCommandMode(true);
       setCommandInput("");
       setHighlightedCommandIndex(0);
+      return;
+    }
+
+    if ((input === "t" && key.ctrl) || input === "\x14") {
+      void loadDiscovery();
       return;
     }
 
@@ -2205,6 +2253,9 @@ function BrowseShell<T>({
             action: "toggle-mode",
           },
           { key: "/", label: "commands", action: "command-mode" },
+          ...(onLoadDiscovery
+            ? [{ key: "ctrl+t", label: "trending", action: "trending" as const }]
+            : []),
           { key: "esc", label: "clear/back", action: "quit" },
         ]}
       />
@@ -2228,6 +2279,7 @@ export function openBrowseShell<T>({
   loadAboutPanel,
   onChangeProvider,
   onSearch,
+  onLoadDiscovery,
   footerMode,
   settings,
   settingsSeriesProviderOptions,
@@ -2249,6 +2301,7 @@ export function openBrowseShell<T>({
   loadAboutPanel?: () => Promise<readonly ShellPanelLine[]>;
   onChangeProvider?: (providerId: string) => Promise<void>;
   onSearch: (query: string) => Promise<BrowseShellSearchResponse<T>>;
+  onLoadDiscovery?: () => Promise<BrowseShellSearchResponse<T>>;
   footerMode?: ShellFooterMode;
   settings?: KitsuneConfig;
   settingsSeriesProviderOptions?: readonly ShellPickerOption<string>[];
@@ -2274,6 +2327,7 @@ export function openBrowseShell<T>({
         loadAboutPanel={loadAboutPanel}
         onChangeProvider={onChangeProvider}
         onSearch={onSearch}
+        onLoadDiscovery={onLoadDiscovery}
         footerMode={footerMode}
         settings={settings}
         settingsSeriesProviderOptions={settingsSeriesProviderOptions}

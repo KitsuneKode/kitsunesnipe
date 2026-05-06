@@ -118,6 +118,11 @@ export function buildHelpPanelLines(): readonly ShellPanelLine[] {
         "In browse, Tab jumps straight to the destination mode shown in the footer, like anime mode or series mode.",
     },
     {
+      label: "Ctrl+T Trending",
+      detail:
+        "Loads the cached discovery list on demand, instead of fetching trending titles during startup.",
+    },
+    {
       label: "Playback continuity",
       detail:
         "Replay, provider switch, history, diagnostics, and episode actions should stay reachable after playback returns.",

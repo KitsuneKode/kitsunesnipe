@@ -2,6 +2,7 @@ import type { SessionState } from "./SessionState";
 
 export type AppCommandId =
   | "search"
+  | "trending"
   | "settings"
   | "toggle-mode"
   | "quit"
@@ -46,6 +47,12 @@ export const COMMANDS: readonly AppCommand[] = [
     label: "Search",
     aliases: ["search", "find"],
     description: "Start a new search",
+  },
+  {
+    id: "trending",
+    label: "Trending",
+    aliases: ["trending", "discover", "popular"],
+    description: "Load the cached trending discovery list",
   },
   {
     id: "settings",
@@ -301,6 +308,7 @@ function resolveCommandState(
 
   switch (id) {
     case "search":
+    case "trending":
     case "settings":
     case "history":
     case "details":

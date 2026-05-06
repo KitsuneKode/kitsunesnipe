@@ -3,6 +3,7 @@ import type { ResolvedAppCommand, AppCommandId } from "./commands";
 export type ShellAction =
   | "command-mode"
   | "search"
+  | "trending"
   | "back-to-results"
   | "settings"
   | "toggle-mode"
@@ -140,6 +141,7 @@ export type PlaybackShellResult =
 export function toShellAction(commandId: AppCommandId): ShellAction {
   switch (commandId) {
     case "search":
+    case "trending":
     case "settings":
     case "toggle-mode":
     case "quit":

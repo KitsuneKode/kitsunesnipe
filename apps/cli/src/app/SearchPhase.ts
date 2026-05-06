@@ -56,34 +56,6 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
 
       while (true) {
         const currentState = stateManager.getState();
-        if (
-          currentState.searchQuery.trim().length === 0 &&
-          currentState.searchResults.length === 0 &&
-          currentState.searchState === "idle"
-        ) {
-          stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "loading" });
-          const results = await loadDiscoveryList(currentState.mode, context.signal);
-          if (results.length > 0) {
-            logger.info("Discovery list loaded", {
-              mode: currentState.mode,
-              count: results.length,
-            });
-            diagnosticsStore.record({
-              category: "search",
-              message: "Discovery list loaded",
-              context: {
-                mode: currentState.mode,
-                count: results.length,
-              },
-            });
-            stateManager.dispatch({ type: "SET_SEARCH_RESULTS", results });
-            stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "ready" });
-            continue;
-          } else {
-            stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "idle" });
-          }
-        }
-
         if (currentState.searchQuery.trim().length > 0 && currentState.searchResults.length === 0) {
           stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "loading" });
 
@@ -184,6 +156,7 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
           footerMode: effectiveFooterHints(container),
           commands: resolveCommands(currentState, [
             "settings",
+            "trending",
             "toggle-mode",
             "provider",
             "history",
@@ -247,6 +220,47 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
               ),
               subtitle: `${results.length} results · ${search.sourceName}`,
               emptyMessage: "No results found. Adjust the query and try again.",
+            };
+          },
+          onLoadDiscovery: async () => {
+            stateManager.dispatch({ type: "SET_SEARCH_QUERY", query: "" });
+            stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "loading" });
+            const mode = stateManager.getState().mode;
+            const results = await loadDiscoveryList(mode, context.signal);
+
+            logger.info("Discovery list loaded", {
+              mode,
+              count: results.length,
+            });
+            diagnosticsStore.record({
+              category: "search",
+              message: "Discovery list loaded",
+              context: {
+                mode,
+                count: results.length,
+              },
+            });
+
+            stateManager.dispatch({ type: "SET_SEARCH_RESULTS", results });
+            const freshHistoryMap = await historyStore
+              .getAll()
+              .catch(
+                () =>
+                  ({}) as Record<
+                    string,
+                    import("@/services/persistence/HistoryStore").HistoryEntry
+                  >,
+              );
+            return {
+              options: results.map((r) =>
+                toBrowseResultOption(
+                  r,
+                  freshHistoryMap[r.id] ?? null,
+                  container.config.animeTitlePreference,
+                ),
+              ),
+              subtitle: `${results.length} trending · ${mode === "anime" ? "AniList" : "TMDB"}`,
+              emptyMessage: "Trending is unavailable right now. Search still works normally.",
             };
           },
         });

@@ -41,11 +41,13 @@ export function buildBrowseDetailsPanel<T>(
   }
 
   const title = option.previewTitle ?? option.label;
+  const facts = getStructuredPreviewFacts(option);
   const lines: ShellPanelLine[] = [
     {
-      label: title,
+      label: "Overview",
       detail: option.previewBody || "No overview available yet.",
     },
+    ...facts,
     {
       label: "Poster preview",
       detail: option.previewImageUrl ? POSTER_AVAILABLE : POSTER_MISSING,
@@ -133,17 +135,7 @@ export function buildBrowseCompanionPanel<T>(
     badges,
     body: option.previewBody || "No overview available yet.",
     facts: [
-      {
-        label: "Provider data",
-        detail:
-          option.previewBody || option.previewFacts?.length || option.previewMeta?.length
-            ? "Detail fields available"
-            : "Only a title was returned",
-        tone:
-          option.previewBody || option.previewFacts?.length || option.previewMeta?.length
-            ? "success"
-            : "warning",
-      },
+      ...getStructuredPreviewFacts(option),
       {
         label: "Next step",
         detail: option.previewNote ?? selectedDetail,
@@ -151,6 +143,47 @@ export function buildBrowseCompanionPanel<T>(
     ],
     note: option.previewNote ?? selectedDetail,
   };
+}
+
+function getStructuredPreviewFacts<T>(option: BrowseShellOption<T>): ShellPanelLine[] {
+  const meta = option.previewMeta ?? [];
+  const type = meta.find((value) => value === "Series" || value === "Movie");
+  const year = meta.find((value) => /^\d{4}$/.test(value));
+  const episodes = meta.find((value) => value.endsWith(" episodes"));
+
+  return [
+    {
+      label: "Type",
+      detail: type ?? "Unknown",
+      tone: type ? "neutral" : "warning",
+    },
+    ...(year
+      ? [
+          {
+            label: "Year",
+            detail: year,
+          },
+        ]
+      : []),
+    ...(episodes
+      ? [
+          {
+            label: "Episodes",
+            detail: episodes.replace(" episodes", ""),
+          },
+        ]
+      : []),
+    {
+      label: "Rating",
+      detail: option.previewRating ?? "Rating unavailable from this provider response",
+      tone: option.previewRating ? "success" : "neutral",
+    },
+    {
+      label: "Poster",
+      detail: option.previewImageUrl ? "Available" : "Unavailable",
+      tone: option.previewImageUrl ? "success" : "warning",
+    },
+  ];
 }
 
 function uniqueBadges(badges: readonly BrowseCompanionBadge[]): BrowseCompanionBadge[] {

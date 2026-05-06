@@ -54,6 +54,7 @@ export async function routeSearchShellAction({
   const { stateManager } = container;
 
   if (action === "quit") return "quit";
+  if (action === "trending") return "handled";
   if (action === "toggle-mode") {
     switchSessionMode(stateManager);
     stateManager.dispatch({ type: "RESET_SEARCH" });

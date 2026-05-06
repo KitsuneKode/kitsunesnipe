@@ -1,11 +1,14 @@
 import { afterEach, expect, test } from "bun:test";
 
-import { loadDiscoveryList } from "@/app/discovery-lists";
+import { clearDiscoveryListCache, loadDiscoveryList } from "@/app/discovery-lists";
 
 const realFetch = globalThis.fetch;
+const realDateNow = Date.now;
 
 afterEach(() => {
   globalThis.fetch = realFetch;
+  Date.now = realDateNow;
+  clearDiscoveryListCache();
 });
 
 test("loadDiscoveryList maps anime trending from AniList", async () => {
@@ -43,4 +46,33 @@ test("loadDiscoveryList maps anime trending from AniList", async () => {
     posterSource: "AniList",
     rating: 9,
   });
+});
+
+test("loadDiscoveryList reuses cached discovery results for thirty minutes", async () => {
+  let now = 1_000;
+  let calls = 0;
+  Date.now = () => now;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return new Response(
+      JSON.stringify({
+        results: [
+          {
+            id: calls,
+            media_type: "movie",
+            title: `Movie ${calls}`,
+            release_date: "2026-01-01",
+          },
+        ],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  }) as unknown as typeof fetch;
+
+  expect((await loadDiscoveryList("series"))[0]?.title).toBe("Movie 1");
+  now += 29 * 60 * 1000;
+  expect((await loadDiscoveryList("series"))[0]?.title).toBe("Movie 1");
+  now += 2 * 60 * 1000;
+  expect((await loadDiscoveryList("series"))[0]?.title).toBe("Movie 2");
+  expect(calls).toBe(2);
 });

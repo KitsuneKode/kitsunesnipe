@@ -480,6 +480,11 @@ export async function handleShellAction({
               "In browse, Tab jumps directly into the destination mode shown in the footer, like anime mode or series mode.",
           },
           {
+            label: "Ctrl+T Trending",
+            detail:
+              "Loads the cached discovery list on demand, instead of fetching trending titles during startup.",
+          },
+          {
             label: "Playback actions",
             detail:
               "Replay, episode picker, provider switch, history, diagnostics, and next/previous actions stay reachable after playback ends.",
