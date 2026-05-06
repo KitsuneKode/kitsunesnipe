@@ -211,11 +211,12 @@ describe("SessionState responsive layout", () => {
 });
 
 describe("command availability", () => {
-  test("parses playback recovery and streams commands without exposing fallback as a command", () => {
+  test("parses playback recovery streams and provider fallback commands", () => {
     expect(parseCommand("/recover")?.id).toBe("recover");
     expect(parseCommand("/fix")?.id).toBe("recover");
     expect(parseCommand("/streams")?.id).toBe("streams");
-    expect(parseCommand("/fallback")).toBeNull();
+    expect(parseCommand("/fallback")?.id).toBe("fallback");
+    expect(parseCommand("/f")?.id).toBe("fallback");
     expect(parseCommand("/provider")?.id).toBe("provider");
   });
 

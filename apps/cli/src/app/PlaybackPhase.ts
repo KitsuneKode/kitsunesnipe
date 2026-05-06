@@ -44,6 +44,7 @@ import {
   pushUndoAdvanceFrame,
   type UndoAdvanceFrame,
 } from "@/app/playback-undo-advance";
+import { resolveProviderStreamWithRetries } from "@/app/provider-resolve-retry";
 import { createResolveTraceStub } from "@/app/resolve-trace";
 import {
   applyPreferredStreamSelection,
@@ -84,6 +85,8 @@ import { fetchEpisodes, fetchSeasons } from "@/tmdb";
 import { resolveWithFallback } from "@kunai/core";
 
 const timingAggregator = new PlaybackTimingAggregator([IntroDbTimingSource, AniSkipTimingSource]);
+const PROVIDER_RESOLVE_MAX_ATTEMPTS = 3;
+const PROVIDER_RESOLVE_ATTEMPT_TIMEOUT_MS = 30_000;
 
 async function applyMpvEpisodeLoadingOverlay(
   control: ActivePlayerControl | null,
@@ -367,6 +370,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         if (!currentEpisode) break;
 
         const resolveController = new AbortController();
+        let resolveAbortIntent: "cancel" | "fallback" | null = null;
         const abortOnSessionStop = () => resolveController.abort();
         context.signal.addEventListener("abort", abortOnSessionStop, { once: true });
         resolveController.signal.addEventListener(
@@ -374,8 +378,12 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           () => {
             if (!context.signal.aborted) {
               this.updatePlaybackFeedback(context, {
-                detail: "Cancelling…",
-                note: "Returning to results",
+                detail:
+                  resolveAbortIntent === "fallback" ? "Skipping current provider…" : "Cancelling…",
+                note:
+                  resolveAbortIntent === "fallback"
+                    ? "Trying the next compatible provider"
+                    : "Returning to results",
               });
             }
           },
@@ -384,7 +392,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         workControl.setActive({
           id: `playback-resolve:${title.id}:${currentEpisode.season}:${currentEpisode.episode}`,
           label: `${title.name} S${String(currentEpisode.season).padStart(2, "0")}E${String(currentEpisode.episode).padStart(2, "0")}`,
-          cancel: () => resolveController.abort(),
+          cancel: (reason) => {
+            resolveAbortIntent = reason?.includes("fallback") ? "fallback" : "cancel";
+            resolveController.abort();
+          },
         });
 
         try {
@@ -558,21 +569,47 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                   resolve: () => {
                     providerAttemptCount++;
                     const isRetry = providerAttemptCount > 1;
+                    const providerName = p.metadata.name ?? p.metadata.id;
                     this.updatePlaybackFeedback(context, {
                       detail: isRetry
-                        ? `Retrying with ${p.metadata.name ?? p.metadata.id}…`
-                        : `Resolving via ${p.metadata.name ?? p.metadata.id}`,
-                      note: "Esc cancels",
+                        ? `Trying fallback provider ${providerName}…`
+                        : `Resolving via ${providerName}`,
+                      note: "Recoverable failures retry up to 3 times; f skips to fallback",
                     });
-                    return p.resolveStream(
-                      {
-                        title,
-                        episode: currentEpisode,
-                        subLang,
-                        animeLang: config.animeLang,
+                    return resolveProviderStreamWithRetries({
+                      providerId: p.metadata.id,
+                      providerName,
+                      maxAttempts: PROVIDER_RESOLVE_MAX_ATTEMPTS,
+                      timeoutMs: PROVIDER_RESOLVE_ATTEMPT_TIMEOUT_MS,
+                      signal: resolveController.signal,
+                      onAttempt: ({ attempt, maxAttempts }) => {
+                        this.updatePlaybackFeedback(context, {
+                          detail:
+                            attempt === 1
+                              ? `Resolving via ${providerName} (${attempt}/${maxAttempts})`
+                              : `Retrying ${providerName} (${attempt}/${maxAttempts})`,
+                          note: "f skips remaining retries and tries the next provider",
+                        });
                       },
-                      resolveController.signal,
-                    );
+                      onFailure: ({ issue, retryable, attempt, maxAttempts }) => {
+                        this.updatePlaybackFeedback(context, {
+                          detail: retryable
+                            ? `Recoverable provider issue (${attempt}/${maxAttempts})`
+                            : "Provider returned a non-recoverable issue",
+                          note: issue,
+                        });
+                      },
+                      resolve: (attemptSignal) =>
+                        p.resolveStream(
+                          {
+                            title,
+                            episode: currentEpisode,
+                            subLang,
+                            animeLang: config.animeLang,
+                          },
+                          attemptSignal,
+                        ),
+                    });
                   },
                 })),
               });
@@ -610,6 +647,33 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               if (!stream) {
                 workControl.setActive(null);
                 if (resolveController.signal.aborted && !context.signal.aborted) {
+                  if (resolveAbortIntent === "fallback") {
+                    const fallback = providerRegistry
+                      .getCompatible(title, stateManager.getState().mode)
+                      .find((candidate) => candidate.metadata.id !== currentProvider.metadata.id);
+                    if (fallback) {
+                      stateManager.dispatch({
+                        type: "SET_PROVIDER",
+                        provider: fallback.metadata.id,
+                      });
+                      this.updatePlaybackFeedback(context, {
+                        detail: `Trying ${fallback.metadata.name ?? fallback.metadata.id}…`,
+                        note: "Fallback provider selected for the rest of this session",
+                      });
+                      diagnosticsStore.record({
+                        category: "provider",
+                        message: "Skipping current provider during playback bootstrap",
+                        context: {
+                          from: currentProvider.metadata.id,
+                          fallback: fallback.metadata.id,
+                          titleId: title.id,
+                          season: currentEpisode.season,
+                          episode: currentEpisode.episode,
+                        },
+                      });
+                      continue;
+                    }
+                  }
                   stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" });
                   stateManager.dispatch({ type: "SET_STREAM", stream: null });
                   this.updatePlaybackFeedback(context, { detail: null, note: null });
@@ -669,6 +733,30 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           if (!stream) {
             workControl.setActive(null);
             if (resolveController.signal.aborted && !context.signal.aborted) {
+              if (resolveAbortIntent === "fallback") {
+                const fallback = providerRegistry
+                  .getCompatible(title, stateManager.getState().mode)
+                  .find((candidate) => candidate.metadata.id !== currentProvider.metadata.id);
+                if (fallback) {
+                  stateManager.dispatch({ type: "SET_PROVIDER", provider: fallback.metadata.id });
+                  this.updatePlaybackFeedback(context, {
+                    detail: `Trying ${fallback.metadata.name ?? fallback.metadata.id}…`,
+                    note: "Fallback provider selected for the rest of this session",
+                  });
+                  diagnosticsStore.record({
+                    category: "provider",
+                    message: "Skipping current provider during playback bootstrap",
+                    context: {
+                      from: currentProvider.metadata.id,
+                      fallback: fallback.metadata.id,
+                      titleId: title.id,
+                      season: currentEpisode.season,
+                      episode: currentEpisode.episode,
+                    },
+                  });
+                  continue;
+                }
+              }
               stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" });
               stateManager.dispatch({ type: "SET_STREAM", stream: null });
               this.updatePlaybackFeedback(context, { detail: null, note: null });
@@ -1358,6 +1446,28 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               if (!playbackAction.session.autoplayPaused) {
                 stateManager.dispatch({ type: "SET_SESSION_AUTOPLAY_PAUSED", paused: false });
               }
+              break postPlayback;
+            } else if (routedAction === "fallback") {
+              const fallback = providerRegistry
+                .getCompatible(title, stateManager.getState().mode)
+                .find((candidate) => candidate.metadata.id !== resolvedProviderId);
+              if (!fallback) {
+                continue postPlayback;
+              }
+              stateManager.dispatch({ type: "SET_PROVIDER", provider: fallback.metadata.id });
+              pendingStart = startAtResumePoint(resumeSeconds);
+              diagnosticsStore.record({
+                category: "playback",
+                message: "Switching to fallback provider after shell command",
+                context: {
+                  from: resolvedProviderId,
+                  fallback: fallback.metadata.id,
+                  titleId: title.id,
+                  season: currentEpisode.season,
+                  episode: currentEpisode.episode,
+                  resumeSeconds,
+                },
+              });
               break postPlayback;
             } else if (routedAction === "source") {
               const sourceOptions = buildSourcePickerOptions(preparedStream);

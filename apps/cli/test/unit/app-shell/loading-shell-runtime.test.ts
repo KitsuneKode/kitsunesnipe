@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   getLoadingShellTimerPolicy,
+  getProviderResolveWaitPresentation,
   shouldShowLoadingElapsed,
 } from "@/app-shell/loading-shell-runtime";
 import {
@@ -48,6 +49,31 @@ describe("loading shell runtime policy", () => {
     expect(policy.memoryRefreshMs).toBeNull();
     expect(policy.runtimeHealthRefreshMs).toBeNull();
     expect(shouldShowLoadingElapsed("loading", 12)).toBe(true);
+  });
+
+  test("provider resolve copy becomes honest after a long wait and keeps fallback visible", () => {
+    expect(
+      getProviderResolveWaitPresentation({
+        elapsedSeconds: 8,
+        fallbackAvailable: true,
+      }),
+    ).toEqual({
+      message: "Preparing playback context...",
+      tone: "info",
+      footerTask: "Playback bootstrap  ·  f fallback · q / Esc cancel",
+    });
+
+    expect(
+      getProviderResolveWaitPresentation({
+        elapsedSeconds: 36,
+        fallbackAvailable: true,
+        latestIssue: "vidking: CDN request timed out",
+      }),
+    ).toEqual({
+      message: "Provider/CDN may be degraded. Try fallback or open diagnostics.",
+      tone: "warning",
+      footerTask: "Provider/CDN degraded  ·  f fallback · Esc cancel · d diagnostics",
+    });
   });
 });
 

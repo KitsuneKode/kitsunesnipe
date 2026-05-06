@@ -1,7 +1,11 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import React from "react";
 
-import { getLoadingShellTimerPolicy, shouldShowLoadingElapsed } from "./loading-shell-runtime";
+import {
+  getLoadingShellTimerPolicy,
+  getProviderResolveWaitPresentation,
+  shouldShowLoadingElapsed,
+} from "./loading-shell-runtime";
 import { getRuntimeMemoryLine } from "./runtime-memory";
 import { ShellFrame } from "./shell-frame";
 import { Badge, DetailLine } from "./shell-primitives";
@@ -133,6 +137,7 @@ export function LoadingShell({
   onPickQuality,
   onToggleAutoplay,
   onStopAfterCurrent,
+  onFallback,
 }: {
   state: LoadingShellState;
   onCancel?: () => void;
@@ -147,6 +152,7 @@ export function LoadingShell({
   onPickQuality?: () => void;
   onToggleAutoplay?: () => void;
   onStopAfterCurrent?: () => void;
+  onFallback?: () => void;
 }) {
   const [memoryPanelVisible, setMemoryPanelVisible] = React.useState(() =>
     Boolean(state.showMemory),
@@ -224,6 +230,14 @@ export function LoadingShell({
     if (input.toLowerCase() === "x" && state.operation === "playing" && onStopAfterCurrent) {
       onStopAfterCurrent();
     }
+    if (
+      input.toLowerCase() === "f" &&
+      state.operation !== "playing" &&
+      state.fallbackAvailable &&
+      onFallback
+    ) {
+      onFallback();
+    }
   });
 
   const isPlaying = state.operation === "playing";
@@ -247,9 +261,25 @@ export function LoadingShell({
     state.operation === "loading"
       ? [{ label: "loading", tone: "info" as const }]
       : renderPhaseRail(state.operation);
+  const waitPresentation = getProviderResolveWaitPresentation({
+    elapsedSeconds: elapsed,
+    fallbackAvailable: state.fallbackAvailable,
+    latestIssue: state.latestIssue,
+  });
 
   const footerActions: readonly FooterAction[] = [
     { key: "/", label: "commands", action: "command-mode" },
+    ...(state.operation !== "playing" && state.fallbackAvailable
+      ? [
+          {
+            key: "f",
+            label: state.fallbackProviderName
+              ? `fallback ${state.fallbackProviderName}`
+              : "fallback",
+            action: "fallback" as const,
+          },
+        ]
+      : []),
     { key: "g", label: "settings", action: "settings" },
     { key: "h", label: "history", action: "history" },
     { key: "d", label: "diagnostics", action: "diagnostics" },
@@ -269,7 +299,7 @@ export function LoadingShell({
         state.operation === "playing"
           ? "Playback  ·  q stop · r recover · k streams"
           : state.cancellable
-            ? "Playback bootstrap  ·  q / Esc cancel"
+            ? waitPresentation.footerTask
             : "Playback bootstrap"
       }
       footerActions={footerActions}
@@ -377,7 +407,7 @@ export function LoadingShell({
           !isPlaying && (
             <Box marginTop={1}>
               <Text color={pulse ? palette.cyan : palette.gray} dimColor>
-                {pulse ? "Preparing playback context…" : "Waiting on provider response…"}
+                {pulse ? waitPresentation.message : "Waiting on provider response..."}
               </Text>
             </Box>
           )

@@ -368,6 +368,12 @@ function AppRoot({ container }: { container: Container }) {
   const canToggleAutoplay = Boolean(isSeriesPlayback);
   const canStopAfterCurrent = Boolean(isSeriesPlayback);
   const playbackCanCancel = state.playbackStatus === "loading" || state.playbackStatus === "ready";
+  const fallbackProvider =
+    state.currentTitle && state.currentEpisode
+      ? container.providerRegistry
+          .getCompatible(state.currentTitle, state.mode)
+          .find((candidate) => candidate.metadata.id !== state.provider)
+      : undefined;
 
   return (
     <Box
@@ -443,10 +449,22 @@ function AppRoot({ container }: { container: Container }) {
                   trace: playbackTrace,
                   showMemory: container.config.showMemory,
                   getRuntimeHealth: () =>
-                    buildRuntimeHealthSnapshot({
-                      recentEvents: container.diagnosticsStore.getRecent(25),
-                      currentProvider: state.provider,
-                    }).network,
+                    state.playbackStatus === "playing" ||
+                    state.playbackStatus === "buffering" ||
+                    state.playbackStatus === "seeking" ||
+                    state.playbackStatus === "stalled"
+                      ? buildRuntimeHealthSnapshot({
+                          recentEvents: container.diagnosticsStore.getRecent(25),
+                          currentProvider: state.provider,
+                        }).network
+                      : buildRuntimeHealthSnapshot({
+                          recentEvents: container.diagnosticsStore.getRecent(25),
+                          currentProvider: state.provider,
+                        }).provider,
+                  fallbackAvailable: Boolean(fallbackProvider),
+                  fallbackProviderName:
+                    fallbackProvider?.metadata.name ?? fallbackProvider?.metadata.id,
+                  latestIssue: state.playbackNote,
                   stopHint:
                     state.playbackStatus === "playing" ||
                     state.playbackStatus === "buffering" ||
@@ -466,6 +484,7 @@ function AppRoot({ container }: { container: Container }) {
                   commands: fallbackCommandState([
                     "settings",
                     "recover",
+                    "fallback",
                     "streams",
                     "history",
                     "diagnostics",
@@ -489,6 +508,17 @@ function AppRoot({ container }: { container: Container }) {
                       void container.playerControl.recoverCurrentPlayback(
                         "playback-loading-command-recover",
                       );
+                      return;
+                    }
+                    if (action === "fallback") {
+                      const cancelledWork = container.workControl.cancelActive(
+                        "playback-loading-command-fallback",
+                      );
+                      if (!cancelledWork) {
+                        void container.playerControl.fallbackCurrentPlayback(
+                          "playback-loading-command-fallback",
+                        );
+                      }
                       return;
                     }
                     if (action === "streams") {
@@ -554,6 +584,13 @@ function AppRoot({ container }: { container: Container }) {
                 }
                 onRecover={() => {
                   void container.playerControl.recoverCurrentPlayback("playback-shell-r");
+                }}
+                onFallback={() => {
+                  const cancelledWork =
+                    container.workControl.cancelActive("playback-shell-fallback");
+                  if (!cancelledWork) {
+                    void container.playerControl.fallbackCurrentPlayback("playback-shell-fallback");
+                  }
                 }}
                 onPickStreams={() => {
                   void container.playerControl.pickStreamCurrentPlayback("playback-shell-k");

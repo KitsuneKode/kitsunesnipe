@@ -15,6 +15,7 @@ export type AppCommandId =
   | "toggle-autoplay"
   | "replay"
   | "recover"
+  | "fallback"
   | "streams"
   | "source"
   | "quality"
@@ -123,6 +124,12 @@ export const COMMANDS: readonly AppCommand[] = [
     label: "Recover Playback",
     aliases: ["recover", "fix", "repair", "retry-playback"],
     description: "Run the safest recovery action for the current playback problem",
+  },
+  {
+    id: "fallback",
+    label: "Fallback Provider",
+    aliases: ["fallback", "try-next-provider", "next-provider", "f"],
+    description: "Stop waiting on the current provider and try the next compatible provider",
   },
   {
     id: "streams",
@@ -382,6 +389,15 @@ function resolveCommandState(
         return {
           enabled: false,
           reason: "Start playback before recovery controls are available.",
+        };
+      }
+      return { enabled: true };
+
+    case "fallback":
+      if (!hasEpisode) {
+        return {
+          enabled: false,
+          reason: "Start playback before provider fallback is available.",
         };
       }
       return { enabled: true };

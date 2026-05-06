@@ -17,6 +17,7 @@ export type ShellAction =
   | "resume"
   | "replay"
   | "recover"
+  | "fallback"
   | "streams"
   | "source"
   | "quality"
@@ -80,6 +81,9 @@ export type LoadingShellState = {
   showMemory?: boolean;
   getRuntimeHealth?: () => ShellPanelLine | undefined;
   cancellable?: boolean;
+  fallbackAvailable?: boolean;
+  fallbackProviderName?: string;
+  latestIssue?: string | null;
   stopHint?: string;
   controlHint?: string;
   onCommandAction?: (action: ShellAction) => void;
@@ -149,6 +153,7 @@ export function toShellAction(commandId: AppCommandId): ShellAction {
     case "provider":
     case "replay":
     case "recover":
+    case "fallback":
     case "streams":
     case "source":
     case "quality":
