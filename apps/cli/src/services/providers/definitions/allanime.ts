@@ -61,7 +61,7 @@ export class AllAnimeProvider implements Provider {
       manifest: allanimeManifest,
       request,
       mode: "anime",
-      runtime: "node-fetch",
+      runtime: "direct-http",
       stream: {
         url: result.url,
         headers: result.headers,

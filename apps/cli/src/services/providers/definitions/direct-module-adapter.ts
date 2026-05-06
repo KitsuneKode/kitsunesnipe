@@ -55,7 +55,7 @@ export class DirectModuleProvider implements Provider {
             : undefined,
         preferredSubtitleLanguage: request.subLang,
         intent: "play",
-        allowedRuntimes: ["node-fetch"],
+        allowedRuntimes: ["direct-http"],
       },
       createProviderRuntimeContext({ signal }),
     );

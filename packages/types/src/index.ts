@@ -2,12 +2,7 @@ export type MediaKind = "movie" | "series" | "anime";
 
 export type ProviderId = string & { readonly __brand?: "ProviderId" };
 
-export type ProviderRuntime =
-  | "browser-safe-fetch"
-  | "node-fetch"
-  | "playwright-lease"
-  | "yt-dlp"
-  | "debrid";
+export type ProviderRuntime = "browser-safe-fetch" | "direct-http" | "debrid";
 
 export type ProviderCapability =
   | "search"
@@ -284,39 +279,14 @@ export interface ProviderAbortState {
 }
 
 export interface ProviderFetchPort {
-  readonly runtime: "browser-safe-fetch" | "node-fetch";
+  readonly runtime: "browser-safe-fetch" | "direct-http";
   fetch(input: string | URL | Request, init?: RequestInit): Promise<Response>;
-}
-
-export interface ProviderBrowserCaptureInput {
-  readonly url: string;
-  readonly needsClick?: boolean;
-  readonly headers?: Record<string, string>;
-  readonly timeoutMs?: number;
-  readonly playerDomains?: readonly string[];
-  readonly metadata?: Record<string, string | number | boolean | null>;
-}
-
-export interface ProviderBrowserCaptureResult {
-  readonly streams: readonly StreamCandidate[];
-  readonly subtitles: readonly SubtitleCandidate[];
-  readonly traceEvents?: readonly ProviderTraceEvent[];
-  readonly metadata?: Record<string, unknown>;
-}
-
-export interface ProviderBrowserLeasePort {
-  readonly runtime: "playwright-lease";
-  capture(
-    input: ProviderBrowserCaptureInput,
-    signal?: AbortSignal,
-  ): Promise<ProviderBrowserCaptureResult>;
 }
 
 export interface ProviderRuntimeContext {
   readonly signal?: AbortSignal;
   readonly retryPolicy?: ProviderRetryPolicy;
   readonly fetch?: ProviderFetchPort;
-  readonly browserLease?: ProviderBrowserLeasePort;
   now(): string;
   emit?(event: ProviderTraceEvent): void;
 }

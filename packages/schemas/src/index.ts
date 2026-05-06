@@ -12,13 +12,7 @@ import type {
 import { z } from "zod";
 
 export const mediaKindSchema = z.enum(["movie", "series", "anime"]);
-export const providerRuntimeSchema = z.enum([
-  "browser-safe-fetch",
-  "node-fetch",
-  "playwright-lease",
-  "yt-dlp",
-  "debrid",
-]);
+export const providerRuntimeSchema = z.enum(["browser-safe-fetch", "direct-http", "debrid"]);
 export const providerOperationSchema = z.enum([
   "search",
   "list-episodes",

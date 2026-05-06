@@ -47,7 +47,7 @@ test("provider research profiles separate direct providers from legacy fallbacks
   expect(getProviderResearchProfile("vidking")).toMatchObject({
     status: "production",
     migrationAction: "promote-direct-provider",
-    runtimeClass: "node-fetch direct Videasy payload decode",
+    runtimeClass: "direct-http Videasy payload decode",
   });
 
   expect(getProviderResearchProfile("cineby")).toMatchObject({
@@ -56,7 +56,7 @@ test("provider research profiles separate direct providers from legacy fallbacks
   });
 
   expect(getProviderResearchProfile("anikai")).toMatchObject({
-    migrationAction: "hold-for-runtime-browser",
+    migrationAction: "hold-for-future-runtime",
   });
 });
 
@@ -75,7 +75,7 @@ test("vidking direct payload creates selected stream, variants, and subtitle inv
       preferredSubtitleLanguage: "en",
       qualityPreference: "1080",
       intent: "play",
-      allowedRuntimes: ["node-fetch"],
+      allowedRuntimes: ["direct-http"],
     },
     payload: {
       sources: [

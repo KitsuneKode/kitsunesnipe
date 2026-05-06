@@ -85,10 +85,10 @@ export async function resolveVidkingDirect(
     return null;
   }
 
-  if (!input.allowedRuntimes.includes("node-fetch")) {
+  if (!input.allowedRuntimes.includes("direct-http")) {
     return createVidkingExhaustedResult(input, context, {
       code: "runtime-missing",
-      message: "VidKing direct resolver requires node-fetch runtime",
+      message: "VidKing direct resolver requires direct-http runtime",
       retryable: false,
     });
   }
@@ -130,7 +130,7 @@ export async function resolveVidkingDirect(
       host: "api.videasy.net",
       status: "probing",
       confidence: 0.8,
-      requiresRuntime: "node-fetch",
+      requiresRuntime: "direct-http",
       cachePolicy,
       metadata: { server },
     });
@@ -337,7 +337,7 @@ export function createVidkingResultFromPayload({
         host: "api.videasy.net",
         status: "selected",
         confidence: 0.9,
-        requiresRuntime: "node-fetch",
+        requiresRuntime: "direct-http",
         cachePolicy: policy,
         metadata: { server },
       },
@@ -352,7 +352,7 @@ export function createVidkingResultFromPayload({
       providerId: VIDKING_PROVIDER_ID,
       streamId: selectedStream.id,
       cacheHit: false,
-      runtime: "node-fetch",
+      runtime: "direct-http",
       startedAt,
       endedAt,
       steps: [
@@ -697,7 +697,7 @@ function createVidkingExhaustedResult(
       episode: input.episode,
       providerId: VIDKING_PROVIDER_ID,
       cacheHit: false,
-      runtime: "node-fetch",
+      runtime: "direct-http",
       startedAt: at,
       endedAt: at,
       steps: [

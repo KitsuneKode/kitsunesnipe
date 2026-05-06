@@ -111,5 +111,5 @@ test("vidking resolves through the direct decode path", async () => {
   expect(stream?.subtitleSource).toBe("provider");
   expect(stream?.subtitle).toBe("https://cc.boopigcdn.com/example/eng-2.vtt");
   expect(stream?.providerResolveResult?.subtitles).toHaveLength(2);
-  expect(stream?.providerResolveResult?.trace.runtime).toBe("node-fetch");
+  expect(stream?.providerResolveResult?.trace.runtime).toBe("direct-http");
 });

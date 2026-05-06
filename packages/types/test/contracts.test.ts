@@ -116,7 +116,7 @@ test("provider sdk contract models selected output plus discovered source invent
       title: { id: "tmdb:1", kind: "movie", title: "Example" },
       mediaKind: "movie",
       intent: "play",
-      allowedRuntimes: ["node-fetch"],
+      allowedRuntimes: ["direct-http"],
     },
     context,
   );

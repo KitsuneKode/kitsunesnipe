@@ -25,12 +25,12 @@ test("vidking manifest declares capability, cache, and runtime boundaries", () =
   expect(vidkingManifest.capabilities).toContain("source-resolve");
   expect(vidkingManifest.cachePolicy.ttlClass).toBe("stream-manifest");
 
-  const directPort = assertManifestHasRuntimePort(vidkingManifest, "node-fetch");
+  const directPort = assertManifestHasRuntimePort(vidkingManifest, "direct-http");
   expect(directPort.operations).toContain("resolve-stream");
   expect(directPort.localOnly).toBe(true);
   expect(directPort.browserSafe).toBe(false);
 
-  expect(vidkingManifest.runtimePorts.map((port) => port.runtime)).toEqual(["node-fetch"]);
+  expect(vidkingManifest.runtimePorts.map((port) => port.runtime)).toEqual(["direct-http"]);
 });
 
 test("provider embed URL builders preserve production playback routes", () => {
@@ -129,7 +129,7 @@ test("provider sdk helpers create runtime context and typed trace events", () =>
       now: context.now,
       type: "runtime:requested",
       providerId: "vidking",
-      message: "Provider requested browser lease",
+      message: "Provider requested direct HTTP",
     }),
   );
 
@@ -144,10 +144,10 @@ test("provider sdk helpers reject unavailable runtimes before provider work star
   expect(() =>
     assertRuntimeAllowed({
       providerId: "vidking",
-      runtime: "node-fetch",
-      allowedRuntimes: ["playwright-lease"],
+      runtime: "direct-http",
+      allowedRuntimes: ["browser-safe-fetch"],
     }),
-  ).toThrow("vidking requires node-fetch");
+  ).toThrow("vidking requires direct-http");
 });
 
 test("cli stream adapter returns shared provider resolve result with trace evidence", () => {
@@ -167,7 +167,7 @@ test("cli stream adapter returns shared provider resolve result with trace evide
       subtitleSource: "provider",
     },
     cachePolicy,
-    runtime: "node-fetch",
+    runtime: "direct-http",
     cacheHit: true,
   });
 
@@ -175,7 +175,7 @@ test("cli stream adapter returns shared provider resolve result with trace evide
   expect(result.streams[0]?.protocol).toBe("hls");
   expect(result.subtitles[0]?.language).toBe("en");
   expect(result.trace.cacheHit).toBe(true);
-  expect(result.trace.runtime).toBe("node-fetch");
+  expect(result.trace.runtime).toBe("direct-http");
   expect(result.trace.steps.map((step) => step.stage)).toContain("runtime");
 });
 
@@ -202,7 +202,7 @@ test("resolveWithFallback returns the first successful provider and preserves at
                 providerId: "second",
                 title: { id: "1", kind: "movie" },
               }),
-              runtime: "node-fetch",
+              runtime: "direct-http",
             }),
           };
         },

@@ -8,7 +8,7 @@ export type ProviderMigrationAction =
   | "promote-direct-provider"
   | "keep-as-fallback"
   | "implement-from-scratchpad"
-  | "hold-for-runtime-browser";
+  | "hold-for-future-runtime";
 
 export interface ProviderResearchProfile {
   readonly providerId: string;
@@ -37,7 +37,7 @@ export const providerResearchProfiles = [
       "apps/experiments/scratchpads/provider-vidking/HDTODAY_VIDKING_DECRYPT_REPORT.md",
       "apps/experiments/scratchpads/provider-vidking/VIDKING_NETWORK_ANALYSIS.md",
     ],
-    runtimeClass: "node-fetch direct Videasy payload decode",
+    runtimeClass: "direct-http Videasy payload decode",
     implementationSource: "mixed",
     supportedContent: ["movie", "series"],
     sourceStrategy:
@@ -53,7 +53,7 @@ export const providerResearchProfiles = [
     migrationRank: 20,
     dossierPath: ".docs/provider-dossiers/allmanga-api-client.md",
     evidencePaths: ["packages/providers/src/allmanga/api-client.ts", "~/Projects/osc/ani-cli"],
-    runtimeClass: "node-fetch GraphQL + AES-256-CTR decode",
+    runtimeClass: "direct-http GraphQL + AES-256-CTR decode",
     implementationSource: "production-code",
     supportedContent: ["anime"],
     sourceStrategy:
@@ -73,7 +73,7 @@ export const providerResearchProfiles = [
       "apps/experiments/scratchpads/provider-rivestream/RIVESTREAM_DECRYPT_REPORT.md",
       "apps/experiments/scratchpads/provider-rivestream/rivestream-headless.ts",
     ],
-    runtimeClass: "node-fetch secretKey hash API",
+    runtimeClass: "direct-http secretKey hash API",
     implementationSource: "scratchpad-report",
     supportedContent: ["movie", "series"],
     sourceStrategy:
@@ -92,7 +92,7 @@ export const providerResearchProfiles = [
       "apps/experiments/scratchpads/provider-miruro/MIRURO_BACKEND_REPORT.md",
       "apps/experiments/scratchpads/provider-miruro/miruro-0-ram-scraper.ts",
     ],
-    runtimeClass: "node-fetch backend API by AniList ID",
+    runtimeClass: "direct-http backend API by AniList ID",
     implementationSource: "scratchpad-report",
     supportedContent: ["anime"],
     sourceStrategy:
@@ -104,7 +104,7 @@ export const providerResearchProfiles = [
   {
     providerId: "anikai",
     status: "candidate",
-    migrationAction: "hold-for-runtime-browser",
+    migrationAction: "hold-for-future-runtime",
     migrationRank: 50,
     dossierPath: ".docs/provider-dossiers/anikai-candidate.md",
     evidencePaths: [
@@ -118,8 +118,7 @@ export const providerResearchProfiles = [
       "Harvest Cloudflare/session state, extract AJAX link wrappers, then loop provider-local servers.",
     subtitleStrategy:
       "Treat hard-sub/server language as first-class until soft-sub endpoint is proven.",
-    productionGap:
-      "Wait for runtime-browser lease/cookie-harvest package before production promotion.",
+    productionGap: "Keep out of beta until a future optional browser runtime package exists.",
   },
   {
     providerId: "cineby",

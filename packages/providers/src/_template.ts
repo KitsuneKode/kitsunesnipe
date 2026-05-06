@@ -33,7 +33,7 @@ export const templateManifest = defineProviderManifest({
   capabilities: ["source-resolve", "multi-source", "quality-ranked"],
   runtimePorts: [
     {
-      runtime: "node-fetch", // Change to "playwright-lease" if Cloudflare blocks you
+      runtime: "direct-http",
       operations: ["resolve-stream", "health-check"],
       browserSafe: true, // Set false if you rely on Node.js specific modules (like crypto)
       relaySafe: true,
@@ -72,10 +72,10 @@ export const templateProviderModule: CoreProviderModule = {
     // -------------------------------------------------------------
     // A. Input Validation
     // -------------------------------------------------------------
-    if (!input.allowedRuntimes.includes("node-fetch")) {
+    if (!input.allowedRuntimes.includes("direct-http")) {
       return createExhaustedResult(input, context, {
         code: "runtime-missing",
-        message: "Template resolver requires node-fetch runtime",
+        message: "Template resolver requires direct-http runtime",
         retryable: false,
       });
     }
@@ -195,7 +195,7 @@ export const templateProviderModule: CoreProviderModule = {
             host: "example.com",
             status: "selected",
             confidence: 0.9,
-            requiresRuntime: "node-fetch",
+            requiresRuntime: "direct-http",
             cachePolicy,
           },
         ],
@@ -209,7 +209,7 @@ export const templateProviderModule: CoreProviderModule = {
           providerId: TEMPLATE_PROVIDER_ID,
           streamId: selectedStream.id,
           cacheHit: false,
-          runtime: "node-fetch",
+          runtime: "direct-http",
           startedAt,
           endedAt,
           steps: [
@@ -286,7 +286,7 @@ function createExhaustedResult(
       episode: input.episode,
       providerId: TEMPLATE_PROVIDER_ID,
       cacheHit: false,
-      runtime: "node-fetch",
+      runtime: "direct-http",
       startedAt: at,
       endedAt: at,
       steps: [

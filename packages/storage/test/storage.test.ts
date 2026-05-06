@@ -93,7 +93,7 @@ test("ttl and stream cache key helpers encode compatibility inputs", () => {
     audioLanguage: "Japanese",
     subtitleLanguage: "English",
     qualityPreference: "1080p",
-    resolverRuntime: "node-fetch",
+    resolverRuntime: "direct-http",
   });
 
   expect(key).toContain("vidking");

@@ -63,11 +63,11 @@ test("attachProviderResolveResult adds shared trace and cache policy to an exist
       timestamp: 1,
     },
     mode: "anime",
-    runtime: "node-fetch",
+    runtime: "direct-http",
   });
 
   expect(stream.providerResolveResult?.providerId).toBe("miruro");
   expect(stream.providerResolveResult?.trace.title.kind).toBe("anime");
-  expect(stream.providerResolveResult?.trace.runtime).toBe("node-fetch");
+  expect(stream.providerResolveResult?.trace.runtime).toBe("direct-http");
   expect(stream.providerResolveResult?.cachePolicy?.keyParts).toContain("english");
 });

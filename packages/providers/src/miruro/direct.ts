@@ -15,7 +15,7 @@ import type {
   ProviderFailure,
 } from "@kunai/types";
 
-import { providerFetch } from "../runtime/fetch";
+import { ProviderHttpError, providerJson } from "../runtime/fetch";
 
 export const MIRURO_PROVIDER_ID = miruroManifest.id;
 export const MIRURO_REFERER = "https://www.miruro.tv/";
@@ -51,10 +51,10 @@ export const miruroProviderModule: CoreProviderModule = {
       });
     }
 
-    if (!input.allowedRuntimes.includes("node-fetch")) {
+    if (!input.allowedRuntimes.includes("direct-http")) {
       return createExhaustedResult(input, context, {
         code: "runtime-missing",
-        message: "Miruro direct resolver requires node-fetch runtime",
+        message: "Miruro direct resolver requires direct-http runtime",
         retryable: false,
       });
     }
@@ -91,20 +91,15 @@ export const miruroProviderModule: CoreProviderModule = {
 
     try {
       // 1. Fetch MediaItemID from AniList ID
-      const mediaReq = await providerFetch(
+      const mediaData = await providerJson<MiruroMediaItemResponse>(
         context,
         `https://theanimecommunity.com/api/v1/episodes/mediaItemID?AniList_ID=${anilistId}&mediaType=anime&episodeChapterNumber=${absoluteEpisode}`,
         {
           headers: { "User-Agent": USER_AGENT },
           signal: context.signal,
         },
+        { providerId: MIRURO_PROVIDER_ID, stage: "source:start" },
       );
-
-      if (!mediaReq.ok) {
-        throw new Error(`MediaItem API failed with ${mediaReq.status}`);
-      }
-
-      const mediaData = (await mediaReq.json()) as MiruroMediaItemResponse;
       const mediaItemId = mediaData?.mediaItemID;
 
       if (!mediaItemId) {
@@ -112,20 +107,15 @@ export const miruroProviderModule: CoreProviderModule = {
       }
 
       // 2. Fetch the Sources
-      const sourceReq = await providerFetch(
+      const sourceData = await providerJson<MiruroSourcesResponse>(
         context,
         `https://theanimecommunity.com/api/v1/episodes/${mediaItemId}/${absoluteEpisode}`,
         {
           headers: { "User-Agent": USER_AGENT },
           signal: context.signal,
         },
+        { providerId: MIRURO_PROVIDER_ID, stage: "source:start" },
       );
-
-      if (!sourceReq.ok) {
-        throw new Error(`Sources API failed with ${sourceReq.status}`);
-      }
-
-      const sourceData = (await sourceReq.json()) as MiruroSourcesResponse;
       const subDubObj = sourceData?.sources;
 
       if (!subDubObj) {
@@ -220,7 +210,7 @@ export const miruroProviderModule: CoreProviderModule = {
             host: "theanimecommunity.com",
             status: "selected",
             confidence: 0.95,
-            requiresRuntime: "node-fetch",
+            requiresRuntime: "direct-http",
             cachePolicy,
           },
         ],
@@ -234,7 +224,7 @@ export const miruroProviderModule: CoreProviderModule = {
           providerId: MIRURO_PROVIDER_ID,
           streamId: selectedStream.id,
           cacheHit: false,
-          runtime: "node-fetch",
+          runtime: "direct-http",
           startedAt,
           endedAt,
           steps: [
@@ -264,9 +254,9 @@ export const miruroProviderModule: CoreProviderModule = {
 
       const failure: ProviderFailure = {
         providerId: MIRURO_PROVIDER_ID,
-        code: "network-error",
+        code: error instanceof ProviderHttpError ? error.code : "network-error",
         message: error instanceof Error ? error.message : "Failed to fetch from Miruro backend",
-        retryable: true,
+        retryable: error instanceof ProviderHttpError ? error.retryable : true,
         at: context.now(),
       };
       failures.push(failure);
@@ -305,7 +295,7 @@ function createExhaustedResult(
       episode: input.episode,
       providerId: MIRURO_PROVIDER_ID,
       cacheHit: false,
-      runtime: "node-fetch",
+      runtime: "direct-http",
       startedAt: at,
       endedAt: at,
       steps: [

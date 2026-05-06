@@ -12,7 +12,7 @@ export const miruroManifest = defineProviderManifest({
   capabilities: ["source-resolve", "subtitle-resolve", "multi-source", "quality-ranked"],
   runtimePorts: [
     {
-      runtime: "node-fetch",
+      runtime: "direct-http",
       operations: ["resolve-stream", "health-check"],
       browserSafe: true, // It hits a clean API, safe for CORS if configured
       relaySafe: true,

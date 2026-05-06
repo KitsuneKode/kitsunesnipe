@@ -101,7 +101,7 @@ function createVidkingResolveInput(request: StreamRequest): ProviderResolveInput
     mediaKind: request.title.type,
     preferredSubtitleLanguage: request.subLang,
     intent: "play",
-    allowedRuntimes: ["node-fetch"],
+    allowedRuntimes: ["direct-http"],
   };
 }
 

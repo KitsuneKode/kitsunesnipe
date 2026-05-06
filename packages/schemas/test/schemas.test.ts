@@ -40,7 +40,7 @@ test("provider source and variant schemas model mirror inventory without forcing
     label: "Oxygen",
     status: "available",
     confidence: 0.88,
-    requiresRuntime: "playwright-lease",
+    requiresRuntime: "direct-http",
   });
 
   const variant = providerVariantCandidateSchema.parse({

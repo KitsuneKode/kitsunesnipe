@@ -5,10 +5,17 @@ import type {
 } from "@/services/persistence/ConfigService";
 import { Box, Text } from "ink";
 
+import {
+  formatPickerDisplayRow,
+  formatPickerOptionRow,
+  PickerOptionRow,
+} from "./overlay-picker-row";
 import { Badge } from "./shell-primitives";
 import { getWindowStart, truncateLine, wrapText } from "./shell-text";
 import { palette } from "./shell-theme";
 import type { ShellPanelLine, ShellPickerOption } from "./types";
+
+export { formatPickerDisplayRow, formatPickerOptionRow } from "./overlay-picker-row";
 
 export type BrowseOverlay =
   | {
@@ -360,35 +367,6 @@ export function settingsEqual(
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
-export function formatPickerOptionRow(input: {
-  readonly label: string;
-  readonly detail?: string;
-  readonly badge?: string;
-  readonly width: number;
-}): { readonly text: string; readonly badgeSuffix: string } {
-  const badgeSuffix = input.badge ? `  ${input.badge}` : "";
-  const textWidth = Math.max(0, input.width - badgeSuffix.length);
-  const text = truncateLine(`${input.label}${input.detail ? `  ${input.detail}` : ""}`, textWidth);
-  return { text, badgeSuffix };
-}
-
-export function formatPickerDisplayRow(input: {
-  readonly label: string;
-  readonly detail?: string;
-  readonly badge?: string;
-  readonly width: number;
-  readonly selected: boolean;
-}): { readonly prefix: string; readonly text: string; readonly badgeSuffix: string } {
-  const prefix = input.selected ? "> " : "  ";
-  const row = formatPickerOptionRow({
-    label: input.label,
-    detail: input.detail,
-    badge: input.badge,
-    width: Math.max(0, input.width - prefix.length),
-  });
-  return { prefix, ...row };
-}
-
 function resolvePanelTone(tone: ShellPanelLine["tone"]): string {
   switch (tone) {
     case "success":
@@ -492,13 +470,6 @@ export function OverlayPanel({
             {visibleOptions.map((option, index) => {
               const optionIndex = optionWindowStart + index;
               const selected = optionIndex === overlay.selectedIndex;
-              const row = formatPickerDisplayRow({
-                label: option.label,
-                detail: option.detail,
-                badge: option.badge,
-                width: Math.max(0, contentWidth),
-                selected,
-              });
               const accentColor =
                 option.tone === "success"
                   ? palette.green
@@ -512,23 +483,15 @@ export function OverlayPanel({
                   bold={selected}
                   wrap="truncate-end"
                 >
-                  <Text color={selected ? pickerAccent : palette.gray}>{row.prefix}</Text>
-                  <Text
-                    color={selected ? pickerAccent : (accentColor ?? "white")}
-                    dimColor={!selected && !accentColor}
-                    wrap="truncate-end"
-                  >
-                    {row.text}
-                  </Text>
-                  {row.badgeSuffix ? (
-                    <Text
-                      color={selected ? pickerAccent : (accentColor ?? palette.gray)}
-                      dimColor={!selected && !accentColor}
-                      wrap="truncate-end"
-                    >
-                      {row.badgeSuffix}
-                    </Text>
-                  ) : null}
+                  <PickerOptionRow
+                    label={option.label}
+                    detail={option.detail}
+                    badge={option.badge}
+                    width={Math.max(0, contentWidth)}
+                    selected={selected}
+                    accentColor={accentColor}
+                    pickerAccent={pickerAccent}
+                  />
                 </Text>
               );
             })}

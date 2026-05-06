@@ -12,7 +12,7 @@ export const allanimeManifest = defineProviderManifest({
   capabilities: ["search", "episode-list", "source-resolve", "subtitle-resolve", "multi-source"],
   runtimePorts: [
     {
-      runtime: "node-fetch",
+      runtime: "direct-http",
       operations: [
         "search",
         "list-episodes",

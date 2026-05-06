@@ -18,7 +18,7 @@ import type {
   SubtitleCandidate,
 } from "@kunai/types";
 
-import { providerFetch } from "../runtime/fetch";
+import { ProviderHttpError, providerJson } from "../runtime/fetch";
 
 export const RIVESTREAM_PROVIDER_ID = rivestreamManifest.id;
 export const RIVESTREAM_REFERER = "https://www.rivestream.app/";
@@ -214,10 +214,10 @@ export const rivestreamProviderModule: CoreProviderModule = {
       });
     }
 
-    if (!input.allowedRuntimes.includes("node-fetch")) {
+    if (!input.allowedRuntimes.includes("direct-http")) {
       return createExhaustedResult(input, context, {
         code: "runtime-missing",
-        message: "Rivestream resolver requires node-fetch runtime",
+        message: "Rivestream resolver requires direct-http runtime",
         retryable: false,
       });
     }
@@ -255,16 +255,15 @@ export const rivestreamProviderModule: CoreProviderModule = {
       const episode = input.episode?.episode ?? 1;
 
       // 1. Get Providers
-      const provRes = await providerFetch(
+      const provData = await providerJson<RivestreamProviderServicesResponse>(
         context,
         `${RIVESTREAM_API_BASE}?requestID=VideoProviderServices&secretKey=rive&proxyMode=undefined`,
         {
           headers: { "User-Agent": USER_AGENT, Referer: RIVESTREAM_REFERER },
           signal: context.signal,
         },
+        { providerId: RIVESTREAM_PROVIDER_ID, stage: "source:start" },
       );
-      if (!provRes.ok) throw new Error("Failed to fetch provider services");
-      const provData = (await provRes.json()) as RivestreamProviderServicesResponse;
       const providers = Array.isArray(provData.data)
         ? provData.data.filter((provider): provider is string => typeof provider === "string")
         : [];
@@ -288,11 +287,15 @@ export const rivestreamProviderModule: CoreProviderModule = {
         if (input.mediaKind === "series") url += `&season=${season}&episode=${episode}`;
 
         try {
-          const sourceRes = await providerFetch(context, url, {
-            headers: { "User-Agent": USER_AGENT, Referer: RIVESTREAM_REFERER },
-            signal: context.signal,
-          });
-          const sourceData = (await sourceRes.json()) as RivestreamSourceResponse;
+          const sourceData = await providerJson<RivestreamSourceResponse>(
+            context,
+            url,
+            {
+              headers: { "User-Agent": USER_AGENT, Referer: RIVESTREAM_REFERER },
+              signal: context.signal,
+            },
+            { providerId: RIVESTREAM_PROVIDER_ID, stage: "source:start" },
+          );
           const rawSources = getRivestreamRawSources(sourceData.data);
 
           if (rawSources.length > 0) {
@@ -355,11 +358,15 @@ export const rivestreamProviderModule: CoreProviderModule = {
         let subUrl = `${RIVESTREAM_API_BASE}?requestID=${typeStr}OnlineSubtitles&id=${tmdbId}&secretKey=${secretKey}&proxyMode=undefined`;
         if (input.mediaKind === "series") subUrl += `&season=${season}&episode=${episode}`;
 
-        const subRes = await providerFetch(context, subUrl, {
-          headers: { "User-Agent": USER_AGENT, Referer: RIVESTREAM_REFERER },
-          signal: context.signal,
-        });
-        const subData = (await subRes.json()) as RivestreamSubtitleResponse;
+        const subData = await providerJson<RivestreamSubtitleResponse>(
+          context,
+          subUrl,
+          {
+            headers: { "User-Agent": USER_AGENT, Referer: RIVESTREAM_REFERER },
+            signal: context.signal,
+          },
+          { providerId: RIVESTREAM_PROVIDER_ID, stage: "subtitle" },
+        );
 
         if (subData.data && subData.data.length > 0) {
           subData.data.forEach((sub) => {
@@ -411,7 +418,7 @@ export const rivestreamProviderModule: CoreProviderModule = {
             host: "rivestream.app",
             status: "selected",
             confidence: 0.95,
-            requiresRuntime: "node-fetch",
+            requiresRuntime: "direct-http",
             cachePolicy,
           },
         ],
@@ -425,7 +432,7 @@ export const rivestreamProviderModule: CoreProviderModule = {
           providerId: RIVESTREAM_PROVIDER_ID,
           streamId: selectedStream.id,
           cacheHit: false,
-          runtime: "node-fetch",
+          runtime: "direct-http",
           startedAt,
           endedAt,
           steps: [
@@ -450,9 +457,9 @@ export const rivestreamProviderModule: CoreProviderModule = {
 
       const failure: ProviderFailure = {
         providerId: RIVESTREAM_PROVIDER_ID,
-        code: "network-error",
+        code: error instanceof ProviderHttpError ? error.code : "network-error",
         message: error instanceof Error ? error.message : "Rivestream API failed",
-        retryable: true,
+        retryable: error instanceof ProviderHttpError ? error.retryable : true,
         at: context.now(),
       };
       failures.push(failure);
@@ -491,7 +498,7 @@ function createExhaustedResult(
       episode: input.episode,
       providerId: RIVESTREAM_PROVIDER_ID,
       cacheHit: false,
-      runtime: "node-fetch",
+      runtime: "direct-http",
       startedAt: at,
       endedAt: at,
       steps: [

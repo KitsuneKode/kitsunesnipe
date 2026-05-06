@@ -42,10 +42,10 @@ export const allmangaProviderModule: CoreProviderModule = {
       });
     }
 
-    if (!input.allowedRuntimes.includes("node-fetch")) {
+    if (!input.allowedRuntimes.includes("direct-http")) {
       return createExhaustedResult(input, context, {
         code: "runtime-missing",
-        message: "AllManga resolver requires node-fetch runtime",
+        message: "AllManga resolver requires direct-http runtime",
         retryable: false,
       });
     }
@@ -209,7 +209,7 @@ export const allmangaProviderModule: CoreProviderModule = {
             host: "api.allanime.day",
             status: "selected",
             confidence: 0.95,
-            requiresRuntime: "node-fetch",
+            requiresRuntime: "direct-http",
             cachePolicy,
           },
         ],
@@ -223,7 +223,7 @@ export const allmangaProviderModule: CoreProviderModule = {
           providerId: ALLANIME_PROVIDER_ID,
           streamId: selectedStream.id,
           cacheHit: false,
-          runtime: "node-fetch",
+          runtime: "direct-http",
           startedAt,
           endedAt,
           steps: [
@@ -289,7 +289,7 @@ function createExhaustedResult(
       episode: input.episode,
       providerId: ALLANIME_PROVIDER_ID,
       cacheHit: false,
-      runtime: "node-fetch",
+      runtime: "direct-http",
       startedAt: at,
       endedAt: at,
       steps: [

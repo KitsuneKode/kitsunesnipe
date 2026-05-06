@@ -12,7 +12,7 @@ export const rivestreamManifest = defineProviderManifest({
   capabilities: ["source-resolve", "subtitle-resolve", "multi-source", "quality-ranked"],
   runtimePorts: [
     {
-      runtime: "node-fetch",
+      runtime: "direct-http",
       operations: ["resolve-stream", "resolve-subtitles", "health-check"],
       browserSafe: false,
       relaySafe: true,
