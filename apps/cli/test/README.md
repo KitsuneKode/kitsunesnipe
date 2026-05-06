@@ -8,6 +8,9 @@ Use the test tree by responsibility:
   Deterministic workflow or service contract tests that span multiple modules.
 - `test/live/`
   Opt-in live smoke scripts for provider drift or real network verification.
+  These scripts create an isolated temp Kunai profile (`XDG_CONFIG_HOME`,
+  `XDG_DATA_HOME`, and `XDG_CACHE_HOME`) before booting the container, so they
+  do not read or mutate your real config, watch history, or stream cache.
 - `test/templates/`
   Copyable starting points for new provider and service contract tests.
 - `test/vhs/`

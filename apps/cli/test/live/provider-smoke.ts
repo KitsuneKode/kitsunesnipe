@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import type { StreamInfo, TitleInfo } from "@/domain/types";
 
 export type ProviderSmokePayload = {
@@ -18,6 +22,33 @@ export type ProviderSmokePayload = {
   readonly failureCodes: readonly string[];
   readonly error?: string;
 };
+
+export type ProviderSmokeProfile = {
+  readonly rootDir: string;
+  readonly configHome: string;
+  readonly dataHome: string;
+  readonly cacheHome: string;
+};
+
+export function createProviderSmokeProfile(label: string): ProviderSmokeProfile {
+  const rootDir = mkdtempSync(join(tmpdir(), `kunai-live-${label}-`));
+  const profile = {
+    rootDir,
+    configHome: join(rootDir, "config"),
+    dataHome: join(rootDir, "data"),
+    cacheHome: join(rootDir, "cache"),
+  };
+
+  process.env.XDG_CONFIG_HOME = profile.configHome;
+  process.env.XDG_DATA_HOME = profile.dataHome;
+  process.env.XDG_CACHE_HOME = profile.cacheHome;
+
+  process.on("exit", () => {
+    rmSync(rootDir, { force: true, recursive: true });
+  });
+
+  return profile;
+}
 
 export function buildProviderSmokePayload({
   provider,

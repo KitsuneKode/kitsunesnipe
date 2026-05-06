@@ -1,8 +1,14 @@
 import { searchTitles } from "@/app/search-routing";
-import { createContainer } from "@/container";
 
-import { buildProviderSmokePayload, providerSmokeError } from "./provider-smoke";
+import {
+  buildProviderSmokePayload,
+  createProviderSmokeProfile,
+  providerSmokeError,
+} from "./provider-smoke";
 
+createProviderSmokeProfile("allanime");
+
+const { createContainer } = await import("@/container");
 const container = await createContainer({ debug: true });
 const { searchRegistry, providerRegistry, config } = container;
 

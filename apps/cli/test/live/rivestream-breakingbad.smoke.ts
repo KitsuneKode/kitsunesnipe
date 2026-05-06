@@ -1,12 +1,18 @@
-import { createContainer } from "@/container";
 import type { TitleInfo } from "@/domain/types";
 
-import { buildProviderSmokePayload, providerSmokeError } from "./provider-smoke";
+import {
+  buildProviderSmokePayload,
+  createProviderSmokeProfile,
+  providerSmokeError,
+} from "./provider-smoke";
+
+createProviderSmokeProfile("rivestream");
 
 const season = Number(process.argv[2] ?? "1");
 const episode = Number(process.argv[3] ?? "1");
 const clearCache = process.env.KITSUNE_CLEAR_CACHE === "1";
 
+const { createContainer } = await import("@/container");
 const container = await createContainer({ debug: true });
 const provider = container.providerRegistry.get("rivestream");
 
