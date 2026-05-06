@@ -1,9 +1,10 @@
 # Braflix Provider Dossier
 
-- **Status:** production
+- **Status:** broken / deprecated (Service is down)
 - **Provider ID:** braflix
 - **Domain:** braflix.mov
 - **Supported content:** movie, series
+- **Note:** As of May 2026, the service is offline and the domain is non-responsive. No further experiments will be performed.
 - **Runtime class:** browser-safe fetch (HTML parsing) -> Playwright lease
 - **Search support:** Yes, custom HTML scraping.
 - **Episode/catalog support:** Yes, custom HTML scraping.
