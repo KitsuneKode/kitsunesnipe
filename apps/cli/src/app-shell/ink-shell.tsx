@@ -9,7 +9,7 @@ import { isKittyCompatible } from "@/image";
 import { buildRuntimeHealthSnapshot } from "@/services/diagnostics/runtime-health";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 import { Box, Text, render, useInput, useStdout } from "ink";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ResolvedAppCommand } from "./commands";
 import { buildBrowseCompanionPanel, buildBrowseDetailsPanel } from "./details-panel";
@@ -1286,11 +1286,13 @@ function ListShell<T>({
   const [highlightedCommandIndex, setHighlightedCommandIndex] = useState(0);
   const { stdout } = useStdout();
   const normalizedFilter = filterQuery.trim().toLowerCase();
-  const filteredOptions = options.filter((option) => {
-    if (normalizedFilter.length === 0) return true;
-    const haystack = `${option.label} ${option.detail ?? ""}`.toLowerCase();
-    return haystack.includes(normalizedFilter);
-  });
+  const filteredOptions = useMemo(() => {
+    return options.filter((option) => {
+      if (normalizedFilter.length === 0) return true;
+      const haystack = `${option.label} ${option.detail ?? ""}`.toLowerCase();
+      return haystack.includes(normalizedFilter);
+    });
+  }, [options, normalizedFilter]);
 
   useEffect(() => {
     if (filteredOptions.length === 0) {
@@ -1339,7 +1341,7 @@ function ListShell<T>({
     normalizedFilter.length > 0
       ? "Refine the filter or confirm the highlighted match"
       : (actionContext?.taskLabel ?? "Filter this list and confirm a selection");
-  const effectiveFooterMode = ultraCompact ? "minimal" : (actionContext?.footerMode ?? "detailed");
+  const effectiveFooterMode = "minimal";
   const footerActions: readonly FooterAction[] =
     effectiveFooterMode === "minimal"
       ? [
@@ -1841,7 +1843,7 @@ function BrowseShell<T>({
     minRows,
     maxVisibleRows: maxVisible,
   } = viewport;
-  const effectiveFooterMode = ultraCompact ? "minimal" : (footerMode ?? "detailed");
+  const effectiveFooterMode = "minimal";
   const innerWidth = Math.max(24, stdout.columns - 8);
   const previewWidth = wideBrowse ? Math.max(28, Math.floor(innerWidth * 0.3)) : innerWidth;
   const listWidth = wideBrowse ? Math.max(48, innerWidth - previewWidth - 4) : innerWidth;

@@ -323,11 +323,23 @@ export function buildDiagnosticsPanelLines({
   ];
 }
 
-function historyProgress(entry: HistoryEntry): string {
+function renderProgressBar(percentage: number): string {
+  const totalBlocks = 10;
+  const filledBlocks = Math.max(0, Math.min(totalBlocks, Math.round((percentage / 100) * totalBlocks)));
+  const emptyBlocks = totalBlocks - filledBlocks;
+  return `[${"█".repeat(filledBlocks)}${"░".repeat(emptyBlocks)}]`;
+}
+
+function historyProgressDetails(entry: HistoryEntry): { percentage: number | null; text: string; bar: string | null } {
   if (entry.duration > 0) {
-    return `${Math.round((entry.timestamp / entry.duration) * 100)}% watched`;
+    const percentage = Math.round((entry.timestamp / entry.duration) * 100);
+    return {
+      percentage,
+      text: `${percentage}% watched`,
+      bar: renderProgressBar(percentage),
+    };
   }
-  return "position saved";
+  return { percentage: null, text: "position saved", bar: null };
 }
 
 function sortHistoryEntries(
@@ -354,26 +366,36 @@ export function buildHistoryPanelLines(
 
   return sortHistoryEntries(historyEntries)
     .slice(0, 10)
-    .map(([titleId, entry]: [string, HistoryEntry]) => ({
-      label:
-        entry.type === "series"
-          ? `${entry.title}  ·  S${String(entry.season).padStart(2, "0")}E${String(entry.episode).padStart(2, "0")}`
-          : `${entry.title}  ·  movie`,
-      detail: `${historyProgress(entry)}  ·  provider ${entry.provider}  ·  id ${titleId}  ·  ${new Date(entry.watchedAt).toLocaleDateString()}`,
-    }));
+    .map(([titleId, entry]: [string, HistoryEntry]) => {
+      const details = historyProgressDetails(entry);
+      return {
+        label:
+          entry.type === "series"
+            ? `${entry.title}  ·  S${String(entry.season).padStart(2, "0")}E${String(entry.episode).padStart(2, "0")}`
+            : `${entry.title}  ·  movie`,
+        detail: `${details.bar ? `${details.bar} ` : ""}${details.text}  ·  provider ${entry.provider}  ·  id ${titleId}  ·  ${new Date(entry.watchedAt).toLocaleDateString()}`,
+      };
+    });
 }
 
 export function buildHistoryPickerOptions(
   historyEntries: ReadonlyArray<[string, HistoryEntry]>,
 ): readonly ShellPickerOption<string>[] {
-  return sortHistoryEntries(historyEntries).map(([id, entry]: [string, HistoryEntry]) => ({
-    value: id,
-    label:
-      entry.type === "series"
-        ? `${entry.title}  ·  S${String(entry.season).padStart(2, "0")}E${String(entry.episode).padStart(2, "0")}`
-        : `${entry.title}  ·  movie`,
-    detail: `${historyProgress(entry)}  ·  provider ${entry.provider}  ·  ${new Date(entry.watchedAt).toLocaleDateString()}`,
-  }));
+  return sortHistoryEntries(historyEntries).map(([id, entry]: [string, HistoryEntry]) => {
+    const details = historyProgressDetails(entry);
+    const isCompleted = details.percentage !== null && details.percentage >= 95;
+    
+    return {
+      value: id,
+      label:
+        entry.type === "series"
+          ? `${entry.title}  ·  S${String(entry.season).padStart(2, "0")}E${String(entry.episode).padStart(2, "0")}`
+          : `${entry.title}  ·  movie`,
+      detail: `provider ${entry.provider}  ·  ${new Date(entry.watchedAt).toLocaleDateString()}`,
+      badge: details.bar ? `${details.bar} ${details.percentage}%` : "saved",
+      tone: isCompleted ? "success" : "neutral",
+    };
+  });
 }
 
 export function buildProviderPickerOptions({

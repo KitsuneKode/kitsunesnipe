@@ -89,10 +89,9 @@ export interface Container {
 }
 
 export function effectiveFooterHints(
-  container: Pick<Container, "config" | "shellChrome">,
+  _container: Pick<Container, "config" | "shellChrome">,
 ): "detailed" | "minimal" {
-  if (container.shellChrome === "minimal") return "minimal";
-  return container.config.getRaw().footerHints;
+  return "minimal";
 }
 
 /**
