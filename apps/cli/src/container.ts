@@ -47,6 +47,8 @@ import { SourceInventoryService } from "./services/playback/SourceInventoryServi
 import { PROVIDER_DEFINITIONS } from "./services/providers/definitions";
 import type { ProviderRegistry } from "./services/providers/ProviderRegistry";
 import { ProviderRegistryImpl } from "./services/providers/ProviderRegistry";
+import type { RecommendationService } from "./services/recommendations/RecommendationService";
+import { RecommendationServiceImpl } from "./services/recommendations/RecommendationServiceImpl";
 import { SEARCH_SERVICE_DEFINITIONS } from "./services/search/definitions";
 import type { SearchRegistry } from "./services/search/SearchRegistry";
 import { SearchRegistryImpl } from "./services/search/SearchRegistry";
@@ -84,6 +86,9 @@ export interface Container {
 
   // Session
   readonly stateManager: SessionStateManager;
+
+  // Recommendations
+  readonly recommendationService: RecommendationService;
 
   /** CLI-driven shell density; minimal forces a minimal footer regardless of saved config. */
   readonly shellChrome: ShellChrome;
@@ -169,6 +174,8 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   const shellChrome: ShellChrome = options?.shellChrome ?? "default";
   const capabilitySnapshot = options?.capabilitySnapshot ?? null;
 
+  const recommendationService = new RecommendationServiceImpl();
+
   const container: Container = {
     logger,
     tracer,
@@ -186,6 +193,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     diagnosticsStore,
     sourceInventory,
     stateManager,
+    recommendationService,
     shellChrome,
     capabilitySnapshot,
   };
