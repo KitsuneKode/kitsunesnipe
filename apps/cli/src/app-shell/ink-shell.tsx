@@ -2257,6 +2257,9 @@ function BrowseShell<T>({
         />
       ) : null}
 
+      {_settings?.discoverShowOnStartup && (
+        <Text color={palette.dim}>/ discover · based on your history</Text>
+      )}
       <ShellFooter
         taskLabel={options.length > 0 && !queryDirty ? "Browse" : "Search"}
         mode={effectiveFooterMode}
