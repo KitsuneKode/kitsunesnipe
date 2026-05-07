@@ -8,7 +8,7 @@ describe("discovery command", () => {
     const state = createInitialState("vidking", "allanime");
 
     expect(parseCommand("/trending")?.id).toBe("trending");
-    expect(parseCommand("/discover")?.id).toBe("trending");
+    expect(parseCommand("/discover")?.id).toBe("discover");
     expect(resolveCommands(state, ["trending"])).toEqual([
       expect.objectContaining({
         id: "trending",
