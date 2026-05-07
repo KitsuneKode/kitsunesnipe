@@ -16,7 +16,7 @@ export interface CoreProviderModule<
 }
 
 export const DEFAULT_PROVIDER_RETRY_POLICY: ProviderRetryPolicy = {
-  maxAttempts: 1,
+  maxAttempts: 2,
   backoff: "none",
 };
 

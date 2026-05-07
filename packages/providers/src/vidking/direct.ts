@@ -147,62 +147,89 @@ export async function resolveVidkingDirect(
       tmdbId,
       episode: input.episode,
     })) {
-      try {
-        const response = await fetchVideasyPayload({
-          server,
-          query,
-          fetchPort: context.fetch,
-          signal: context.signal,
-        });
+      const maxAttempts = Math.max(1, context.retryPolicy?.maxAttempts ?? 2);
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const response = await fetchVideasyPayload({
+            server,
+            query,
+            fetchPort: context.fetch,
+            signal: context.signal,
+          });
 
-        if (!response.ok) {
-          failures.push({
+          if (!response.ok) {
+            const failure: ProviderFailure = {
+              providerId: VIDKING_PROVIDER_ID,
+              code: response.status === 504 ? "timeout" : "network-error",
+              message: `Videasy ${server} returned HTTP ${response.status}`,
+              retryable: true,
+              at: context.now(),
+            };
+            failures.push(failure);
+            emitRetryIfNeeded(events, context, failure, sourceId, attempt, maxAttempts);
+            continue;
+          }
+
+          const payload = (await response.text()).trim();
+          if (!payload) {
+            const failure: ProviderFailure = {
+              providerId: VIDKING_PROVIDER_ID,
+              code: "not-found",
+              message: `Videasy ${server} returned an empty payload`,
+              retryable: true,
+              at: context.now(),
+            };
+            failures.push(failure);
+            emitRetryIfNeeded(events, context, failure, sourceId, attempt, maxAttempts);
+            continue;
+          }
+
+          const decoded = await decodeVidkingPayload(payload, tmdbId);
+          const result = createVidkingResultFromPayload({
+            input,
+            cachePolicy,
+            payload: decoded,
+            sourceId,
+            server,
+            events,
+            context,
+            startedAt,
+            failures,
+          });
+
+          if (result) {
+            return result;
+          }
+
+          const failure: ProviderFailure = {
             providerId: VIDKING_PROVIDER_ID,
-            code: response.status === 504 ? "timeout" : "network-error",
-            message: `Videasy ${server} returned HTTP ${response.status}`,
+            code: "not-found",
+            message: `Videasy ${server} returned no playable streams`,
             retryable: true,
             at: context.now(),
-          });
+          };
+          failures.push(failure);
+          emitRetryIfNeeded(events, context, failure, sourceId, attempt, maxAttempts);
           continue;
-        }
+        } catch (error) {
+          if (context.signal?.aborted) {
+            return createVidkingExhaustedResult(input, context, {
+              code: "cancelled",
+              message: "VidKing resolution was cancelled",
+              retryable: false,
+            });
+          }
 
-        const payload = (await response.text()).trim();
-        if (!payload) {
-          continue;
+          const failure: ProviderFailure = {
+            providerId: VIDKING_PROVIDER_ID,
+            code: "parse-failed",
+            message: error instanceof Error ? error.message : "VidKing payload decode failed",
+            retryable: true,
+            at: context.now(),
+          };
+          failures.push(failure);
+          emitRetryIfNeeded(events, context, failure, sourceId, attempt, maxAttempts);
         }
-
-        const decoded = await decodeVidkingPayload(payload, tmdbId);
-        const result = createVidkingResultFromPayload({
-          input,
-          cachePolicy,
-          payload: decoded,
-          sourceId,
-          server,
-          events,
-          context,
-          startedAt,
-          failures,
-        });
-
-        if (result) {
-          return result;
-        }
-      } catch (error) {
-        if (context.signal?.aborted) {
-          return createVidkingExhaustedResult(input, context, {
-            code: "cancelled",
-            message: "VidKing resolution was cancelled",
-            retryable: false,
-          });
-        }
-
-        failures.push({
-          providerId: VIDKING_PROVIDER_ID,
-          code: "parse-failed",
-          message: error instanceof Error ? error.message : "VidKing payload decode failed",
-          retryable: true,
-          at: context.now(),
-        });
       }
     }
 
@@ -214,13 +241,13 @@ export async function resolveVidkingDirect(
     });
   }
 
-  emit(events, context, {
-    type: "provider:exhausted",
-    providerId: VIDKING_PROVIDER_ID,
-    message: "VidKing direct resolver exhausted all Videasy servers",
+  return createVidkingExhaustedResult(input, context, undefined, {
+    cachePolicy,
+    events,
+    failures,
+    sources,
+    startedAt,
   });
-
-  return null;
 }
 
 export function createVidkingResultFromPayload({
@@ -665,6 +692,13 @@ function createVidkingExhaustedResult(
     message: "VidKing direct resolver did not find a playable source",
     retryable: true,
   },
+  evidence: {
+    readonly cachePolicy?: CachePolicy;
+    readonly events?: readonly ProviderTraceEvent[];
+    readonly failures?: readonly ProviderFailure[];
+    readonly sources?: readonly ProviderSourceCandidate[];
+    readonly startedAt?: string;
+  } = {},
 ): ProviderResolveResult {
   const at = context.now();
   const providerFailure: ProviderFailure = {
@@ -680,25 +714,31 @@ function createVidkingExhaustedResult(
     message: providerFailure.message,
   };
   context.emit?.(event);
-
-  return {
-    providerId: VIDKING_PROVIDER_ID,
-    streams: [],
-    subtitles: [],
-    cachePolicy: createProviderCachePolicy({
+  const failures = evidence.failures?.length ? evidence.failures : [providerFailure];
+  const events = [...(evidence.events ?? []), event];
+  const cachePolicy =
+    evidence.cachePolicy ??
+    createProviderCachePolicy({
       providerId: VIDKING_PROVIDER_ID,
       title: input.title,
       episode: input.episode,
       subtitleLanguage: input.preferredSubtitleLanguage,
       qualityPreference: input.qualityPreference,
-    }),
+    });
+
+  return {
+    providerId: VIDKING_PROVIDER_ID,
+    sources: evidence.sources,
+    streams: [],
+    subtitles: [],
+    cachePolicy,
     trace: createResolveTrace({
       title: input.title,
       episode: input.episode,
       providerId: VIDKING_PROVIDER_ID,
       cacheHit: false,
       runtime: "direct-http",
-      startedAt: at,
+      startedAt: evidence.startedAt ?? at,
       endedAt: at,
       steps: [
         createTraceStep("provider", providerFailure.message, {
@@ -706,16 +746,49 @@ function createVidkingExhaustedResult(
           attributes: { code: providerFailure.code },
         }),
       ],
-      events: [event],
-      failures: [providerFailure],
+      events,
+      failures,
     }),
-    failures: [providerFailure],
+    failures,
     healthDelta: {
       providerId: VIDKING_PROVIDER_ID,
       outcome: providerFailure.code === "cancelled" ? "failure" : "failure",
       at,
     },
   };
+}
+
+function emitRetryIfNeeded(
+  events: ProviderTraceEvent[],
+  context: ProviderRuntimeContext,
+  failure: ProviderFailure,
+  sourceId: string,
+  attempt: number,
+  maxAttempts: number,
+): void {
+  if (!isRetryableFailure(context, failure) || attempt >= maxAttempts) {
+    return;
+  }
+
+  emit(events, context, {
+    type: "retry:scheduled",
+    providerId: VIDKING_PROVIDER_ID,
+    sourceId,
+    attempt: attempt + 1,
+    message: `Retrying VidKing source after ${failure.code}`,
+    attributes: {
+      previousAttempt: attempt,
+      maxAttempts,
+      code: failure.code,
+      retryable: failure.retryable,
+    },
+  });
+}
+
+function isRetryableFailure(context: ProviderRuntimeContext, failure: ProviderFailure): boolean {
+  if (!failure.retryable) return false;
+  const retryableCodes = context.retryPolicy?.retryableCodes;
+  return !retryableCodes || retryableCodes.includes(failure.code);
 }
 
 function emit(

@@ -8,6 +8,7 @@ import {
   getProviderResearchProfile,
   miruroProviderModule,
   providerResearchProfiles,
+  resolveVidkingDirect,
   rivestreamProviderModule,
   vidkingProviderModule,
 } from "../src/index";
@@ -113,4 +114,54 @@ test("vidking direct payload creates selected stream, variants, and subtitle inv
   expect(result?.subtitles.map((subtitle) => subtitle.language)).toEqual(["en", "en", "es"]);
   expect(result?.subtitles[0]?.url).toBe("https://subs.example/en.vtt");
   expect(result?.trace.events?.map((event) => event.type)).toContain("variant:selected");
+});
+
+test("vidking direct resolver retries a failing source and preserves trace evidence", async () => {
+  const events: unknown[] = [];
+  let calls = 0;
+  const result = await resolveVidkingDirect(
+    {
+      title: {
+        id: "1668",
+        tmdbId: "1668",
+        kind: "series",
+        title: "Friends",
+        year: 1994,
+      },
+      episode: { season: 1, episode: 2 },
+      mediaKind: "series",
+      preferredSubtitleLanguage: "en",
+      intent: "play",
+      allowedRuntimes: ["direct-http"],
+    },
+    {
+      now: () => "2026-05-01T00:00:00.000Z",
+      retryPolicy: { maxAttempts: 2, backoff: "none" },
+      emit: (event) => events.push(event),
+      fetch: {
+        runtime: "direct-http",
+        fetch: async () => {
+          calls += 1;
+          return new Response("", { status: 504 });
+        },
+      },
+    },
+  );
+
+  expect(calls).toBeGreaterThan(1);
+  expect(result?.streams).toEqual([]);
+  expect(result?.trace.events?.map((event) => event.type)).toContain("retry:scheduled");
+  expect(result?.trace.events?.map((event) => event.type)).toContain("provider:exhausted");
+  expect(result?.trace.failures[0]).toMatchObject({
+    providerId: "vidking",
+    code: "timeout",
+    retryable: true,
+  });
+  expect(events).toContainEqual(
+    expect.objectContaining({
+      type: "retry:scheduled",
+      providerId: "vidking",
+      attempt: 2,
+    }),
+  );
 });

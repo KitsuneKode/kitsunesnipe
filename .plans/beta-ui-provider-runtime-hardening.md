@@ -315,11 +315,11 @@ bun run test -- apps/cli/test/unit/app
 - Test: `packages/core/test/core.test.ts`
 - Test: `packages/providers/test/providers.test.ts`
 
-- [ ] **Step 1: Make retry policy explicit**
+- [x] **Step 1: Make retry policy explicit**
 
 Use existing `ProviderRetryPolicy` and trace event types. Do not add a second retry model.
 
-- [ ] **Step 2: VidKing source retry**
+- [x] **Step 2: VidKing source retry**
 
 VidKing should retry retryable source failures per `VIDKING_SERVERS`, record `source:start`, `source:failed`, `retry:scheduled`, and `provider:exhausted`.
 
