@@ -255,12 +255,17 @@ export const rivestreamProviderModule: CoreProviderModule = {
       const episode = input.episode?.episode ?? 1;
 
       // 1. Get Providers
+      const servicesSignal =
+        "any" in AbortSignal
+          ? (AbortSignal as any).any([context.signal, AbortSignal.timeout(8000)])
+          : context.signal;
+
       const provData = await providerJson<RivestreamProviderServicesResponse>(
         context,
         `${RIVESTREAM_API_BASE}?requestID=VideoProviderServices&secretKey=rive&proxyMode=undefined`,
         {
           headers: { "User-Agent": USER_AGENT, Referer: RIVESTREAM_REFERER },
-          signal: context.signal,
+          signal: servicesSignal,
         },
         { providerId: RIVESTREAM_PROVIDER_ID, stage: "source:start" },
       );
@@ -283,16 +288,22 @@ export const rivestreamProviderModule: CoreProviderModule = {
         serverUsed = provider;
         sourceId = `source:${RIVESTREAM_PROVIDER_ID}:${provider}`;
 
-        let url = `${RIVESTREAM_API_BASE}?requestID=${typeStr}VideoProvider&id=${tmdbId}&service=${provider}&secretKey=${secretKey}&proxyMode=noProxy`;
+        let url = `${RIVESTREAM_API_BASE}?requestID=${typeStr}VideoProvider&id=${tmdbId}`;
         if (input.mediaKind === "series") url += `&season=${season}&episode=${episode}`;
+        url += `&service=${provider}&secretKey=${secretKey}&proxyMode=noProxy`;
 
         try {
+          const fetchSignal =
+            "any" in AbortSignal
+              ? (AbortSignal as any).any([context.signal, AbortSignal.timeout(8000)])
+              : context.signal;
+
           const sourceData = await providerJson<RivestreamSourceResponse>(
             context,
             url,
             {
               headers: { "User-Agent": USER_AGENT, Referer: RIVESTREAM_REFERER },
-              signal: context.signal,
+              signal: fetchSignal,
             },
             { providerId: RIVESTREAM_PROVIDER_ID, stage: "source:start" },
           );
@@ -301,7 +312,7 @@ export const rivestreamProviderModule: CoreProviderModule = {
           if (rawSources.length > 0) {
             rawSources.forEach((s) => {
               if (!s.url) return;
-              const qualityStr = s.quality || s.format || "auto";
+              const qualityStr = String(s.quality || s.format || "auto");
               const streamId = `stream:${RIVESTREAM_PROVIDER_ID}:${Bun.hash(s.url).toString(36)}`;
               const variantId = `variant:${RIVESTREAM_PROVIDER_ID}:${sourceId}:${qualityStr}`;
               const protocol = s.url.includes(".m3u8") ? "hls" : "mp4";
@@ -355,17 +366,23 @@ export const rivestreamProviderModule: CoreProviderModule = {
 
       // Subtitles Fetch
       try {
-        let subUrl = `${RIVESTREAM_API_BASE}?requestID=${typeStr}OnlineSubtitles&id=${tmdbId}&secretKey=${secretKey}&proxyMode=undefined`;
+        let subUrl = `${RIVESTREAM_API_BASE}?requestID=${typeStr}OnlineSubtitles&id=${tmdbId}`;
         if (input.mediaKind === "series") subUrl += `&season=${season}&episode=${episode}`;
+        subUrl += `&secretKey=${secretKey}&proxyMode=undefined`;
+
+        const subSignal =
+          "any" in AbortSignal
+            ? (AbortSignal as any).any([context.signal, AbortSignal.timeout(8000)])
+            : context.signal;
 
         const subData = await providerJson<RivestreamSubtitleResponse>(
           context,
           subUrl,
           {
             headers: { "User-Agent": USER_AGENT, Referer: RIVESTREAM_REFERER },
-            signal: context.signal,
+            signal: subSignal,
           },
-          { providerId: RIVESTREAM_PROVIDER_ID, stage: "subtitle" },
+          { providerId: RIVESTREAM_PROVIDER_ID, stage: "subtitle:start" },
         );
 
         if (subData.data && subData.data.length > 0) {
