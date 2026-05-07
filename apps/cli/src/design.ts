@@ -183,3 +183,10 @@ export function contentBadge(type: "movie" | "series", isAnime: boolean): string
   if (type === "movie") return clr.dim("movie");
   return clr.dim("series");
 }
+
+// ── Label truncation ──────────────────────────────────────────────────────────
+
+export function truncateLabel(text: string, maxWidth: number): string {
+  if (text.length <= maxWidth) return text;
+  return `${text.slice(0, maxWidth - 1)}…`;
+}

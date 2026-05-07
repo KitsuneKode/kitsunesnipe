@@ -1,9 +1,12 @@
+import { truncateLabel } from "@/design";
 import type { SearchResult } from "@/domain/types";
 import type { RecommendationSection } from "@/services/recommendations/RecommendationService";
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
 
+import { ResizeBlocker } from "./shell-primitives";
 import { palette } from "./shell-theme";
+import { useViewportPolicy } from "./use-viewport-policy";
 
 export type DiscoverShellResult = { type: "open"; result: SearchResult } | { type: "back" };
 
@@ -34,7 +37,7 @@ function DiscoverSectionView({
                 backgroundColor={isActive ? palette.surfaceActive : undefined}
                 color={isActive ? palette.text : palette.muted}
               >
-                {`  ${isActive ? "▶" : " "} ${item.title.padEnd(28).slice(0, 28)} ${rating.padEnd(7)} ${item.year}`}
+                {`  ${isActive ? "▶" : " "} ${truncateLabel(item.title, 28).padEnd(28)} ${rating.padEnd(7)} ${item.year}`}
               </Text>
             </Box>
           );
@@ -53,7 +56,8 @@ export function DiscoverShell({
 }) {
   const [sectionIdx, setSectionIdx] = useState(0);
   const [itemIdx, setItemIdx] = useState(0);
-  const sepWidth = 76;
+  const viewport = useViewportPolicy("browse");
+  const sepWidth = Math.max(24, (viewport.minColumns ?? 80) - 4);
 
   const currentSection = sections[sectionIdx];
   const currentItems = currentSection?.items ?? [];
@@ -93,6 +97,10 @@ export function DiscoverShell({
       return;
     }
   });
+
+  if (viewport.tooSmall) {
+    return <ResizeBlocker minColumns={viewport.minColumns} minRows={viewport.minRows} />;
+  }
 
   return (
     <Box flexDirection="column" flexGrow={1} justifyContent="space-between" paddingX={1}>
