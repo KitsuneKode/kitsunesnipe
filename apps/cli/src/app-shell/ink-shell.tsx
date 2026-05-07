@@ -12,6 +12,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ResolvedAppCommand } from "./commands";
 import { buildBrowseCompanionPanel, buildBrowseDetailsPanel } from "./details-panel";
+import { DiscoverShell, type DiscoverShellResult } from "./discover-shell";
 import { deleteAllKittyImages } from "./image-pane";
 import { LoadingShell, useSpinner } from "./loading-shell";
 import { OverlayPanel } from "./overlay-panel";
@@ -2419,4 +2420,22 @@ export function openListShell<T>({
   };
 
   return run();
+}
+
+export function openDiscoverShell(
+  sections: import("@/services/recommendations/RecommendationService").RecommendationSection[],
+): Promise<DiscoverShellResult> {
+  const session = mountShell<DiscoverShellResult>({
+    renderShell: (finish) => (
+      <DiscoverShell
+        sections={sections}
+        onResult={(result) => {
+          finish(result);
+        }}
+      />
+    ),
+    fallbackValue: { type: "back" },
+  });
+
+  return session.result;
 }
