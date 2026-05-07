@@ -1225,8 +1225,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                   ? { label: catalogAutoplayEndBanner, tone: "neutral" }
                   : { label: "Ready for next action", tone: "success" },
                 footerMode: "detailed",
+                showDiscoverNudge: title.type === "series" && !episodeAvailability.nextEpisode,
                 commands: resolveCommands(stateManager.getState(), [
                   "search",
+                  "discover",
                   "settings",
                   "toggle-mode",
                   "provider",
@@ -1269,6 +1271,15 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 episode: { season: postAction.season, episode: postAction.episode },
               });
               break postPlayback;
+            }
+
+            if (postAction === "discover") {
+              const { openDiscoverShell } = await import("../app-shell/ink-shell");
+              const { buildDiscoverSections } = await import("./discover-sections");
+
+              const sections = await buildDiscoverSections(container);
+              await openDiscoverShell([...sections]);
+              continue postPlayback;
             }
 
             const routedAction = await routePlaybackShellAction({

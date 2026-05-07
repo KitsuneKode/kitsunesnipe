@@ -70,6 +70,7 @@ export type PlaybackShellState = {
   status?: ShellStatus;
   commands?: readonly ResolvedAppCommand[];
   footerMode?: ShellFooterMode;
+  readonly showDiscoverNudge?: boolean;
 };
 
 export type LoadingShellState = {
