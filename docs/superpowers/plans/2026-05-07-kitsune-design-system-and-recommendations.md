@@ -2,9 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a shared design token package (`@kunai/design`) that formalises the fox-amber palette with hot-pink anime accent, then build a lazy-loaded Discover screen and post-playback recommendation nudge powered by TMDB.
+**Goal:** Ship a shared design token package (`@kunai/design`) that formalises the fox-amber palette with hot-pink anime accent, a minimal display mode, then build a lazy-loaded Discover screen and post-playback recommendation nudge powered by TMDB.
 
-**Architecture:** Token values live in `packages/design/src/tokens.ts`; both the CLI (`shell-theme.ts`, `design.ts`) and future web consume them in their native format. The `RecommendationService` fetches from TMDB `/recommendations` and `/trending` on demand, caches results to a JSON file in the Kunai config dir, and surfaces via a new `openDiscoverShell` Ink component and a post-playback nudge when a series is fully watched.
+**Architecture:** Token values live in `packages/design/src/tokens.ts`; both the CLI (`shell-theme.ts`, `design.ts`) and future web consume them in their native format. The `RecommendationService` fetches from TMDB `/recommendations` and `/trending` on demand, caches results to a JSON file in the Kunai config dir, and surfaces via a new `openDiscoverShell` Ink component and a post-playback nudge when a series is fully watched. A shared `buildDiscoverSections` helper eliminates the duplication between the browse and post-playback flows.
+
+**Principles applied throughout:**
+- **Single source of truth**: `KitsuneConfig` is the only config type; no nested sub-objects — all new fields are flat (e.g. `discoverShowOnStartup`, `minimalMode`).
+- **DRY**: `buildDiscoverSections` is defined once in `app/discover-sections.ts` and called from both `main.ts` and `PlaybackPhase.ts`.
+- **Non-additive**: `effectiveFooterHints` already exists as the right abstraction for footer density — we fix its stub implementation rather than adding a parallel mechanism.
+- **Naming**: component names describe what they render (`DiscoverSectionView`, not `SectionList`); helpers describe what they return (`buildDiscoverSections`, not `getSections`).
 
 **Tech Stack:** Bun, TypeScript, Ink (React), TMDB REST API (existing key), `@kunai/storage` for paths, `writeAtomicJson` for cache persistence.
 
@@ -21,6 +27,7 @@
 - `packages/design/src/index.ts`
 - `apps/cli/src/services/recommendations/RecommendationService.ts`
 - `apps/cli/src/services/recommendations/RecommendationServiceImpl.ts`
+- `apps/cli/src/app/discover-sections.ts` — shared helper, used by both `main.ts` and `PlaybackPhase.ts`
 - `apps/cli/src/app-shell/discover-shell.tsx`
 - `apps/cli/test/unit/services/recommendations/recommendation-service.test.ts`
 
@@ -748,7 +755,7 @@ export type DiscoverShellResult =
   | { type: "open"; result: SearchResult }
   | { type: "back" };
 
-function SectionList({
+function DiscoverSectionView({
   section,
   isFocused,
   focusedIndex,
@@ -860,7 +867,7 @@ export function DiscoverShell({
             <Text color={palette.dim}>  Loading recommendations…</Text>
           ) : (
             sections.map((section, idx) => (
-              <SectionList
+              <DiscoverSectionView
                 key={section.reason + idx}
                 section={section}
                 isFocused={idx === sectionIdx}
@@ -949,16 +956,89 @@ git commit -m "feat: add DiscoverShell component and openDiscoverShell"
 
 ---
 
-### Task 8: Wire `discover` action in `main.ts` browse flow
+### Task 8: Extract `buildDiscoverSections` shared helper
+
+**Files:**
+- Create: `apps/cli/src/app/discover-sections.ts`
+
+This helper is the single place that knows how to compose recommendation sections from history + service calls. Both the browse loop (`main.ts`) and the post-playback flow (`PlaybackPhase.ts`) call it — DRY.
+
+- [ ] **Step 1: Create the helper**
+
+```ts
+// apps/cli/src/app/discover-sections.ts
+import type { Container } from "@/container";
+import type { RecommendationSection } from "@/services/recommendations/RecommendationService";
+
+/**
+ * Builds the full discover section list from history and TMDB.
+ * Fetches in parallel; null sections (no history, no genres) are filtered out.
+ */
+export async function buildDiscoverSections(
+  container: Pick<Container, "historyStore" | "recommendationService" | "stateManager">,
+): Promise<readonly RecommendationSection[]> {
+  const history = await container.historyStore.getAll();
+
+  const mostRecentCompleted = Object.entries(history)
+    .filter(([, entry]) => entry.completed)
+    .sort((a, b) => new Date(b[1].watchedAt).getTime() - new Date(a[1].watchedAt).getTime())[0];
+
+  const topGenreIds = container.stateManager
+    .getState()
+    .results.flatMap((r) => r.genreIds ?? [])
+    .reduce<Map<number, number>>((tally, id) => tally.set(id, (tally.get(id) ?? 0) + 1), new Map());
+  const topGenres = [...topGenreIds.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([id]) => id);
+
+  const results = await Promise.all([
+    mostRecentCompleted
+      ? container.recommendationService
+          .getForTitle(mostRecentCompleted[0], mostRecentCompleted[1].type)
+          .then((s) => ({ ...s, label: `Because you watched ${mostRecentCompleted[1].title}` }))
+      : null,
+    container.recommendationService
+      .getTrending()
+      .then((s) => ({ ...s, label: "Trending this week" })),
+    topGenres.length > 0
+      ? container.recommendationService
+          .getGenreAffinity(topGenres)
+          .then((s) => ({ ...s, label: "From your watch pattern" }))
+      : null,
+  ]);
+
+  return results.filter((s): s is RecommendationSection => s !== null);
+}
+```
+
+- [ ] **Step 2: Typecheck**
+
+```bash
+cd apps/cli && bun run typecheck
+```
+
+Expected: no errors.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add apps/cli/src/app/discover-sections.ts
+git commit -m "feat: extract buildDiscoverSections shared helper"
+```
+
+---
+
+### Task 9: Wire `discover` action in `main.ts` browse flow
 
 **Files:**
 - Modify: `apps/cli/src/main.ts`
 
-The browse loop in `main.ts` is the top-level session controller. It handles `ShellAction` results from the search shell. Add handling for `"discover"`.
+The browse loop in `main.ts` handles `ShellAction` results. Add handling for `"discover"` using the shared helper.
 
 - [ ] **Step 1: Find the action dispatch loop in `main.ts`**
 
-Search for the block that handles `"trending"` in `main.ts`. It will look like:
+Search for the block that handles `"trending"`. It will look like:
 
 ```ts
 } else if (action === "trending") {
@@ -971,47 +1051,11 @@ Search for the block that handles `"trending"` in `main.ts`. It will look like:
 ```ts
 } else if (action === "discover") {
   const { openDiscoverShell } = await import("./app-shell/ink-shell");
-  const history = await container.historyStore.getAll();
-  const completedTitles = Object.entries(history)
-    .filter(([, e]) => e.completed)
-    .sort((a, b) => new Date(b[1].watchedAt).getTime() - new Date(a[1].watchedAt).getTime());
+  const { buildDiscoverSections } = await import("./app/discover-sections");
 
-  // Derive top genre IDs from completed history via cached TMDB detail
-  // (genreIds already present on TitleInfo from search results in state)
-  const sessionState = container.stateManager.getState();
-  const genreIds = sessionState.results
-    .flatMap((r) => r.genreIds ?? [])
-    .reduce<Map<number, number>>((acc, id) => acc.set(id, (acc.get(id) ?? 0) + 1), new Map());
-  const topGenres = [...genreIds.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([id]) => id);
-
-  const mostRecent = completedTitles[0];
-  const sections = await Promise.all([
-    mostRecent
-      ? container.recommendationService
-          .getForTitle(mostRecent[0], mostRecent[1].type)
-          .then((s) => ({
-            ...s,
-            label: `Because you watched ${mostRecent[1].title}`,
-          }))
-      : null,
-    container.recommendationService
-      .getTrending()
-      .then((s) => ({ ...s, label: "Trending this week" })),
-    topGenres.length > 0
-      ? container.recommendationService
-          .getGenreAffinity(topGenres)
-          .then((s) => ({ ...s, label: "From your watch pattern" }))
-      : null,
-  ]).then((results) =>
-    results.filter(
-      (r): r is import("./services/recommendations/RecommendationService").RecommendationSection => r !== null,
-    ),
-  );
-
+  const sections = await buildDiscoverSections(container);
   const discoverResult = await openDiscoverShell(sections);
+
   if (discoverResult.type === "open") {
     container.stateManager.dispatch({
       type: "SET_RESULTS",
@@ -1050,7 +1094,7 @@ git commit -m "feat: wire discover action in browse session loop"
 
 ---
 
-### Task 9: Post-playback series-complete nudge
+### Task 10: Post-playback series-complete nudge
 
 **Files:**
 - Modify: `apps/cli/src/app-shell/types.ts`
@@ -1102,31 +1146,14 @@ In the same `openPlaybackShell` call, in the `commands: resolveCommands(...)` ar
 
 - [ ] **Step 4: Handle `"discover"` in the `postPlayback` loop**
 
-In `PlaybackPhase.ts`, after the `postPlayback: while (true) {` label, find where routed actions are handled. Add a branch for `"discover"`:
+In `PlaybackPhase.ts`, find where routed actions are handled after the `postPlayback:` label. Add:
 
 ```ts
 } else if (postAction === "discover") {
   const { openDiscoverShell } = await import("../app-shell/ink-shell");
-  const history = await container.historyStore.getAll();
-  const completedTitles = Object.entries(history)
-    .filter(([, e]) => e.completed)
-    .sort((a, b) => new Date(b[1].watchedAt).getTime() - new Date(a[1].watchedAt).getTime());
-  const mostRecent = completedTitles[0];
-  const sections = await Promise.all([
-    mostRecent
-      ? container.recommendationService
-          .getForTitle(mostRecent[0], mostRecent[1].type)
-          .then((s) => ({ ...s, label: `Because you watched ${mostRecent[1].title}` }))
-      : null,
-    container.recommendationService
-      .getTrending()
-      .then((s) => ({ ...s, label: "Trending this week" })),
-  ]).then((results) =>
-    results.filter(
-      (r): r is import("../services/recommendations/RecommendationService").RecommendationSection =>
-        r !== null,
-    ),
-  );
+  const { buildDiscoverSections } = await import("./discover-sections");
+
+  const sections = await buildDiscoverSections(container);
   await openDiscoverShell(sections);
   continue postPlayback;
 }
@@ -1149,35 +1176,32 @@ git commit -m "feat: post-playback discover nudge on series complete"
 
 ---
 
-### Task 10: Config additions — `discover` settings block
+### Task 11: Config additions — flat `KitsuneConfig` fields
 
 **Files:**
 - Modify: `apps/cli/src/services/persistence/ConfigService.ts`
 - Modify: `apps/cli/src/services/persistence/ConfigServiceImpl.ts`
 
-- [ ] **Step 1: Add `discover` to `KitsuneConfig`**
+All new config fields go directly into the flat `KitsuneConfig` interface — no nested objects — consistent with existing fields like `autoNext`, `showMemory`, `footerHints`.
+
+- [ ] **Step 1: Add fields to `KitsuneConfig`**
 
 In `apps/cli/src/services/persistence/ConfigService.ts`, add to the `KitsuneConfig` interface:
 
 ```ts
-/** Discover / recommendations settings. */
-discover: {
-  /** Show a faint "/ discover" hint in the browse footer when history is non-empty. Default false. */
-  showOnStartup: boolean;
-  /** Re-fetch stale recommendations each time the Discover screen is opened. Default true. */
-  refreshOnOpen: boolean;
-};
+/** Show a faint "/ discover" hint in the browse footer when history is non-empty. Default false. */
+discoverShowOnStartup: boolean;
+/** Collapse the companion pane, minimal footer, and dim header status regardless of terminal size. Default false. */
+minimalMode: boolean;
 ```
 
 - [ ] **Step 2: Add defaults in `ConfigServiceImpl.ts`**
 
-Find the default config object (or `DEFAULT_CONFIG` constant) in `apps/cli/src/services/persistence/ConfigServiceImpl.ts`. Add:
+Find the default config object in `apps/cli/src/services/persistence/ConfigServiceImpl.ts`. Add:
 
 ```ts
-discover: {
-  showOnStartup: false,
-  refreshOnOpen: true,
-},
+discoverShowOnStartup: false,
+minimalMode: false,
 ```
 
 - [ ] **Step 3: Typecheck**
@@ -1197,7 +1221,7 @@ git commit -m "feat: add discover config block with showOnStartup and refreshOnO
 
 ---
 
-### Task 11: Startup hint (optional, behind `discover.showOnStartup`)
+### Task 12: Startup hint (behind `discoverShowOnStartup`)
 
 **Files:**
 - Modify: `apps/cli/src/app-shell/ink-shell.tsx` (or wherever the browse footer is assembled)
@@ -1211,7 +1235,7 @@ Search `apps/cli/src/app-shell/ink-shell.tsx` for `footerActions` construction f
 Below the footer actions, add a second line rendered only when `config.discover.showOnStartup && historyNonEmpty`:
 
 ```tsx
-{config.discover.showOnStartup && hasHistory && (
+{config.discoverShowOnStartup && hasHistory && (
   <Text color={palette.dim}>/ discover  ·  based on your history</Text>
 )}
 ```
@@ -1243,6 +1267,140 @@ git commit -m "feat: show optional discover startup hint when showOnStartup is t
 
 ---
 
+---
+
+### Task 13: Minimal mode
+
+**Files:**
+- Modify: `apps/cli/src/container.ts` (`effectiveFooterHints`)
+- Modify: `apps/cli/src/app-shell/layout-policy.ts`
+- Modify: `apps/cli/src/app-shell/ink-shell.tsx`
+
+Minimal mode is a single `KitsuneConfig.minimalMode` flag (added in Task 11) that wires into three existing abstractions:
+
+1. **`effectiveFooterHints`** — already the canonical way callers read footer density; fix its stub to respect config
+2. **`getShellViewportPolicy`** — already controls companion-pane visibility via `wideBrowse`; add a `forceCompact` option so callers can honour `minimalMode` without duplicating the flag check
+3. **Header status** — `ShellFrame` already accepts a `status` prop; callers suppress it when `minimalMode` is true
+
+No new abstractions. No parallel mechanisms.
+
+- [ ] **Step 1: Fix `effectiveFooterHints` in `container.ts`**
+
+The current implementation ignores its argument and always returns `"minimal"`. Fix it to honour both `shellChrome` and `minimalMode`:
+
+```ts
+export function effectiveFooterHints(
+  container: Pick<Container, "config" | "shellChrome">,
+): "detailed" | "minimal" {
+  if (container.config.minimalMode) return "minimal";
+  if (container.shellChrome === "minimal" || container.shellChrome === "quick") return "minimal";
+  return container.config.footerHints;
+}
+```
+
+- [ ] **Step 2: Add `forceCompact` to `getShellViewportPolicy`**
+
+In `apps/cli/src/app-shell/layout-policy.ts`, add an optional third argument and set `wideBrowse` to `false` when it is true:
+
+```ts
+export function getShellViewportPolicy(
+  kind: ShellViewportKind,
+  columns: number,
+  rows: number,
+  options: { forceCompact?: boolean } = {},
+): ShellViewportPolicy {
+  const forceCompact = options.forceCompact ?? false;
+  const compact = forceCompact || columns < 110 || rows < 34;
+  const ultraCompact = forceCompact || columns < 92 || rows < 28;
+  const wideBrowse = !forceCompact && kind === "browse" && columns >= 164 && rows >= 30;
+  // ... rest of function body unchanged
+```
+
+The rest of the function body stays identical. Only the first three derived variables change.
+
+- [ ] **Step 3: Run tests to confirm layout policy still passes**
+
+```bash
+bun run test -- apps/cli/test/unit/app-shell
+```
+
+Expected: all pass. (If no layout-policy unit tests exist, skip — the typecheck in step 5 is sufficient.)
+
+- [ ] **Step 4: Pass `forceCompact` at the browse shell call site in `ink-shell.tsx`**
+
+Find the call to `getShellViewportPolicy("browse", ...)` in `ink-shell.tsx` (around line 1859 per the file map). Update it:
+
+```ts
+// Before
+const { wideBrowse, ... } = getShellViewportPolicy("browse", stdout.columns, stdout.rows);
+
+// After — thread minimalMode from the config the shell already has access to
+const { wideBrowse, ... } = getShellViewportPolicy(
+  "browse",
+  stdout.columns,
+  stdout.rows,
+  { forceCompact: config.minimalMode },
+);
+```
+
+Also find the second `getShellViewportPolicy("browse", ...)` call around line 1689 (the `enabled` check for the poster image pane) and apply the same change:
+
+```ts
+enabled: getShellViewportPolicy(
+  "browse",
+  stdout.columns,
+  stdout.rows,
+  { forceCompact: config.minimalMode },
+).wideBrowse,
+```
+
+- [ ] **Step 5: Suppress header status detail in minimal mode**
+
+`ShellFrame` accepts a `status` prop of type `ShellStatus | undefined`. When it is `undefined`, the status area is already hidden. At the call sites in `ink-shell.tsx` that pass a `status` to `ShellFrame` during browse, wrap it:
+
+```ts
+status: config.minimalMode ? undefined : currentStatus,
+```
+
+This uses the existing prop contract — no new props needed.
+
+- [ ] **Step 6: Typecheck**
+
+```bash
+cd apps/cli && bun run typecheck
+```
+
+Expected: no errors. Fix any call sites where `getShellViewportPolicy` is called without the new optional arg — it defaults to `{}` so no changes are strictly required, but update any callers inside `ink-shell.tsx` that already destructure the result to confirm they still compile.
+
+- [ ] **Step 7: Smoke test both modes**
+
+```bash
+# Normal mode
+bun run dev
+
+# Minimal mode — set via config or pass a flag if one is wired
+bun run dev -- --minimal
+```
+
+Expected in minimal mode: no companion pane, footer shows only `/ commands`, no status badge in header.
+
+- [ ] **Step 8: Final typecheck + lint + test**
+
+```bash
+bun run typecheck && bun run lint && bun run test
+```
+
+Expected: all pass.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add apps/cli/src/container.ts apps/cli/src/app-shell/layout-policy.ts apps/cli/src/app-shell/ink-shell.tsx
+git commit -m "feat: minimal mode — forceCompact layout, minimal footer, no header status"
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage check:**
@@ -1259,10 +1417,12 @@ git commit -m "feat: show optional discover startup hint when showOnStartup is t
 | File cache with 24h/6h TTL | Task 4 |
 | Wired into container | Task 5 |
 | `"discover"` command + `ShellAction` | Task 6 |
-| Discover screen Ink component | Task 7 |
-| Browse loop handles `"discover"` | Task 8 |
-| Post-playback series-complete nudge | Task 9 |
-| `discover.showOnStartup` / `refreshOnOpen` config | Task 10 |
-| Startup hint behind config flag | Task 11 |
+| Discover screen Ink component (`DiscoverSectionView`) | Task 7 |
+| `buildDiscoverSections` shared helper (DRY) | Task 8 |
+| Browse loop handles `"discover"` | Task 9 |
+| Post-playback series-complete nudge | Task 10 |
+| Flat `KitsuneConfig` fields (`discoverShowOnStartup`, `minimalMode`) | Task 11 |
+| Startup hint behind `discoverShowOnStartup` | Task 12 |
+| Minimal mode: `forceCompact` layout, `effectiveFooterHints`, no header status | Task 13 |
 
-All spec requirements covered. No TBDs. Type names and method signatures are consistent across tasks.
+All spec requirements covered. No TBDs. All new config fields are flat in `KitsuneConfig`. `buildDiscoverSections` is defined once. `DiscoverSectionView` replaces the generic `SectionList` name. `effectiveFooterHints` is fixed rather than bypassed.
