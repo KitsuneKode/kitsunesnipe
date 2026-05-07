@@ -41,6 +41,7 @@ Kunai is a terminal-first Bun CLI that finds playable direct-provider video stre
 - Start here for commands, routing, and repo-wide invariants
 - Read [.docs/architecture.md](.docs/architecture.md) before changing loops, playback flow, scraping, caching, history, or data ownership
 - Read [.docs/architecture-v2.md](.docs/architecture-v2.md) before changing target monorepo, daemon, web, desktop, package, or cache boundaries
+- Read [.docs/runtime-boundary-map.md](.docs/runtime-boundary-map.md) before deciding whether work belongs in CLI app, app-shell, services, infra, providers, storage, core, or legacy
 - Read [.docs/experience-overview.md](.docs/experience-overview.md) before changing user-facing scope, disclaimers, supported/unsupported behavior, or broad product messaging
 - Read [.docs/product-prd.md](.docs/product-prd.md) before broad UX or product-shape changes
 - Read [.docs/engineering-guide.md](.docs/engineering-guide.md) before broad refactors, service extraction, caching changes, or implementation-structure work
