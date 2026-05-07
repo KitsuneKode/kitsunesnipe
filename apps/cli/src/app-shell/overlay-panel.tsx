@@ -5,11 +5,7 @@ import type {
 } from "@/services/persistence/ConfigService";
 import { Box, Text } from "ink";
 
-import {
-  formatPickerDisplayRow,
-  formatPickerOptionRow,
-  PickerOptionRow,
-} from "./overlay-picker-row";
+import { PickerOptionRow } from "./overlay-picker-row";
 import { Badge } from "./shell-primitives";
 import { getWindowStart, truncateLine, wrapText } from "./shell-text";
 import { palette } from "./shell-theme";
@@ -498,7 +494,11 @@ export function OverlayPanel({
                   ? palette.green
                   : option.tone === "warning"
                     ? palette.amber
-                    : null;
+                    : option.tone === "info"
+                      ? palette.cyan
+                      : option.tone === "error"
+                        ? palette.red
+                        : null;
               return (
                 <Text
                   key={`${option.value}-${optionIndex}`}

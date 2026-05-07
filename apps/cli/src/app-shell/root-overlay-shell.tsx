@@ -168,7 +168,9 @@ export function RootOverlayShell({
   const filteredGenericPickerOptions = genericPickerOptions.filter((option) => {
     const filter = pickerFilterQuery.trim().toLowerCase();
     if (filter.length === 0) return true;
-    return `${option.label} ${option.detail ?? ""}`.toLowerCase().includes(filter);
+    return `${option.label} ${option.detail ?? ""} ${option.badge ?? ""}`
+      .toLowerCase()
+      .includes(filter);
   });
   const filteredHistoryOptions =
     overlay.type === "history"

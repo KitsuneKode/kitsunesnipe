@@ -60,19 +60,11 @@ export function PickerOptionRow({
   return (
     <>
       <Text color={selected ? pickerAccent : palette.gray}>{row.prefix}</Text>
-      <Text
-        color={selected ? pickerAccent : (accentColor ?? "white")}
-        dimColor={!selected && !accentColor}
-        wrap="truncate-end"
-      >
+      <Text color={selected ? pickerAccent : (accentColor ?? palette.text)} wrap="truncate-end">
         {row.text}
       </Text>
       {row.badgeSuffix ? (
-        <Text
-          color={selected ? pickerAccent : (accentColor ?? palette.gray)}
-          dimColor={!selected && !accentColor}
-          wrap="truncate-end"
-        >
+        <Text color={selected ? pickerAccent : (accentColor ?? palette.gray)} wrap="truncate-end">
           {row.badgeSuffix}
         </Text>
       ) : null}

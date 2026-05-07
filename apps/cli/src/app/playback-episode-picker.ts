@@ -1,4 +1,5 @@
 import type { ShellPickerOption } from "@/app-shell/types";
+import type { ShellStatusTone } from "@/app-shell/types";
 import type { EpisodeInfo, EpisodePickerOption, TitleInfo } from "@/domain/types";
 import {
   formatTimestamp,
@@ -20,6 +21,7 @@ export type PlaybackEpisodePickerInput = {
 export type PlaybackEpisodePickerOptions = {
   options: readonly ShellPickerOption<string>[];
   subtitle: string;
+  initialIndex: number;
 };
 
 export async function buildPlaybackEpisodePickerOptions({
@@ -39,19 +41,29 @@ export async function buildPlaybackEpisodePickerOptions({
     return {
       options: [],
       subtitle: "Episode picker is only available for episodic playback",
+      initialIndex: 0,
     };
   }
 
   if (isAnime) {
     if (animeEpisodes && animeEpisodes.length > 0) {
+      const options = animeEpisodes.map((entry) =>
+        buildEpisodePickerOption({
+          season: 1,
+          episode: entry.index,
+          label: entry.label,
+          baseDetail: entry.detail,
+          current: entry.index === currentEpisode.episode,
+          history: watchedByEpisode.get(`1:${entry.index}`),
+        }),
+      );
       return {
-        subtitle: `${animeEpisodes.length} released episodes available`,
-        options: animeEpisodes.map((entry) => ({
-          value: `${1}:${entry.index}`,
-          label:
-            entry.index === currentEpisode.episode ? `${entry.label}  ·  current` : entry.label,
-          detail: mergeEpisodeDetail(watchedByEpisode.get(`1:${entry.index}`), entry.detail),
-        })),
+        subtitle: describeEpisodePickerSubtitle(
+          `${animeEpisodes.length} released episodes available`,
+          options,
+        ),
+        options,
+        initialIndex: getInitialIndex(options, `${1}:${currentEpisode.episode}`),
       };
     }
 
@@ -59,44 +71,126 @@ export async function buildPlaybackEpisodePickerOptions({
       animeEpisodeCount ?? title.episodeCount ?? 0,
       currentEpisode.episode,
     );
+    const options = Array.from({ length: fallbackCount }, (_, index) => index + 1).map((episode) =>
+      buildEpisodePickerOption({
+        season: 1,
+        episode,
+        label: `Episode ${episode}`,
+        current: episode === currentEpisode.episode,
+        history: watchedByEpisode.get(`1:${episode}`),
+      }),
+    );
     return {
-      subtitle: `${fallbackCount} episode slots available`,
-      options: Array.from({ length: fallbackCount }, (_, index) => index + 1).map((episode) => ({
-        value: `${1}:${episode}`,
-        label:
-          episode === currentEpisode.episode
-            ? `Episode ${episode}  ·  current`
-            : `Episode ${episode}`,
-        detail: mergeEpisodeDetail(watchedByEpisode.get(`1:${episode}`)),
-      })),
+      subtitle: describeEpisodePickerSubtitle(`${fallbackCount} episode slots available`, options),
+      options,
+      initialIndex: getInitialIndex(options, `${1}:${currentEpisode.episode}`),
     };
   }
 
   const episodes = (await loadEpisodes(title.id, currentEpisode.season)) ?? [];
+  const options = episodes.map((entry) =>
+    buildEpisodePickerOption({
+      season: currentEpisode.season,
+      episode: entry.number,
+      label: `Episode ${entry.number}  ·  ${entry.name}`,
+      baseDetail: `${entry.airDate || "unknown year"}${entry.overview ? `  ·  ${entry.overview}` : ""}`,
+      current: entry.number === currentEpisode.episode,
+      history: watchedByEpisode.get(`${currentEpisode.season}:${entry.number}`),
+    }),
+  );
   return {
-    subtitle: `Season ${currentEpisode.season}  ·  ${episodes.length} episodes`,
-    options: episodes.map((entry) => ({
-      value: `${currentEpisode.season}:${entry.number}`,
-      label:
-        entry.number === currentEpisode.episode
-          ? `Episode ${entry.number}  ·  ${entry.name}  ·  current`
-          : `Episode ${entry.number}  ·  ${entry.name}`,
-      detail: mergeEpisodeDetail(
-        watchedByEpisode.get(`${currentEpisode.season}:${entry.number}`),
-        `${entry.airDate || "unknown year"}${entry.overview ? `  ·  ${entry.overview}` : ""}`,
-      ),
-    })),
+    subtitle: describeEpisodePickerSubtitle(
+      `Season ${currentEpisode.season}  ·  ${episodes.length} episodes`,
+      options,
+    ),
+    options,
+    initialIndex: getInitialIndex(options, `${currentEpisode.season}:${currentEpisode.episode}`),
   };
 }
 
-function mergeEpisodeDetail(entry?: HistoryEntry, baseDetail?: string): string | undefined {
-  const watchedDetail = describeWatchDetail(entry);
+export type EpisodeWatchPresentation = {
+  detail?: string;
+  tone?: ShellStatusTone;
+  badge?: string;
+  watched: boolean;
+  inProgress: boolean;
+};
+
+export function describeEpisodeWatchPresentation(
+  entry: HistoryEntry | undefined,
+): EpisodeWatchPresentation {
+  if (!entry) return { watched: false, inProgress: false };
+  if (isFinished(entry)) {
+    return {
+      detail: "watched 100%",
+      tone: "success",
+      badge: "watched",
+      watched: true,
+      inProgress: false,
+    };
+  }
+
+  const percent =
+    entry.duration > 0
+      ? Math.max(1, Math.min(99, Math.round((entry.timestamp / entry.duration) * 100)))
+      : null;
+  return {
+    detail:
+      percent === null
+        ? `resume ${formatTimestamp(entry.timestamp)}`
+        : `resume ${formatTimestamp(entry.timestamp)}  ·  ${percent}% watched`,
+    tone: "warning",
+    badge: percent === null ? "resume" : `${percent}%`,
+    watched: false,
+    inProgress: true,
+  };
+}
+
+function buildEpisodePickerOption({
+  season,
+  episode,
+  label,
+  baseDetail,
+  current,
+  history,
+}: {
+  season: number;
+  episode: number;
+  label: string;
+  baseDetail?: string;
+  current: boolean;
+  history?: HistoryEntry;
+}): ShellPickerOption<string> {
+  const watch = describeEpisodeWatchPresentation(history);
+  return {
+    value: `${season}:${episode}`,
+    label,
+    detail: mergeEpisodeDetail(watch.detail, baseDetail),
+    tone: watch.tone ?? (current ? "info" : undefined),
+    badge: current ? "current" : watch.badge,
+  };
+}
+
+function mergeEpisodeDetail(watchedDetail?: string, baseDetail?: string): string | undefined {
   if (watchedDetail && baseDetail) return `${watchedDetail}  ·  ${baseDetail}`;
   return watchedDetail ?? baseDetail;
 }
 
-function describeWatchDetail(entry: HistoryEntry | undefined): string | undefined {
-  if (!entry) return undefined;
-  if (isFinished(entry)) return "watched";
-  return `resume ${formatTimestamp(entry.timestamp)}`;
+function describeEpisodePickerSubtitle(
+  baseSubtitle: string,
+  options: readonly ShellPickerOption<string>[],
+): string {
+  const watched = options.filter((option) => option.tone === "success").length;
+  const inProgress = options.filter((option) => option.tone === "warning").length;
+  const parts = [baseSubtitle];
+  if (watched > 0) parts.push(`${watched} watched`);
+  if (inProgress > 0) parts.push(`${inProgress} in progress`);
+  return parts.join("  ·  ");
+}
+
+function getInitialIndex(options: readonly ShellPickerOption<string>[], value: string): number {
+  return Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  );
 }

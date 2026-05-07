@@ -50,9 +50,16 @@ describe("buildPlaybackEpisodePickerOptions", () => {
     });
 
     expect(result.subtitle).toBe("2 released episodes available");
+    expect(result.initialIndex).toBe(1);
     expect(result.options).toEqual([
       { value: "1:1", label: "Episode 1", detail: "Source episode 1" },
-      { value: "1:2", label: "Episode 2  ·  current", detail: "Source episode 2" },
+      {
+        value: "1:2",
+        label: "Episode 2",
+        detail: "Source episode 2",
+        tone: "info",
+        badge: "current",
+      },
     ]);
   });
 
@@ -64,8 +71,13 @@ describe("buildPlaybackEpisodePickerOptions", () => {
     });
 
     expect(result.subtitle).toBe("3 episode slots available");
+    expect(result.initialIndex).toBe(1);
     expect(result.options.map((option) => option.value)).toEqual(["1:1", "1:2", "1:3"]);
-    expect(result.options[1]?.label).toBe("Episode 2  ·  current");
+    expect(result.options[1]).toMatchObject({
+      label: "Episode 2",
+      tone: "info",
+      badge: "current",
+    });
   });
 
   test("loads season episodes for series playback", async () => {
@@ -90,17 +102,22 @@ describe("buildPlaybackEpisodePickerOptions", () => {
       ],
     });
 
-    expect(result.subtitle).toBe("Season 2  ·  2 episodes");
+    expect(result.subtitle).toBe("Season 2  ·  2 episodes  ·  1 watched  ·  1 in progress");
+    expect(result.initialIndex).toBe(0);
     expect(result.options).toEqual([
       {
         value: "2:5",
-        label: "Episode 5  ·  The Current One  ·  current",
-        detail: "watched  ·  2026-01-01  ·  A test overview",
+        label: "Episode 5  ·  The Current One",
+        detail: "watched 100%  ·  2026-01-01  ·  A test overview",
+        tone: "success",
+        badge: "current",
       },
       {
         value: "2:6",
         label: "Episode 6  ·  The Next One",
-        detail: "resume 10:00  ·  unknown year",
+        detail: "resume 10:00  ·  17% watched  ·  unknown year",
+        tone: "warning",
+        badge: "17%",
       },
     ]);
   });
@@ -114,5 +131,6 @@ describe("buildPlaybackEpisodePickerOptions", () => {
 
     expect(result.options).toEqual([]);
     expect(result.subtitle).toBe("Episode picker is only available for episodic playback");
+    expect(result.initialIndex).toBe(0);
   });
 });

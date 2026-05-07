@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { describeEpisodeWatchPresentation } from "@/app/playback-episode-picker";
 import { describePlaybackSubtitleStatus } from "@/app/subtitle-status";
 import type { Container } from "@/container";
 import { effectiveFooterHints } from "@/container";
@@ -134,13 +135,10 @@ export async function chooseEpisodeFromOptions(
         const status = episodeStatus.get(episode.number);
         return {
           value: String(episode.number),
-          label:
-            episode.number === currentEpisode
-              ? `Episode ${episode.number}  ·  ${episode.name}  ·  current`
-              : `Episode ${episode.number}  ·  ${episode.name}`,
+          label: `Episode ${episode.number}  ·  ${episode.name}`,
           detail: `${episode.airDate || "unknown year"}${episode.overview ? `  ·  ${episode.overview}` : ""}`,
-          tone: status?.tone,
-          badge: status?.badge,
+          tone: status?.tone ?? (episode.number === currentEpisode ? "info" : undefined),
+          badge: episode.number === currentEpisode ? "current" : status?.badge,
         };
       }),
     });
@@ -182,10 +180,14 @@ async function buildEpisodeStatusMap(
   for (const entry of seasonEntries) {
     if (!map.has(entry.episode)) {
       if (isFinished(entry)) {
-        map.set(entry.episode, { tone: "success", badge: "✓" });
-      } else if (entry.timestamp > 0 && entry.duration > 0) {
-        const pct = Math.round((entry.timestamp / entry.duration) * 100);
-        map.set(entry.episode, { tone: "warning", badge: `${pct}%` });
+        const presentation = describeEpisodeWatchPresentation(entry);
+        map.set(entry.episode, { tone: "success", badge: presentation.badge ?? "watched" });
+      } else if (entry.timestamp > 0) {
+        const presentation = describeEpisodeWatchPresentation(entry);
+        map.set(entry.episode, {
+          tone: "warning",
+          badge: presentation.badge ?? "resume",
+        });
       }
     }
   }
@@ -905,9 +907,12 @@ export async function openAnimeEpisodePicker(
     const picked = await openSessionPicker(container.stateManager, {
       type: "episode_picker",
       season: 1,
+      initialIndex: Math.max(0, currentEpisode - 1),
       options: episodes.map((episode) => ({
         value: String(episode),
-        label: episode === currentEpisode ? `Episode ${episode}  ·  current` : `Episode ${episode}`,
+        label: `Episode ${episode}`,
+        tone: episode === currentEpisode ? "info" : undefined,
+        badge: episode === currentEpisode ? "current" : undefined,
       })),
     });
     return picked ? Number.parseInt(picked, 10) : null;
@@ -935,10 +940,16 @@ export async function openAnimeEpisodeListPicker(
     const picked = await openSessionPicker(container.stateManager, {
       type: "episode_picker",
       season: 1,
+      initialIndex: Math.max(
+        0,
+        episodes.findIndex((episode) => episode.index === currentEpisode),
+      ),
       options: episodes.map((episode) => ({
         value: String(episode.index),
-        label: episode.index === currentEpisode ? `${episode.label}  ·  current` : episode.label,
+        label: episode.label,
         detail: episode.detail,
+        tone: episode.index === currentEpisode ? "info" : undefined,
+        badge: episode.index === currentEpisode ? "current" : undefined,
       })),
     });
     return picked ? Number.parseInt(picked, 10) : null;

@@ -797,6 +797,7 @@ function PlaybackShell({
   state,
   episodePickerOptions,
   episodePickerSubtitle,
+  episodePickerInitialIndex = 0,
   providerOptions: _providerOptions,
   settings: _settings,
   settingsSeriesProviderOptions: _settingsSeriesProviderOptions,
@@ -813,6 +814,7 @@ function PlaybackShell({
   providerOptions?: readonly ShellPickerOption<string>[];
   episodePickerOptions?: readonly ShellPickerOption<string>[];
   episodePickerSubtitle?: string;
+  episodePickerInitialIndex?: number;
   settings?: KitsuneConfig;
   settingsSeriesProviderOptions?: readonly ShellPickerOption<string>[];
   settingsAnimeProviderOptions?: readonly ShellPickerOption<string>[];
@@ -941,7 +943,10 @@ function PlaybackShell({
         subtitle: episodePickerSubtitle ?? `${episodePickerOptions.length} episodes available`,
         options: episodePickerOptions,
         filterQuery: "",
-        selectedIndex: 0,
+        selectedIndex: Math.max(
+          0,
+          Math.min(episodePickerInitialIndex, Math.max(episodePickerOptions.length - 1, 0)),
+        ),
         busy: false,
       });
       return true;
@@ -954,9 +959,22 @@ function PlaybackShell({
       ? activeOverlay.options.filter((option) => {
           const filter = activeOverlay.filterQuery.trim().toLowerCase();
           if (filter.length === 0) return true;
-          return `${option.label} ${option.detail ?? ""}`.toLowerCase().includes(filter);
+          return `${option.label} ${option.detail ?? ""} ${option.badge ?? ""}`
+            .toLowerCase()
+            .includes(filter);
         })
       : [];
+  const activeOverlayPanel =
+    activeOverlay && activeOverlay.type === "episode-picker"
+      ? ({
+          ...activeOverlay,
+          options: filteredOverlayOptions,
+          selectedIndex: Math.min(
+            activeOverlay.selectedIndex,
+            Math.max(filteredOverlayOptions.length - 1, 0),
+          ),
+        } satisfies BrowseOverlay)
+      : activeOverlay;
 
   const resolvePlaybackAction = (action: ShellAction) => {
     if (!handleLocalAction(action)) {
@@ -1195,7 +1213,7 @@ function PlaybackShell({
           </Box>
           {activeOverlay ? (
             <OverlayPanel
-              overlay={activeOverlay}
+              overlay={activeOverlayPanel ?? activeOverlay}
               width={Math.max(24, process.stdout.columns - 8)}
             />
           ) : null}
@@ -1210,6 +1228,7 @@ export function openPlaybackShell({
   providerOptions,
   episodePickerOptions,
   episodePickerSubtitle,
+  episodePickerInitialIndex,
   settings,
   settingsSeriesProviderOptions,
   settingsAnimeProviderOptions,
@@ -1224,6 +1243,7 @@ export function openPlaybackShell({
   providerOptions?: readonly ShellPickerOption<string>[];
   episodePickerOptions?: readonly ShellPickerOption<string>[];
   episodePickerSubtitle?: string;
+  episodePickerInitialIndex?: number;
   settings?: KitsuneConfig;
   settingsSeriesProviderOptions?: readonly ShellPickerOption<string>[];
   settingsAnimeProviderOptions?: readonly ShellPickerOption<string>[];
@@ -1242,6 +1262,7 @@ export function openPlaybackShell({
         providerOptions={providerOptions}
         episodePickerOptions={episodePickerOptions}
         episodePickerSubtitle={episodePickerSubtitle}
+        episodePickerInitialIndex={episodePickerInitialIndex}
         settings={settings}
         settingsSeriesProviderOptions={settingsSeriesProviderOptions}
         settingsAnimeProviderOptions={settingsAnimeProviderOptions}

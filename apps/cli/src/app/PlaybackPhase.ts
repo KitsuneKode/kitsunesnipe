@@ -1328,6 +1328,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               providerOptions: shellRuntime.providerOptions,
               episodePickerOptions: shellEpisodePicker.options,
               episodePickerSubtitle: shellEpisodePicker.subtitle,
+              episodePickerInitialIndex: shellEpisodePicker.initialIndex,
               settings: shellRuntime.settings,
               settingsSeriesProviderOptions: shellRuntime.settingsSeriesProviderOptions,
               settingsAnimeProviderOptions: shellRuntime.settingsAnimeProviderOptions,
