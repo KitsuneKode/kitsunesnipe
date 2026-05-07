@@ -836,9 +836,9 @@ export async function shutdownSessionApp(): Promise<void> {
 
 function PlaybackShell({
   state,
-  episodePickerOptions,
-  episodePickerSubtitle,
-  episodePickerInitialIndex = 0,
+  episodePickerOptions: _episodePickerOptions,
+  episodePickerSubtitle: _episodePickerSubtitle,
+  episodePickerInitialIndex: _episodePickerInitialIndex = 0,
   providerOptions: _providerOptions,
   settings: _settings,
   settingsSeriesProviderOptions: _settingsSeriesProviderOptions,
@@ -955,21 +955,7 @@ function PlaybackShell({
       : "success";
 
   const handleLocalAction = (action: ShellAction): boolean => {
-    if (action === "pick-episode" && episodePickerOptions && episodePickerOptions.length > 0) {
-      setActiveOverlay({
-        type: "episode-picker",
-        title: "Choose episode",
-        subtitle: episodePickerSubtitle ?? `${episodePickerOptions.length} episodes available`,
-        options: episodePickerOptions,
-        filterQuery: "",
-        selectedIndex: Math.max(
-          0,
-          Math.min(episodePickerInitialIndex, Math.max(episodePickerOptions.length - 1, 0)),
-        ),
-        busy: false,
-      });
-      return true;
-    }
+    void action;
     return false;
   };
 

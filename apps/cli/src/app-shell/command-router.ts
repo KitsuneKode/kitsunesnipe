@@ -20,6 +20,7 @@ type RoutedActionResult =
   | "streams"
   | "source"
   | "quality"
+  | "pick-episode"
   | { type: "history-entry"; title: TitleInfo }
   | "unhandled";
 
@@ -140,6 +141,7 @@ export async function routePlaybackShellAction({
   if (action === "streams") return "streams";
   if (action === "source") return "source";
   if (action === "quality") return "quality";
+  if (action === "pick-episode") return "pick-episode";
   if (action === "help") {
     await openRootOwnedOverlay(container, { type: "help" });
     return "handled";
