@@ -3,3 +3,6 @@ contact_links:
   - name: Discussions
     url: https://github.com/kitsunekode/kunai/discussions
     about: General questions, ideas, and community chat
+  - name: Contributing guide
+    url: https://github.com/kitsunekode/kunai/blob/main/CONTRIBUTING.md
+    about: How to set up, what to work on, and how to open a good PR.
