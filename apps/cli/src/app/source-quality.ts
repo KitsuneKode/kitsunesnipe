@@ -1,5 +1,5 @@
 import type { StreamInfo } from "@/domain/types";
-import type { StreamCandidate } from "@kunai/types";
+import type { StreamCandidate, SubtitleCandidate } from "@kunai/types";
 
 type SourceOption = {
   readonly value: string;
@@ -54,7 +54,7 @@ export function buildStreamPickerOptions(stream: StreamInfo): readonly StreamOpt
         label: selected
           ? `${sourceLabel}  ·  ${qualityLabel}  ·  current`
           : `${sourceLabel}  ·  ${qualityLabel}`,
-        detail: describeStreamCandidateDetail(candidate),
+        detail: describeStreamCandidateDetail(candidate, result.subtitles),
         selected,
         rank: candidate.qualityRank ?? 0,
       };
@@ -80,6 +80,7 @@ export function buildSourcePickerOptions(stream: StreamInfo): readonly SourceOpt
       detail: describeSourceDetail(
         [source.kind, source.status, source.host],
         result.streams.filter((candidate) => candidate.sourceId === source.id),
+        result.subtitles.filter((subtitle) => subtitle.sourceId === source.id),
       ),
     }));
   }
@@ -97,6 +98,7 @@ export function buildSourcePickerOptions(stream: StreamInfo): readonly SourceOpt
       detail: describeSourceDetail(
         [candidate.protocol],
         result.streams.filter((streamCandidate) => streamCandidate.sourceId === sourceId),
+        result.subtitles.filter((subtitle) => subtitle.sourceId === sourceId),
       ),
     });
   }
@@ -115,7 +117,7 @@ export function buildQualityPickerOptions(stream: StreamInfo): readonly QualityO
         candidate.id === result.selectedStreamId
           ? `${candidate.qualityLabel ?? candidate.container ?? candidate.id}  ·  current`
           : (candidate.qualityLabel ?? candidate.container ?? candidate.id),
-      detail: describeStreamCandidateDetail(candidate),
+      detail: describeStreamCandidateDetail(candidate, result.subtitles),
       rank: candidate.qualityRank ?? 0,
     }))
     .sort((left, right) => right.rank - left.rank);
@@ -159,6 +161,7 @@ export function applyPreferredStreamSelection(
 function describeSourceDetail(
   parts: readonly unknown[],
   streams: readonly StreamCandidate[],
+  subtitles: readonly SubtitleCandidate[],
 ): string {
   return [
     ...parts.filter((part): part is string => typeof part === "string" && part.length > 0),
@@ -171,20 +174,48 @@ function describeSourceDetail(
       "hardsub",
       streams.map((candidate) => candidate.hardSubLanguage),
     ),
+    describeLanguages(
+      "soft subs",
+      subtitles.map((subtitle) => subtitle.language),
+    ),
   ]
     .filter(Boolean)
     .join("  ·  ");
 }
 
-function describeStreamCandidateDetail(candidate: StreamCandidate): string {
+function describeStreamCandidateDetail(
+  candidate: StreamCandidate,
+  subtitles: readonly SubtitleCandidate[],
+): string {
   return [
     candidate.protocol,
     candidate.container,
     candidate.audioLanguage ? `audio ${candidate.audioLanguage}` : null,
     candidate.hardSubLanguage ? `hardsub ${candidate.hardSubLanguage}` : null,
+    describeLanguages(
+      "soft subs",
+      subtitlesForStreamCandidate(candidate, subtitles).map((subtitle) => subtitle.language),
+    ),
   ]
     .filter((part): part is string => typeof part === "string" && part.length > 0)
     .join("  ·  ");
+}
+
+function subtitlesForStreamCandidate(
+  candidate: StreamCandidate,
+  subtitles: readonly SubtitleCandidate[],
+): readonly SubtitleCandidate[] {
+  if (candidate.variantId) {
+    const variantSubtitles = subtitles.filter(
+      (subtitle) => subtitle.variantId === candidate.variantId,
+    );
+    if (variantSubtitles.length > 0) return variantSubtitles;
+  }
+
+  if (!candidate.sourceId) return [];
+  return subtitles.filter(
+    (subtitle) => !subtitle.variantId && subtitle.sourceId === candidate.sourceId,
+  );
 }
 
 function describeQualities(streams: readonly StreamCandidate[]): string | null {

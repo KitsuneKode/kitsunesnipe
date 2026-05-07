@@ -346,7 +346,7 @@ bun run test -- packages/core/test/core.test.ts packages/providers/test/provider
 - Modify: `apps/cli/src/app-shell/root-status-summary.ts`
 - Test: `apps/cli/test/unit/app/source-quality.test.ts`
 
-- [ ] **Step 1: Add display builders**
+- [x] **Step 1: Add display builders**
 
 Build display rows that distinguish:
 
@@ -366,7 +366,7 @@ If provider hard-sub satisfies the configured mode and `subLang` does not reques
 
 Changing source/quality must select a candidate from inventory unless the candidate is explicitly deferred or expired.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 

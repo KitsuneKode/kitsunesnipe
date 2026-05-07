@@ -105,6 +105,47 @@ const streamWithCandidates: StreamInfo = {
   },
 };
 
+const streamWithSubtitles: StreamInfo = {
+  ...streamWithCandidates,
+  providerResolveResult: {
+    ...streamWithCandidates.providerResolveResult!,
+    subtitles: [
+      {
+        id: "sub-en",
+        providerId: "vidking",
+        sourceId: "source-a",
+        variantId: "variant-1080",
+        url: "https://subs.example/en.vtt",
+        language: "en",
+        source: "provider",
+        confidence: 0.9,
+        cachePolicy: {
+          ttlClass: "subtitle-list",
+          scope: "local",
+          keyParts: [],
+        },
+      },
+      {
+        id: "sub-fr",
+        providerId: "vidking",
+        sourceId: "source-a",
+        url: "https://subs.example/fr.vtt",
+        language: "fr",
+        source: "provider",
+        confidence: 0.8,
+        cachePolicy: {
+          ttlClass: "subtitle-list",
+          scope: "local",
+          keyParts: [],
+        },
+      },
+    ],
+    streams: streamWithCandidates.providerResolveResult!.streams.map((candidate) =>
+      candidate.id === "stream-1080" ? { ...candidate, variantId: "variant-1080" } : candidate,
+    ),
+  },
+};
+
 test("buildSourcePickerOptions includes current source label", () => {
   const options = buildSourcePickerOptions(streamWithCandidates);
   expect(options[0]?.label).toContain("current");
@@ -116,6 +157,12 @@ test("buildSourcePickerOptions summarizes quality and language inventory", () =>
   expect(options[0]?.detail).toContain("quality 1080p/720p");
   expect(options[0]?.detail).toContain("audio ja/en");
   expect(options[0]?.detail).toContain("hardsub en");
+});
+
+test("buildSourcePickerOptions distinguishes soft subtitles from hardsub inventory", () => {
+  const options = buildSourcePickerOptions(streamWithSubtitles);
+  expect(options[0]?.detail).toContain("hardsub en");
+  expect(options[0]?.detail).toContain("soft subs en/fr");
 });
 
 test("buildQualityPickerOptions sorts by highest quality first", () => {
@@ -131,6 +178,11 @@ test("buildQualityPickerOptions exposes audio and hard-subtitle language details
   const options = buildQualityPickerOptions(streamWithCandidates);
   expect(options[0]?.detail).toBe("hls  ·  m3u8  ·  audio ja  ·  hardsub en");
   expect(options[1]?.detail).toBe("hls  ·  m3u8  ·  audio en");
+});
+
+test("buildQualityPickerOptions shows soft subtitles linked to the selected variant", () => {
+  const options = buildQualityPickerOptions(streamWithSubtitles);
+  expect(options[0]?.detail).toBe("hls  ·  m3u8  ·  audio ja  ·  hardsub en  ·  soft subs en");
 });
 
 test("buildStreamPickerOptions combines source quality audio and subtitle details", () => {
