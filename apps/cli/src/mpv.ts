@@ -266,7 +266,8 @@ export function buildMpvArgs(
     args.push(`--sub-file=${opts.subtitle}`);
   }
 
-  if ((config?.includeStartArg ?? true) && shouldApplyStartAtSeek(opts.startAt)) {
+  const includeStartArg = config?.includeStartArg ?? config?.persistent !== true;
+  if (includeStartArg && shouldApplyStartAtSeek(opts.startAt)) {
     args.push(`--start=${opts.startAt}`);
   }
   args.push(`--force-media-title=${opts.displayTitle}`);

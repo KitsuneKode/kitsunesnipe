@@ -51,7 +51,6 @@ import {
   streamSelectionFromStream,
 } from "@/app/source-quality";
 import { choosePlaybackSubtitle } from "@/app/subtitle-selection";
-import { effectiveFooterHints } from "@/container";
 import {
   buildProviderResolveProblem,
   type PlaybackProblem,
@@ -1314,7 +1313,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 status: catalogAutoplayEndBanner
                   ? { label: catalogAutoplayEndBanner, tone: "neutral" }
                   : { label: "Ready for next action", tone: "success" },
-                footerMode: effectiveFooterHints(container),
+                footerMode: "detailed",
                 commands: resolveCommands(stateManager.getState(), [
                   "search",
                   "settings",
@@ -1323,6 +1322,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                   "history",
                   "toggle-autoplay",
                   "replay",
+                  "fallback",
                   "streams",
                   "source",
                   "quality",

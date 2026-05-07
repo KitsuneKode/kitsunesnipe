@@ -190,22 +190,37 @@ export function LoadingShell({
       return;
     }
     if (input.toLowerCase() === "q") {
-      if (state.operation === "playing" && onStop) {
+      if (state.operation === "playing" && onStop && !state.onCommandAction) {
         onStop();
       } else if (state.cancellable && onCancel) {
         onCancel();
       }
     }
-    if (input.toLowerCase() === "r" && state.operation === "playing" && onRecover) {
+    if (
+      input.toLowerCase() === "r" &&
+      state.operation === "playing" &&
+      onRecover &&
+      !state.onCommandAction
+    ) {
       onRecover();
     }
     if (input.toLowerCase() === "s" && state.operation === "playing" && onReloadSubtitles) {
       onReloadSubtitles();
     }
-    if (input.toLowerCase() === "n" && state.operation === "playing" && onNext) {
+    if (
+      input.toLowerCase() === "n" &&
+      state.operation === "playing" &&
+      onNext &&
+      !state.onCommandAction
+    ) {
       onNext();
     }
-    if (input.toLowerCase() === "p" && state.operation === "playing" && onPrevious) {
+    if (
+      input.toLowerCase() === "p" &&
+      state.operation === "playing" &&
+      onPrevious &&
+      !state.onCommandAction
+    ) {
       onPrevious();
     }
     if (input.toLowerCase() === "b" && state.operation === "playing" && onSkipSegment) {
@@ -214,17 +229,37 @@ export function LoadingShell({
     if (input.toLowerCase() === "m" && state.operation === "playing") {
       setMemoryPanelVisible(true);
     }
-    if (input.toLowerCase() === "k" && state.operation === "playing" && onPickStreams) {
+    if (
+      input.toLowerCase() === "k" &&
+      state.operation === "playing" &&
+      onPickStreams &&
+      !state.onCommandAction
+    ) {
       onPickStreams();
       return;
     }
-    if (input.toLowerCase() === "o" && state.operation === "playing" && onPickSource) {
+    if (
+      input.toLowerCase() === "o" &&
+      state.operation === "playing" &&
+      onPickSource &&
+      !state.onCommandAction
+    ) {
       onPickSource();
     }
-    if (input.toLowerCase() === "k" && state.operation === "playing" && onPickQuality) {
+    if (
+      input.toLowerCase() === "v" &&
+      state.operation === "playing" &&
+      onPickQuality &&
+      !state.onCommandAction
+    ) {
       onPickQuality();
     }
-    if (input.toLowerCase() === "a" && state.operation === "playing" && onToggleAutoplay) {
+    if (
+      input.toLowerCase() === "a" &&
+      state.operation === "playing" &&
+      onToggleAutoplay &&
+      !state.onCommandAction
+    ) {
       onToggleAutoplay();
     }
     if (input.toLowerCase() === "x" && state.operation === "playing" && onStopAfterCurrent) {
@@ -232,9 +267,9 @@ export function LoadingShell({
     }
     if (
       input.toLowerCase() === "f" &&
-      state.operation !== "playing" &&
       state.fallbackAvailable &&
-      onFallback
+      onFallback &&
+      !state.onCommandAction
     ) {
       onFallback();
     }
@@ -267,24 +302,87 @@ export function LoadingShell({
     latestIssue: state.latestIssue,
   });
 
-  const footerActions: readonly FooterAction[] = [
-    { key: "/", label: "commands", action: "command-mode" },
-    ...(state.operation !== "playing" && state.fallbackAvailable
+  const fallbackLabel = state.fallbackProviderName
+    ? `fallback ${state.fallbackProviderName}`
+    : "fallback";
+  const footerActions: readonly FooterAction[] =
+    state.operation === "playing"
       ? [
+          { key: "/", label: "commands", action: "command-mode" },
+          { key: "q", label: "stop", action: "quit" },
+          {
+            key: "n",
+            label: "next",
+            action: "next",
+            disabled: !onNext,
+            reason: "No next episode available.",
+          },
+          {
+            key: "p",
+            label: "previous",
+            action: "previous",
+            disabled: !onPrevious,
+            reason: "No previous episode available.",
+          },
+          {
+            key: "a",
+            label: "autoplay",
+            action: "toggle-autoplay",
+            disabled: !onToggleAutoplay,
+            reason: "Autoplay is unavailable for this title.",
+          },
+          {
+            key: "k",
+            label: "streams",
+            action: "streams",
+            disabled: !onPickStreams,
+            reason: "No stream picker is available.",
+          },
+          {
+            key: "o",
+            label: "source",
+            action: "source",
+            disabled: !onPickSource,
+            reason: "No source picker is available.",
+          },
+          {
+            key: "v",
+            label: "quality",
+            action: "quality",
+            disabled: !onPickQuality,
+            reason: "No quality picker is available.",
+          },
           {
             key: "f",
-            label: state.fallbackProviderName
-              ? `fallback ${state.fallbackProviderName}`
-              : "fallback",
-            action: "fallback" as const,
+            label: fallbackLabel,
+            action: "fallback",
+            disabled: !state.fallbackAvailable || !onFallback,
+            reason: "No fallback provider is available.",
+          },
+          {
+            key: "r",
+            label: "recover",
+            action: "recover",
+            disabled: !onRecover,
+            reason: "Recovery is unavailable.",
           },
         ]
-      : []),
-    { key: "g", label: "settings", action: "settings" },
-    { key: "h", label: "history", action: "history" },
-    { key: "d", label: "diagnostics", action: "diagnostics" },
-    { key: "?", label: "help", action: "help" },
-  ];
+      : [
+          { key: "/", label: "commands", action: "command-mode" },
+          ...(state.fallbackAvailable
+            ? [
+                {
+                  key: "f",
+                  label: fallbackLabel,
+                  action: "fallback" as const,
+                },
+              ]
+            : []),
+          { key: "g", label: "settings", action: "settings" },
+          { key: "h", label: "history", action: "history" },
+          { key: "d", label: "diagnostics", action: "diagnostics" },
+          { key: "?", label: "help", action: "help" },
+        ];
 
   return (
     <ShellFrame
@@ -297,7 +395,7 @@ export function LoadingShell({
       }}
       footerTask={
         state.operation === "playing"
-          ? "Playback  ·  q stop · r recover · k streams"
+          ? "Playback"
           : state.cancellable
             ? waitPresentation.footerTask
             : "Playback bootstrap"
@@ -413,14 +511,14 @@ export function LoadingShell({
           )
         )}
 
-        {state.stopHint ? (
+        {!isPlaying && state.stopHint ? (
           <Box marginTop={1}>
             <Text color={palette.gray} dimColor>
               {state.stopHint}
             </Text>
           </Box>
         ) : null}
-        {state.controlHint ? (
+        {!isPlaying && state.controlHint ? (
           <Box>
             <Text color={palette.gray} dimColor>
               {state.controlHint}

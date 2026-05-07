@@ -3,7 +3,6 @@ import { useLineEditor } from "@/app-shell/line-editor";
 import { addSearchQuery, getSearchHistory } from "@/app-shell/search-history";
 import { switchSessionMode } from "@/app/mode-switch";
 import type { Container } from "@/container";
-import { effectiveFooterHints } from "@/container";
 import type { SessionStateManager } from "@/domain/session/SessionStateManager";
 import { isKittyCompatible } from "@/image";
 import { buildRuntimeHealthSnapshot } from "@/services/diagnostics/runtime-health";
@@ -482,10 +481,13 @@ function AppRoot({ container }: { container: Container }) {
                       ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  b skip  ·  m memory  ·  k streams  ·  r recover  ·  / commands`
                       : undefined,
                   commands: fallbackCommandState([
+                    "toggle-autoplay",
                     "settings",
                     "recover",
                     "fallback",
                     "streams",
+                    "next",
+                    "previous",
                     "history",
                     "diagnostics",
                     "report-issue",
@@ -495,9 +497,28 @@ function AppRoot({ container }: { container: Container }) {
                     "quality",
                     "quit",
                   ]),
-                  footerMode: effectiveFooterHints(container),
+                  footerMode: "detailed",
                   onCommandAction: (action) => {
                     if (action === "command-mode") return;
+                    if (action === "next" && canGoNext) {
+                      void container.playerControl.nextCurrentPlayback(
+                        "playback-loading-command-next",
+                      );
+                      return;
+                    }
+                    if (action === "previous" && canGoPrevious) {
+                      void container.playerControl.previousCurrentPlayback(
+                        "playback-loading-command-previous",
+                      );
+                      return;
+                    }
+                    if (action === "toggle-autoplay" && canToggleAutoplay) {
+                      container.stateManager.dispatch({
+                        type: "SET_SESSION_AUTOPLAY_PAUSED",
+                        paused: !container.stateManager.getState().autoplaySessionPaused,
+                      });
+                      return;
+                    }
                     if (action === "search") {
                       void container.playerControl.refreshCurrentPlayback(
                         "playback-loading-command-refresh",
@@ -625,7 +646,7 @@ function AppRoot({ container }: { container: Container }) {
                   void container.playerControl.pickSourceCurrentPlayback("playback-shell-o");
                 }}
                 onPickQuality={() => {
-                  void container.playerControl.pickQualityCurrentPlayback("playback-shell-k");
+                  void container.playerControl.pickQualityCurrentPlayback("playback-shell-v");
                 }}
               />
             ) : rootSurface === "root-content" && rootContent ? (
@@ -774,6 +795,7 @@ function PlaybackShell({
       "history",
       "toggle-autoplay",
       "replay",
+      "fallback",
       "streams",
       "source",
       "quality",
@@ -788,26 +810,6 @@ function PlaybackShell({
     ]);
   const footerActions: readonly FooterAction[] = [
     { key: "/", label: "commands", action: "command-mode" },
-    ...(state.resumeLabel
-      ? ([
-          { key: "c", label: state.resumeLabel, action: "resume" as const },
-        ] satisfies readonly FooterAction[])
-      : []),
-    footerActionFromCommand(
-      commands,
-      "toggle-autoplay",
-      { key: "a", label: getCommandLabel(commands, "toggle-autoplay", "autoplay") },
-      toShellAction,
-    ),
-    footerActionFromCommand(commands, "replay", { key: "r", label: "replay" }, toShellAction),
-    footerActionFromCommand(commands, "streams", { key: "k", label: "streams" }, toShellAction),
-    footerActionFromCommand(commands, "search", { key: "f", label: "search" }, toShellAction),
-    footerActionFromCommand(
-      commands,
-      "pick-episode",
-      { key: "e", label: "episodes" },
-      toShellAction,
-    ),
     footerActionFromCommand(
       commands,
       "next",
@@ -826,6 +828,29 @@ function PlaybackShell({
       },
       toShellAction,
     ),
+    ...(state.resumeLabel
+      ? ([
+          { key: "c", label: state.resumeLabel, action: "resume" as const },
+        ] satisfies readonly FooterAction[])
+      : []),
+    footerActionFromCommand(commands, "replay", { key: "r", label: "replay" }, toShellAction),
+    footerActionFromCommand(
+      commands,
+      "pick-episode",
+      { key: "e", label: "episodes" },
+      toShellAction,
+    ),
+    footerActionFromCommand(commands, "streams", { key: "k", label: "streams" }, toShellAction),
+    footerActionFromCommand(commands, "source", { key: "o", label: "source" }, toShellAction),
+    footerActionFromCommand(commands, "quality", { key: "v", label: "quality" }, toShellAction),
+    footerActionFromCommand(commands, "fallback", { key: "f", label: "fallback" }, toShellAction),
+    footerActionFromCommand(
+      commands,
+      "toggle-autoplay",
+      { key: "a", label: getCommandLabel(commands, "toggle-autoplay", "autoplay") },
+      toShellAction,
+    ),
+    footerActionFromCommand(commands, "search", { key: "s", label: "search" }, toShellAction),
     footerActionFromCommand(commands, "quit", { key: "q", label: "quit" }, toShellAction),
   ];
 
@@ -1598,7 +1623,7 @@ function BrowseShell<T>({
   onChangeProvider: _onChangeProvider,
   onSearch,
   onLoadDiscovery,
-  footerMode = "detailed",
+  footerMode: _footerMode = "detailed",
   settings: _settings,
   settingsSeriesProviderOptions: _settingsSeriesProviderOptions,
   settingsAnimeProviderOptions: _settingsAnimeProviderOptions,

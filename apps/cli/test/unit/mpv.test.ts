@@ -84,6 +84,23 @@ test("buildMpvArgs can defer resume seeking to IPC for persistent playback", () 
   expect(args).not.toContain("--start=128");
 });
 
+test("buildMpvArgs suppresses launch --start by default for persistent playback", () => {
+  const args = buildMpvArgs(
+    {
+      url: "https://cdn.example/master.m3u8",
+      headers: {},
+      subtitle: null,
+      displayTitle: "Friends - S01E09",
+      startAt: 562,
+    },
+    "/tmp/kunai-test.sock",
+    { persistent: true },
+  );
+
+  expect(args).toContain("--idle=yes");
+  expect(args).not.toContain("--start=562");
+});
+
 test("buildMpvArgs keeps mpv alive between files for persistent autoplay chains", () => {
   const args = buildMpvArgs(
     {

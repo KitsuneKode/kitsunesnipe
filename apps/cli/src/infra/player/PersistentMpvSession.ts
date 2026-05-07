@@ -320,10 +320,9 @@ export class PersistentMpvSession {
     this.beginCycle(this.initialOptions);
     this.initialOptions.onPlaybackEvent?.({ type: "launching-player" });
 
-    // Pass --start= so mpv seeks at launch — same as launchMpv. Without this, resume
-    // relies solely on a post-file-loaded IPC seek, which races the 750 ms fallback
-    // timer and fails silently when the stream takes longer to open.
-    // When offering the resume/start prompt, open at 0 so the user can choose before IPC seek.
+    // Persistent mpv sessions must never launch with --start: mpv keeps that option
+    // across later loadfile replacements, which makes next/previous/autoplay inherit
+    // the first resumed episode's offset. Initial resume is applied by runReadyWork.
     const deferSpawnStartForResumePrompt =
       this.initialOptions.offerResumeStartChoice === true &&
       shouldApplyStartAtSeek(this.initialOptions.startAt);
@@ -340,6 +339,7 @@ export class PersistentMpvSession {
       {
         persistent: true,
         mpv: mpvOptions,
+        includeStartArg: false,
         scriptPath: this.luaScriptPath ?? undefined,
         scriptOpts: this.scriptOptsArg,
       },
@@ -548,15 +548,7 @@ export class PersistentMpvSession {
       void this.ipcSession.send(["observe_property", 200, "user-data/kunai-request"], 1_000);
       void this.ipcSession.send(["observe_property", 201, "user-data/kunai-resume-choice"], 1_000);
     }
-    // startAt was already applied via --start= CLI arg above; zero it out here so
-    // runReadyWork does not fire a redundant IPC seek on top of the CLI seek.
-    const cliStartAlreadyApplied =
-      shouldApplyStartAtSeek(this.initialOptions.startAt) &&
-      !this.initialOptions.offerResumeStartChoice;
-    const initialReadyWorkOptions = cliStartAlreadyApplied
-      ? { ...this.initialOptions, startAt: 0 }
-      : this.initialOptions;
-    this.queueReadyWork(initialReadyWorkOptions);
+    this.queueReadyWork(this.initialOptions);
   }
 
   private beginCycle(
