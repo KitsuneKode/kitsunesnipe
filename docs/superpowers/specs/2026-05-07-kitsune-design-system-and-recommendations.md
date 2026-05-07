@@ -29,34 +29,40 @@ New Turborepo package `@kunai/design`. Exports one file: `tokens.ts`.
 ```ts
 // packages/design/src/tokens.ts
 export const tokens = {
-  // backgrounds
-  bg:              "#17130f",
-  surface:         "#211a14",
-  surfaceElevated: "#2b2219",
-  border:          "#3a2e24",
-  borderDim:       "#2a2018",
+  // backgrounds — 4-step warm-black surface scale
+  bg:              "#0e0b08",
+  surface:         "#181310",
+  surfaceElevated: "#221c16",
+  surfaceActive:   "#2c231a",  // selection / active row
+  border:          "#2e2520",
+  borderDim:       "#1e1a15",
 
-  // primary brand — amber / fox
-  amber:           "#f6a23a",
-  amberDim:        "#a66b22",
-  amberGlow:       "rgba(246,162,58,0.12)",
+  // primary brand — fox amber
+  amber:           "#ff9c3a",
+  amberSoft:       "#ffb870",
+  amberDim:        "#7a4600",
+  amberGlow:       "rgba(255,156,58,0.11)",
 
-  // anime / secondary accent — violet
-  violet:          "#b08cff",
-  violetDim:       "#7055bb",
+  // anime / secondary accent — hot pink
+  pink:            "#ff3d82",
+  pinkSoft:        "#ff7aaa",
+  pinkDim:         "#7a1038",
+  pinkGlow:        "rgba(255,61,130,0.11)",
 
   // status
-  teal:            "#67d8d4",
-  tealDim:         "#3a8a87",
-  green:           "#8fd36a",
-  red:             "#ff6b5f",
-  rose:            "#d9a06f",
+  teal:            "#3de0c4",
+  tealDim:         "#1a5a4c",
+  green:           "#7fd46b",
+  greenDim:        "#2a5a22",
+  red:             "#ff5a5a",
+  yellow:          "#f5c842",
 
-  // text scale
-  text:            "#f4eadf",
-  muted:           "#b6a696",
-  dim:             "#8f8173",
-  faint:           "#5a4e44",
+  // text scale — 5 steps for fine hierarchy control
+  text:            "#f0e6d9",
+  textDim:         "#c4b5a5",
+  muted:           "#8a7d70",
+  dim:             "#5a504a",
+  faint:           "#3a322c",
 } as const;
 
 export type TokenName = keyof typeof tokens;
@@ -75,11 +81,11 @@ export const palette = {
 } as const;
 ```
 
-`apps/cli/src/design.ts` updates `clr` helpers to add `violet` and `teal`:
+`apps/cli/src/design.ts` updates `clr` helpers to add `pink` and `teal`:
 
 ```ts
 clr.fox     // amber — hotkeys, CTA, brand mark
-clr.violet  // anime badges, secondary accent
+clr.pink    // anime badges, secondary accent, discover highlights
 clr.teal    // status, input cursor, info
 ```
 
@@ -104,10 +110,11 @@ The web app imports this file. No token values appear in component CSS — only 
 | Token    | Role                                      |
 |----------|-------------------------------------------|
 | amber    | Hotkeys, active selection border, CTA, brand mark `⬡` |
-| violet   | Anime/content-type badges, secondary highlights |
+| pink     | Anime/content-type badges, discover highlights, series-complete nudge |
 | teal     | Status dots, input cursor, info messages  |
 | green    | Success, healthy, completed               |
 | red      | Error, failed, degraded                   |
+| yellow   | Warnings, degraded-but-running states     |
 
 ---
 
