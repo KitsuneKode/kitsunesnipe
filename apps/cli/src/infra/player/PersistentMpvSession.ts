@@ -89,6 +89,22 @@ type PlayerCycleOptions = {
   onNearEof?: () => void;
 };
 
+export type PersistentResumeStartChoice = "resume" | "start";
+
+export function resolvePersistentStartSeekTarget(
+  options: Pick<PlayerCycleOptions, "startAt" | "resumePromptAt" | "offerResumeStartChoice">,
+  choice?: PersistentResumeStartChoice,
+): number | undefined {
+  const resumePromptAt = options.resumePromptAt ?? 0;
+  if (options.offerResumeStartChoice && shouldApplyStartAtSeek(resumePromptAt)) {
+    return choice === "resume" ? resumePromptAt : undefined;
+  }
+  if (typeof options.startAt === "number" && shouldApplyStartAtSeek(options.startAt)) {
+    return options.startAt;
+  }
+  return undefined;
+}
+
 type PlayerCycleState = {
   telemetry: PlayerTelemetryState;
   resolve: (result: PlaybackResult) => void;
@@ -101,6 +117,8 @@ type PlayerCycleState = {
 };
 
 export class PersistentMpvSession {
+  private static readonly readyWorkFallbackMs = 750;
+  private static readonly loadfileReadyWorkFallbackMs = 12_000;
   private readonly id = newMpvIpcSessionId();
   private readonly ipcEndpoint = createMpvIpcEndpoint(this.id);
   private luaScriptPath: string | null = null;
@@ -136,7 +154,7 @@ export class PersistentMpvSession {
   private static readonly resumeChoiceTimeoutMs = 8_000;
 
   private resumeChoiceWait: {
-    resolve: (choice: "resume" | "start") => void;
+    resolve: (choice: PersistentResumeStartChoice) => void;
     timeoutId: ReturnType<typeof setTimeout>;
   } | null = null;
 
@@ -240,7 +258,7 @@ export class PersistentMpvSession {
 
     await this.removeExternalSubtitles();
     options.onPlaybackEvent?.({ type: "resolving-playback" });
-    this.queueReadyWork(options);
+    this.queueReadyWork(options, { armFallback: false });
     const loadResult = await this.ipcSession?.send(["loadfile", stream.url, "replace"], 3_000);
     if (!loadResult?.ok) {
       void this.ipcSession?.send(["set_property", "user-data/kunai-loading", ""], 500);
@@ -250,6 +268,7 @@ export class PersistentMpvSession {
         error: loadResult?.error ?? "ipc unavailable",
       });
     }
+    this.armReadyWorkFallback(options, PersistentMpvSession.loadfileReadyWorkFallbackMs);
     return await cycle.promise;
   }
 
@@ -499,12 +518,7 @@ export class PersistentMpvSession {
               void this.finishInProcessReconnectAfterLoad(reconnect);
               return;
             }
-            const pending = this.pendingReadyWork;
-            if (!pending) return;
-            this.pendingReadyWork = null;
-            this.clearReadyWorkFallback();
-            this.acceptPlaybackPropertiesForActiveCycle();
-            void this.runReadyWork(pending);
+            this.drainPendingReadyWork();
           },
           onCommandResult: (result) => {
             if (result.ok) return;
@@ -577,7 +591,7 @@ export class PersistentMpvSession {
     return cycle;
   }
 
-  private finishResumeChoiceWait(choice: "resume" | "start"): void {
+  private finishResumeChoiceWait(choice: PersistentResumeStartChoice): void {
     const w = this.resumeChoiceWait;
     if (!w) return;
     clearTimeout(w.timeoutId);
@@ -598,12 +612,12 @@ export class PersistentMpvSession {
     seconds: number,
     displayTitle: string,
     timeLabel: string | undefined,
-  ): Promise<"resume" | "start"> {
+  ): Promise<PersistentResumeStartChoice> {
     if (!this.ipcSession) return Promise.resolve("resume");
 
-    return new Promise<"resume" | "start">((resolve) => {
+    return new Promise<PersistentResumeStartChoice>((resolve) => {
       const timeoutId = setTimeout(() => {
-        this.finishResumeChoiceWait("resume");
+        this.finishResumeChoiceWait("start");
       }, PersistentMpvSession.resumeChoiceTimeoutMs);
 
       this.resumeChoiceWait = {
@@ -646,22 +660,40 @@ export class PersistentMpvSession {
     }
   }
 
-  private queueReadyWork(options: PlayerCycleOptions): void {
+  private queueReadyWork(options: PlayerCycleOptions, opts: { armFallback?: boolean } = {}): void {
     this.pendingReadyWork = options;
-    if (this.readyWorkFallbackTimer) {
-      this.clearReadyWorkFallback();
-    }
+    this.clearReadyWorkFallback();
     if (!this.ipcSession) {
+      this.pendingReadyWork = null;
+      this.acceptPlaybackPropertiesForActiveCycle();
       void this.runReadyWork(options);
       return;
     }
+    if (opts.armFallback !== false) {
+      this.armReadyWorkFallback(options);
+    }
+  }
+
+  private armReadyWorkFallback(
+    options: PlayerCycleOptions,
+    timeoutMs = PersistentMpvSession.readyWorkFallbackMs,
+  ): void {
+    if (!this.ipcSession) return;
+    this.clearReadyWorkFallback();
     this.readyWorkFallbackTimer = setTimeout(() => {
-      if (this.pendingReadyWork !== options) return;
-      this.pendingReadyWork = null;
       this.readyWorkFallbackTimer = null;
-      this.acceptPlaybackPropertiesForActiveCycle();
-      void this.runReadyWork(options);
-    }, 750);
+      this.drainPendingReadyWork(options);
+    }, timeoutMs);
+  }
+
+  private drainPendingReadyWork(expected?: PlayerCycleOptions): void {
+    const pending = this.pendingReadyWork;
+    if (!pending) return;
+    if (expected && pending !== expected) return;
+    this.pendingReadyWork = null;
+    this.clearReadyWorkFallback();
+    this.acceptPlaybackPropertiesForActiveCycle();
+    void this.runReadyWork(pending);
   }
 
   private acceptPlaybackPropertiesForActiveCycle(): void {
@@ -697,18 +729,16 @@ export class PersistentMpvSession {
         1_000,
       );
 
-      let seekTarget: number | undefined;
+      let choice: PersistentResumeStartChoice | undefined;
       const resumePromptAt = options.resumePromptAt ?? 0;
       if (options.offerResumeStartChoice && shouldApplyStartAtSeek(resumePromptAt)) {
-        const choice = await this.waitResumeOrStartOverChoice(
+        choice = await this.waitResumeOrStartOverChoice(
           resumePromptAt,
           options.displayTitle,
           options.resumeChoiceTimeLabel,
         );
-        seekTarget = choice === "start" ? undefined : resumePromptAt;
-      } else if (typeof options.startAt === "number" && shouldApplyStartAtSeek(options.startAt)) {
-        seekTarget = options.startAt;
       }
+      const seekTarget = resolvePersistentStartSeekTarget(options, choice);
 
       if (shouldApplyStartAtSeek(seekTarget) && seekTarget !== undefined) {
         const target = seekTarget;

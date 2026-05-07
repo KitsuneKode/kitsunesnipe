@@ -7,10 +7,9 @@
 
 import { join } from "node:path";
 
-import { getKunaiPaths } from "@kunai/storage";
-
 import type { ContentType, SearchResult } from "@/domain/types";
 import { writeAtomicJson } from "@/infra/fs/atomic-write";
+import { getKunaiPaths } from "@kunai/storage";
 
 import type { RecommendationSection, RecommendationService } from "./RecommendationService";
 

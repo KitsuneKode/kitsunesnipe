@@ -352,7 +352,7 @@ local function draw_resume_prompt(at_sec)
 	resume_overlay.res_x = w
 	resume_overlay.res_y = h
 	resume_overlay.data = string.format(
-		"{\\an7\\bord3\\blur2\\fnSans\\b1\\fs%d\\pos(%d,%d)\\c&HF0F0F0&}%s",
+		"{\\an9\\bord3\\blur2\\fnSans\\b1\\fs%d\\pos(%d,%d)\\c&HF0F0F0&}%s",
 		fs,
 		x,
 		y,
@@ -360,7 +360,7 @@ local function draw_resume_prompt(at_sec)
 	)
 		.. ass_nl
 		.. string.format(
-			"{\\an7\\alpha&HC0&\\fs%d\\pos(%d,%d)\\c&HDDDDDD&}%s",
+			"{\\an9\\alpha&HC0&\\fs%d\\pos(%d,%d)\\c&HDDDDDD&}%s",
 			sub_fs,
 			x,
 			y + math.floor(fs * 1.25),
@@ -368,7 +368,7 @@ local function draw_resume_prompt(at_sec)
 		)
 		.. ass_nl
 		.. string.format(
-			"{\\an7\\alpha&HB0&\\fs%d\\pos(%d,%d)\\c&HBBBBBB&}%s",
+			"{\\an9\\alpha&HB0&\\fs%d\\pos(%d,%d)\\c&HBBBBBB&}%s",
 			sub_fs,
 			x,
 			y + math.floor(fs * 2.2),

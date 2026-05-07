@@ -30,7 +30,8 @@ function DiscoverSectionView({
       ) : (
         section.items.map((item, idx) => {
           const isActive = isFocused && idx === focusedIndex;
-          const rating = item.rating != null ? `★ ${item.rating.toFixed(1)}` : "";
+          const rating =
+            item.rating !== null && item.rating !== undefined ? `★ ${item.rating.toFixed(1)}` : "";
           return (
             <Box key={item.id}>
               <Text
