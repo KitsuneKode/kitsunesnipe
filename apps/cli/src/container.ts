@@ -11,6 +11,7 @@ import {
   HistoryRepository,
   openKunaiDatabase,
   runMigrations,
+  SourceInventoryRepository,
   StreamCacheRepository,
 } from "@kunai/storage";
 
@@ -42,6 +43,7 @@ import { ConfigStoreImpl } from "./services/persistence/ConfigStoreImpl";
 import type { HistoryStore } from "./services/persistence/HistoryStore";
 import { SqliteCacheStoreImpl } from "./services/persistence/SqliteCacheStoreImpl";
 import { SqliteHistoryStoreImpl } from "./services/persistence/SqliteHistoryStoreImpl";
+import { SourceInventoryService } from "./services/playback/SourceInventoryService";
 import { PROVIDER_DEFINITIONS } from "./services/providers/definitions";
 import type { ProviderRegistry } from "./services/providers/ProviderRegistry";
 import { ProviderRegistryImpl } from "./services/providers/ProviderRegistry";
@@ -78,6 +80,7 @@ export interface Container {
   readonly configStore: ConfigStore;
   readonly cacheStore: CacheStore;
   readonly diagnosticsStore: DiagnosticsStore;
+  readonly sourceInventory: SourceInventoryService;
 
   // Session
   readonly stateManager: SessionStateManager;
@@ -133,6 +136,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   const configStore = new ConfigStoreImpl(storage);
   const historyStore = new SqliteHistoryStoreImpl(new HistoryRepository(dataDb));
   const cacheStore = new SqliteCacheStoreImpl(new StreamCacheRepository(cacheDb));
+  const sourceInventory = new SourceInventoryService(new SourceInventoryRepository(cacheDb));
   const diagnosticsStore = new DiagnosticsStoreImpl();
 
   // Load config
@@ -180,6 +184,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     configStore,
     cacheStore,
     diagnosticsStore,
+    sourceInventory,
     stateManager,
     shellChrome,
     capabilitySnapshot,

@@ -1,0 +1,110 @@
+import { createHash } from "node:crypto";
+
+import { getDefaultTtlMs, SourceInventoryRepository } from "@kunai/storage";
+import type {
+  CacheTtlClass,
+  MediaKind,
+  ProviderResolveResult,
+  ProviderRuntime,
+} from "@kunai/types";
+
+const SOURCE_INVENTORY_SCHEMA_VERSION = "v1";
+
+export type SourceInventoryCacheInput = {
+  readonly providerId: string;
+  readonly mediaKind: MediaKind;
+  readonly titleId: string;
+  readonly season?: number;
+  readonly episode?: number;
+  readonly absoluteEpisode?: number;
+  readonly audioMode?: string;
+  readonly subtitleLanguage?: string;
+  readonly runtime?: ProviderRuntime;
+  readonly schemaVersion?: string;
+};
+
+export class SourceInventoryService {
+  constructor(private readonly repository: SourceInventoryRepository) {}
+
+  async get(
+    input: SourceInventoryCacheInput,
+    now = new Date(),
+  ): Promise<ProviderResolveResult | null> {
+    try {
+      const hit = this.repository.get<ProviderResolveResult>(
+        buildSourceInventoryCacheKey(input),
+        now,
+      );
+      return hit?.inventory ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  async set(
+    input: SourceInventoryCacheInput,
+    inventory: ProviderResolveResult,
+    now = new Date(),
+  ): Promise<void> {
+    const ttlClass = inventory.cachePolicy?.ttlClass ?? "stream-manifest";
+    if (ttlClass === "never-cache") {
+      return;
+    }
+
+    try {
+      this.repository.set(
+        buildSourceInventoryCacheKey(input),
+        input.providerId,
+        input.titleId,
+        inventory,
+        getInventoryExpiresAt(ttlClass, inventory.cachePolicy?.ttlMs, now),
+        now.toISOString(),
+      );
+    } catch {
+      // Inventory caching is a performance feature; playback must keep going.
+    }
+  }
+
+  async delete(input: SourceInventoryCacheInput): Promise<void> {
+    try {
+      this.repository.delete(buildSourceInventoryCacheKey(input));
+    } catch {}
+  }
+}
+
+export function buildSourceInventoryCacheKey(input: SourceInventoryCacheInput): string {
+  return `source-inventory:${createHash("sha256")
+    .update(buildSourceInventoryCachePreimage(input))
+    .digest("hex")}`;
+}
+
+export function buildSourceInventoryCachePreimage(input: SourceInventoryCacheInput): string {
+  return [
+    input.schemaVersion ?? SOURCE_INVENTORY_SCHEMA_VERSION,
+    normalizePart(input.providerId),
+    normalizePart(input.mediaKind),
+    normalizePart(input.titleId),
+    normalizePart(input.season),
+    normalizePart(input.episode),
+    normalizePart(input.absoluteEpisode),
+    normalizePart(input.audioMode),
+    normalizePart(input.subtitleLanguage),
+    normalizePart(input.runtime),
+  ].join("\0");
+}
+
+function getInventoryExpiresAt(
+  ttlClass: CacheTtlClass,
+  ttlMs: number | undefined,
+  now: Date,
+): string {
+  const effectiveTtlMs = ttlMs ?? getDefaultTtlMs(ttlClass);
+  return new Date(now.getTime() + effectiveTtlMs).toISOString();
+}
+
+function normalizePart(value: string | number | undefined): string {
+  if (value === undefined || value === "") {
+    return "none";
+  }
+  return String(value).trim().toLowerCase().replaceAll(/\s+/g, "-");
+}

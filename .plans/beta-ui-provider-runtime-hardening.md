@@ -242,19 +242,19 @@ bun run test -- apps/cli/test/unit/app-shell/input-router.test.ts
 - Modify: `apps/cli/src/container.ts`
 - Test: `apps/cli/test/unit/services/playback/source-inventory-service.test.ts`
 
-- [ ] **Step 1: Wire `SourceInventoryRepository`**
+- [x] **Step 1: Wire `SourceInventoryRepository`**
 
 `@kunai/storage` already exports `SourceInventoryRepository`. Add it to the cache DB side of `createContainer`.
 
-- [ ] **Step 2: Implement inventory key builder**
+- [x] **Step 2: Implement inventory key builder**
 
 Key parts must include provider id, schema version, media kind, title id, episode identity, audio mode, subtitle language, runtime class when relevant.
 
-- [ ] **Step 3: Store full `ProviderResolveResult`**
+- [x] **Step 3: Store full `ProviderResolveResult`**
 
 Do not store only the selected stream. Preserve sources, variants, streams, subtitles, failures, trace, selected stream id, and cache policy.
 
-- [ ] **Step 4: Verify key isolation**
+- [x] **Step 4: Verify key isolation**
 
 Tests must prove these do not collide:
 
