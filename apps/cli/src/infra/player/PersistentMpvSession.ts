@@ -106,6 +106,19 @@ export function resolvePersistentStartSeekTarget(
   return undefined;
 }
 
+export function buildPersistentLoadfileCommand(
+  url: string,
+  startAt?: number,
+): ["loadfile", string, "replace", -1, { start: string }] {
+  return [
+    "loadfile",
+    url,
+    "replace",
+    -1,
+    { start: shouldApplyStartAtSeek(startAt) ? String(startAt) : "0" },
+  ];
+}
+
 type PlayerCycleState = {
   telemetry: PlayerTelemetryState;
   resolve: (result: PlaybackResult) => void;
@@ -260,7 +273,10 @@ export class PersistentMpvSession {
     await this.removeExternalSubtitles();
     options.onPlaybackEvent?.({ type: "resolving-playback" });
     this.queueReadyWork(options, { armFallback: false });
-    const loadResult = await this.ipcSession?.send(["loadfile", stream.url, "replace"], 3_000);
+    const loadResult = await this.ipcSession?.send(
+      buildPersistentLoadfileCommand(stream.url, options.startAt),
+      3_000,
+    );
     if (!loadResult?.ok) {
       void this.ipcSession?.send(["set_property", "user-data/kunai-loading", ""], 500);
       options.onPlaybackEvent?.({
@@ -342,12 +358,9 @@ export class PersistentMpvSession {
     this.beginCycle(this.initialOptions);
     this.initialOptions.onPlaybackEvent?.({ type: "launching-player" });
 
-    // Persistent mpv sessions must never launch with --start: mpv keeps that option
-    // across later loadfile replacements, which makes next/previous/autoplay inherit
-    // the first resumed episode's offset. Initial resume is applied by runReadyWork.
-    const deferSpawnStartForResumePrompt =
-      this.initialOptions.offerResumeStartChoice === true &&
-      shouldApplyStartAtSeek(this.initialOptions.startAt);
+    // Persistent replacements always pass a file-local loadfile `start` option
+    // (`0` for normal navigation, resume seconds for direct continue). That
+    // clears any process-level --start used for the initial file.
     const args = buildMpvArgs(
       {
         url: this.initialStream.url,
@@ -355,13 +368,13 @@ export class PersistentMpvSession {
         subtitle: this.initialOptions.primarySubtitle,
         subtitleTracks: this.initialOptions.subtitleTracks,
         displayTitle: this.initialOptions.displayTitle,
-        startAt: deferSpawnStartForResumePrompt ? 0 : this.initialOptions.startAt,
+        startAt: this.initialOptions.startAt,
       },
       ipcServerCliArg(this.ipcEndpoint),
       {
         persistent: true,
         mpv: mpvOptions,
-        includeStartArg: false,
+        includeStartArg: shouldApplyStartAtSeek(this.initialOptions.startAt),
         scriptPath: this.luaScriptPath ?? undefined,
         scriptOpts: this.scriptOptsArg,
       },
@@ -1280,7 +1293,7 @@ export class PersistentMpvSession {
       this.pendingReadyWork = null;
 
       const loadResult = await this.ipcSession.send(
-        ["loadfile", this.playbackStream.url, "replace"],
+        buildPersistentLoadfileCommand(this.playbackStream.url, shouldSeek ? seekSeconds : 0),
         12_000,
       );
       if (!loadResult.ok) {

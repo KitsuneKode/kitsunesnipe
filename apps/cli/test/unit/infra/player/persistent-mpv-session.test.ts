@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { resolvePersistentStartSeekTarget } from "@/infra/player/PersistentMpvSession";
+import {
+  buildPersistentLoadfileCommand,
+  resolvePersistentStartSeekTarget,
+} from "@/infra/player/PersistentMpvSession";
 
 describe("persistent mpv start policy", () => {
   test("seeks directly for explicit continue/resume intents", () => {
@@ -27,5 +30,23 @@ describe("persistent mpv start policy", () => {
         offerResumeStartChoice: false,
       }),
     ).toBeUndefined();
+  });
+
+  test("builds file-local loadfile start options for every persistent replacement", () => {
+    expect(buildPersistentLoadfileCommand("https://cdn.example/next.m3u8")).toEqual([
+      "loadfile",
+      "https://cdn.example/next.m3u8",
+      "replace",
+      -1,
+      { start: "0" },
+    ]);
+
+    expect(buildPersistentLoadfileCommand("https://cdn.example/resume.m3u8", 562)).toEqual([
+      "loadfile",
+      "https://cdn.example/resume.m3u8",
+      "replace",
+      -1,
+      { start: "562" },
+    ]);
   });
 });
