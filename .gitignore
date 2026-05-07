@@ -10,6 +10,7 @@ out
 dist
 *.tgz
 
+
 # monorepo & frameworks
 .turbo
 .next
@@ -28,8 +29,14 @@ coverage
 logs
 logs.*
 _.log
+*_log.json
 report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-
+*_html.ts
+*_dump.html 
+*_log*.json
+rive*.png
+*_sniff*.ts
+*_hash.ts
 stream_cache.json
 # dotenv environment variable files
 .env
