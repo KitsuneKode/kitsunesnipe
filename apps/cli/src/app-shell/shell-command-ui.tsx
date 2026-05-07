@@ -9,6 +9,7 @@ import {
   type AppCommandId,
   type ResolvedAppCommand,
 } from "./commands";
+import { routeShellInput } from "./input-router";
 import { getWindowStart } from "./shell-text";
 import { palette } from "./shell-theme";
 import { toShellAction, type FooterAction, type ShellAction } from "./types";
@@ -199,6 +200,9 @@ export function useShellInput({
       return;
     }
 
+    const route = routeShellInput(input, key, { commandPaletteOpen: commandMode });
+    if (route.owner === "hard-global") return;
+
     if (key.escape) {
       if (commandMode) {
         setCommandMode(false);
@@ -248,7 +252,7 @@ export function useShellInput({
       return;
     }
 
-    if (input === "/") {
+    if (route.command === "open-command-palette") {
       setCommandMode(true);
       setCommandInput("");
       return;

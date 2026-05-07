@@ -211,7 +211,7 @@ bun run test -- apps/cli/test/unit/app-shell
 - Modify: `apps/cli/src/app-shell/ink-shell.tsx`
 - Test: `apps/cli/test/unit/app-shell/input-router.test.ts`
 
-- [ ] **Step 1: Encode input priority**
+- [x] **Step 1: Encode input priority**
 
 Implement priority:
 
@@ -225,7 +225,7 @@ Implement priority:
 
 Remove duplicate direct handling where possible. Keep local handlers only for domain-specific actions after input routing decides ownership.
 
-- [ ] **Step 3: Verify no swallowed keys**
+- [x] **Step 3: Verify no swallowed keys**
 
 Tests should cover `/` from search input, picker filter, playback surface, and modal overlay.
 

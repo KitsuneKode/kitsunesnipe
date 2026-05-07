@@ -3,6 +3,7 @@ import { Box, Text, useInput, useStdout } from "ink";
 import React from "react";
 
 import type { AppCommandId, ResolvedAppCommand } from "./commands";
+import { isHardGlobalQuit, routeShellInput } from "./input-router";
 import { CommandPalette, LineEditorText, useShellInput } from "./shell-command-ui";
 import { ShellFooter } from "./shell-primitives";
 import { palette, statusColor } from "./shell-theme";
@@ -36,7 +37,7 @@ export function ShellFrame({
   children: React.ReactNode;
 }) {
   useInput((input, key) => {
-    if ((input === "c" && key.ctrl) || input === "\x03") {
+    if (isHardGlobalQuit(input, key)) {
       if (process.stdin.isTTY) process.stdin.unref();
       process.exit(0);
     }
@@ -131,11 +132,18 @@ export function InputField({
 
   useInput((input, key) => {
     if (!focus) return;
-    if ((input === "c" && key.ctrl) || input === "\x03") {
+    const route = routeShellInput(input, key, { textInputFocused: focus });
+    if (route.owner === "hard-global") {
       if (process.stdin.isTTY) process.stdin.unref();
       process.exit(0);
     }
-    if (input === "/" || key.escape || key.upArrow || key.downArrow || key.tab) {
+    if (
+      route.command === "open-command-palette" ||
+      key.escape ||
+      key.upArrow ||
+      key.downArrow ||
+      key.tab
+    ) {
       return;
     }
     editor.handleInput(input, key);
