@@ -1,97 +1,160 @@
 <div align="center">
 
-# 🥷 Kunai
+# Kunai
 
-**The terminal-first streaming engine. Search, skip intros, and resume playback—without leaving your shell.**
+**A cinematic terminal streaming companion for anime, series, and movies.**
 
 [![License](https://img.shields.io/github/license/kitsunekode/kunai?style=flat-square&color=black)](LICENSE)
 [![Bun](https://img.shields.io/badge/runtime-bun-f472b6?style=flat-square)](https://bun.sh)
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-555?style=flat-square)](#prerequisites)
-[![Beta](https://img.shields.io/badge/status-beta-orange?style=flat-square)](#known-issues-beta)
+[![Beta](https://img.shields.io/badge/status-beta-orange?style=flat-square)](#beta-note)
 
 ![Kunai Terminal Demo](./apps/cli/test/vhs/browse-shell.gif)
 
-*No browser tabs. No accounts. No bloat. Just the terminal and the stream.*
+*The terminal can have nice things.*
+
 </div>
 
 ---
 
-Kunai intercepts streams from providers headlessly and hands them off directly to `mpv`. It features a persistent, premium Ink shell that remembers your history, caches streams, and skips anime intros entirely automatically.
+Kunai is a terminal-first playback app that lets you search, choose, resume, and watch without turning your shell into a sad little form from 1998.
 
-## ✨ The Moat (Why Kunai?)
+It finds playable direct-provider streams, resolves subtitles, opens `mpv`, keeps watch history, supports anime episode flow, and brings you back to the same shell when playback ends. Think keyboard-native streaming: fast like a CLI, structured like a real app, and polished enough that you do not have to apologize for using a terminal.
 
-- **Zero-Context Switching:** Search, pick, watch, and resume from a single, persistent UI.
-- **Built-in AniSkip:** Seamless, auto-skipping of anime intros and credits natively integrated into the shell and `mpv`.
-- **Background Pre-fetching:** The next episode is scraped silently in the background while you watch. Hitting "Next" is instantaneous.
-- **Native Ad-Blocking:** Because it resolves streams headlessly, it intercepts `.m3u8` payloads directly and blocks 20+ tracker domains at the network level. No popups, no redirects.
-- **Stateful Watch History:** SQLite-backed history that remembers exact timestamps and offers to resume exactly where you left off.
-- **Auto-Heal:** If a stream dies or hits a rate limit, the resolver silently falls back to the next available provider.
+## Motto
 
----
+**Just because it runs in a TUI does not mean it has to leave the good features outside the door.**
 
-## ⚡ Quick Start
+Kunai is built around that idea: anime, shows, movies, subtitles, resume, intro skipping, diagnostics, provider recovery, and `mpv` handoff should feel like one deliberate experience, not a pile of prompts wearing a trench coat.
+
+## Inspired By
+
+Kunai is inspired by:
+
+- **ani-cli**, for proving how magical fast terminal anime playback can feel.
+- **Netflix**, for the expectation that browsing, continuing, subtitles, episodes, and playback should feel connected.
+
+Kunai is not trying to be a browser clone. It is what happens when those ideas are rebuilt for people who live in the terminal.
+
+## Why Kunai?
+
+- **Search from the shell**: browse anime, movies, and series from a fullscreen TUI.
+- **Pick the exact watch target**: choose provider, season, episode, subtitle behavior, and anime sub/dub preference from structured selectors.
+- **Open in `mpv`**: resolve the stream and hand it to a real video player instead of trapping playback in a web page.
+- **Skip the boring bits**: AniSkip and IntroDB timing can drive automatic intro, recap, credit, and preview skipping where metadata is available.
+- **Resume cleanly**: SQLite-backed watch history remembers progress and gives you a direct way back in.
+- **Recover without panic**: provider fallback, stream refresh, diagnostics, and in-process `mpv` reconnects help keep failures understandable.
+- **Stay keyboard-native**: global commands, contextual hotkeys, compact overlays, and post-playback actions keep the flow moving.
+
+## The Experience
+
+```text
+kunai
+  -> search for a title
+  -> inspect results
+  -> choose season and episode
+  -> pick subtitles or audio mode
+  -> resolve a provider stream
+  -> watch in mpv
+  -> auto-skip intro when timing metadata exists
+  -> return to the shell for next episode, replay, history, diagnostics, or a new search
+```
+
+No accounts. No browser tab pile. No "where did my episode picker go?" energy.
+
+## Quick Start
 
 ```bash
 git clone https://github.com/kitsunekode/kunai.git
 cd kunai
 bun install
 bun run link:global
-```
-
-*Note: Playwright Chromium is optional but required for some browser-backed providers (`bunx playwright install chromium`).*
-
-Then simply launch:
-
-```bash
 kunai
 ```
 
----
+### Prerequisites
 
-## 🎮 Interaction & Controls
+- Bun `>=1.3.9`
+- `mpv` on your `PATH`
+- Optional: Playwright Chromium for browser-backed providers
 
-Kunai is built for speed and immersion. The entire application is driven by a single global command palette and a handful of contextual keys.
-
-### Global Navigation
-| Key | Action |
-|-----|--------|
-| `/` | Open the global command palette (Settings, History, Diagnostics, etc.) |
-| `Esc` | Go back or close the current overlay |
-| `q` | Quit the application / Stop playback |
-
-### Playback & `mpv` Bridge
-When `mpv` is open, it acts as a slave to the terminal.
-| Key | Action |
-|-----|--------|
-| `n` / `p` | Request next / previous episode |
-| `k` | Open quality/streams picker |
-| `o` | Open provider source picker |
-| `b` | Skip active segment manually (if auto-skip is disabled) |
-| `r` | Refresh/recover a stalled stream |
-| `f` | Fallback to next provider |
-
----
-
-## 🛠️ Developer Setup & Architecture
-
-Kunai is a modern monorepo built on Turborepo and React (Ink).
-
-```text
-apps/cli        -> The persistent Ink shell and mpv handoff logic.
-packages/core   -> Provider logic, headless scraping, and cache policies.
-packages/storage-> SQLite connections for watch history and cache.
+```bash
+bunx playwright install chromium
 ```
 
-- **Run tests:** `bun test test/unit`
-- **Lint/Format:** `bun run check`
-- **Generate VHS Demo:** `bun run test:vhs:browse`
+## Common Commands
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+```bash
+kunai
+kunai -a
+kunai -S "Dune"
+kunai -S "Breaking Bad"
+kunai -i 438631 -t movie
+kunai --debug
+```
 
----
+## Controls
 
-## ⚖️ Disclaimer
+### Global TUI
 
-Kunai is a client-side playback tool. It does not host, store, upload, mirror, or distribute video content. All streams, manifests, subtitles, posters, and metadata are served by non-affiliated third-party providers.
+| Key | Action |
+| --- | --- |
+| `/` | Open the command palette |
+| `Esc` | Close the current overlay or go back |
+| `?` | Show help |
+| `q` | Quit or stop playback flow |
+
+### During Playback
+
+When `mpv` is open, Kunai keeps a bridge alive so playback can still talk back to the shell.
+
+| Key | Action |
+| --- | --- |
+| `n` / `p` | Request next or previous episode |
+| `k` | Open stream or quality picker |
+| `o` | Open provider picker |
+| `b` | Skip the active intro/recap/credit segment manually |
+| `r` | Refresh or recover a stalled stream |
+| `f` | Fallback to the next provider |
+
+## Developer Workflow
+
+Kunai is a Bun-first monorepo.
+
+```text
+apps/cli        -> Ink TUI, session flow, mpv handoff
+packages/core   -> provider contracts, resolver, cache policy
+packages/providers -> direct-provider implementations
+packages/storage -> SQLite paths, migrations, history, cache
+```
+
+Useful commands:
+
+```bash
+bun run dev
+bun run dev -- -a
+bun run typecheck
+bun run lint
+bun run fmt
+bun run test
+```
+
+VHS terminal demos live in `apps/cli/test/vhs/`.
+
+```bash
+bun run --cwd apps/cli test:vhs:browse
+bun run --cwd apps/cli test:vhs:help
+bun run --cwd apps/cli test:vhs:launch
+```
+
+For a cinematic launch-video storyboard, shot checklist, and VHS/local-recorder capture plan, see [.docs/launch-video-playbook.md](.docs/launch-video-playbook.md).
+
+## Beta Note
+
+Kunai is under active development. Providers can drift, subtitle inventories can vary, and some flows may depend on third-party availability. The goal is not to pretend providers are stable forever; the goal is to make drift diagnosable and recovery humane.
+
+## Disclaimer
+
+Kunai is a client-side playback tool. It does not host, store, upload, mirror, seed, or distribute video content. Streams, manifests, subtitles, posters, metadata, and related assets are served by non-affiliated third-party providers.
 
 If you believe specific content is infringing, direct DMCA notices to the actual hosting provider, not this repository. Use responsibly and in accordance with the laws and terms applicable in your jurisdiction.

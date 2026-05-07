@@ -9,6 +9,8 @@ node_modules
 out
 dist
 *.tgz
+apps/cli/test/vhs/golden/
+kunai-demo.tape
 
 
 # monorepo & frameworks

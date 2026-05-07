@@ -35,3 +35,4 @@ So these tests are safe to keep in-repo without shipping them to npm.
 - `bun run test:live:vidking`
 - `bun run test:vhs:browse`
 - `bun run test:vhs:help`
+- `bun run test:vhs:launch`
