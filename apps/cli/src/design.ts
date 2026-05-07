@@ -175,3 +175,11 @@ export function statusLine(opts: {
       : "";
   return `${ti}  ${clr.bold(opts.title)}${ep}  ${clr.dim(opts.provider)}`;
 }
+
+// ── Content type badge ────────────────────────────────────────────────────────
+
+export function contentBadge(type: "movie" | "series", isAnime: boolean): string {
+  if (isAnime) return clr.pink("anime");
+  if (type === "movie") return clr.dim("movie");
+  return clr.dim("series");
+}
