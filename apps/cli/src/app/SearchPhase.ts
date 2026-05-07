@@ -270,6 +270,34 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
         }
 
         if (outcome.type === "action") {
+          if (outcome.action === "discover") {
+            const { openDiscoverShell } = await import("../app-shell/ink-shell");
+            const { buildDiscoverSections } = await import("./discover-sections");
+
+            const sections = await buildDiscoverSections(container);
+            const discoverResult = await openDiscoverShell([...sections]);
+
+            if (discoverResult.type === "open") {
+              const selected = discoverResult.result;
+              stateManager.dispatch({ type: "SET_SEARCH_RESULTS", results: [selected] });
+              stateManager.dispatch({ type: "SELECT_RESULT", index: 0 });
+              const title: TitleInfo = {
+                id: selected.id,
+                type: selected.type,
+                name: chooseSearchResultTitle(selected, container.config.animeTitlePreference),
+                titleAliases: selected.titleAliases,
+                year: selected.year,
+                overview: selected.overview,
+                posterUrl: selected.posterPath ?? undefined,
+                episodeCount: selected.episodeCount,
+              };
+              stateManager.dispatch({ type: "SELECT_TITLE", title });
+              return { status: "success", value: title };
+            }
+            // discoverResult.type === "back" — return to browse shell
+            continue;
+          }
+
           const routedAction = await routeSearchShellAction({
             action: outcome.action,
             container,
