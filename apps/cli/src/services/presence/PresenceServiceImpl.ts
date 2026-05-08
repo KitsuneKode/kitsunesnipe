@@ -37,6 +37,9 @@ export class PresenceServiceImpl implements PresenceService {
   private connectPromise: Promise<DiscordRpcClient | null> | null = null;
   private unavailableUntilRestart = false;
   private unavailableReason: string | null = null;
+  private unavailableRetryAtMs = 0;
+  private unavailableBackoffMs = 1_000;
+  private lastActivityHash: string | null = null;
 
   constructor(
     private readonly deps: {
@@ -61,6 +64,7 @@ export class PresenceServiceImpl implements PresenceService {
       clientIdSource: resolvePresenceClientIdSource(this.deps.config),
       unavailableUntilRestart: this.unavailableUntilRestart,
       unavailableReason: this.unavailableReason,
+      unavailableRetryAtMs: this.unavailableRetryAtMs,
     });
   }
 
@@ -73,6 +77,8 @@ export class PresenceServiceImpl implements PresenceService {
 
     this.unavailableUntilRestart = false;
     this.unavailableReason = null;
+    this.unavailableRetryAtMs = 0;
+    this.unavailableBackoffMs = 1_000;
     await this.ensureDiscordClient();
     return this.getSnapshot();
   }
@@ -84,6 +90,9 @@ export class PresenceServiceImpl implements PresenceService {
     this.connectPromise = null;
     this.unavailableUntilRestart = false;
     this.unavailableReason = null;
+    this.unavailableRetryAtMs = 0;
+    this.unavailableBackoffMs = 1_000;
+    this.lastActivityHash = null;
     if (client) {
       await client.destroy().catch(() => undefined);
       this.deps.diagnosticsStore.record({
@@ -102,14 +111,26 @@ export class PresenceServiceImpl implements PresenceService {
       return;
     }
     if (this.deps.config.presenceProvider !== "discord") return;
-    if (this.unavailableUntilRestart) return;
+    if (this.unavailableUntilRestart) {
+      if (Date.now() < this.unavailableRetryAtMs) return;
+      this.unavailableUntilRestart = false;
+    }
 
     const client = await this.ensureDiscordClient();
     if (!client) return;
 
     try {
-      await client.setActivity(buildDiscordActivity(activity, this.deps.config.presencePrivacy));
+      const payload = buildDiscordActivity(activity, this.deps.config.presencePrivacy);
+      const activityHash = stableJsonHash(payload);
+      if (activityHash === this.lastActivityHash) {
+        this.status = "ready";
+        return;
+      }
+      await client.setActivity(payload);
       this.status = "ready";
+      this.lastActivityHash = activityHash;
+      this.unavailableRetryAtMs = 0;
+      this.unavailableBackoffMs = 1_000;
     } catch (error) {
       this.markUnavailable("Discord presence update failed", error);
     }
@@ -135,6 +156,9 @@ export class PresenceServiceImpl implements PresenceService {
     this.connectPromise = null;
     this.unavailableUntilRestart = false;
     this.unavailableReason = null;
+    this.unavailableRetryAtMs = 0;
+    this.unavailableBackoffMs = 1_000;
+    this.lastActivityHash = null;
     if (!client) return;
     await client.destroy().catch(() => undefined);
     this.status = this.deps.config.presenceProvider === "off" ? "disabled" : "idle";
@@ -164,6 +188,8 @@ export class PresenceServiceImpl implements PresenceService {
         this.discordClient = bridgeClient;
         this.status = "ready";
         this.unavailableReason = null;
+        this.unavailableRetryAtMs = 0;
+        this.unavailableBackoffMs = 1_000;
         this.deps.diagnosticsStore.record({
           category: "presence",
           message: "Discord presence connected",
@@ -187,6 +213,8 @@ export class PresenceServiceImpl implements PresenceService {
       this.discordClient = client;
       this.status = "ready";
       this.unavailableReason = null;
+      this.unavailableRetryAtMs = 0;
+      this.unavailableBackoffMs = 1_000;
       this.deps.diagnosticsStore.record({
         category: "presence",
         message: "Discord presence connected",
@@ -203,13 +231,15 @@ export class PresenceServiceImpl implements PresenceService {
     this.status = "unavailable";
     this.unavailableUntilRestart = true;
     this.unavailableReason = normalizePresenceError(error);
+    this.unavailableRetryAtMs = Date.now() + this.unavailableBackoffMs;
+    this.unavailableBackoffMs = Math.min(this.unavailableBackoffMs * 2, 60_000);
     this.deps.diagnosticsStore.record({
       category: "presence",
       message,
       context: {
         provider: "discord",
         error: this.unavailableReason ?? String(error),
-        retry: "disabled-until-restart",
+        retry: `auto-retry-in-${Math.max(1, Math.ceil((this.unavailableRetryAtMs - Date.now()) / 1000))}s`,
       },
     });
   }
@@ -219,6 +249,10 @@ function normalizePresenceError(error: unknown): string {
   const raw = String(error).trim();
   if (raw.startsWith("Error: ")) return raw.slice("Error: ".length);
   return raw;
+}
+
+function stableJsonHash(value: Record<string, unknown>): string {
+  return JSON.stringify(value);
 }
 
 class NodeBridgeDiscordRpcClient implements DiscordRpcClient {
@@ -499,6 +533,7 @@ export function buildPresenceSnapshot({
   clientIdSource,
   unavailableUntilRestart,
   unavailableReason,
+  unavailableRetryAtMs,
 }: {
   readonly status: PresenceStatus;
   readonly provider: "off" | "discord";
@@ -506,6 +541,7 @@ export function buildPresenceSnapshot({
   readonly clientIdSource: PresenceClientIdSource;
   readonly unavailableUntilRestart: boolean;
   readonly unavailableReason?: string | null;
+  readonly unavailableRetryAtMs?: number;
 }): PresenceSnapshot {
   if (provider === "off") {
     return {
@@ -530,6 +566,10 @@ export function buildPresenceSnapshot({
   }
 
   if (unavailableUntilRestart) {
+    const retrySeconds =
+      unavailableRetryAtMs && unavailableRetryAtMs > Date.now()
+        ? Math.max(1, Math.ceil((unavailableRetryAtMs - Date.now()) / 1000))
+        : null;
     return {
       provider,
       status: "unavailable",
@@ -537,8 +577,10 @@ export function buildPresenceSnapshot({
       clientIdSource,
       canConnect: false,
       detail: unavailableReason
-        ? `unavailable  ·  ${unavailableReason}  ·  reconnect from settings`
-        : "unavailable until settings reconnect",
+        ? `unavailable  ·  ${unavailableReason}${retrySeconds ? `  ·  retrying in ${retrySeconds}s` : ""}`
+        : retrySeconds
+          ? `unavailable  ·  retrying in ${retrySeconds}s`
+          : "unavailable",
     };
   }
 

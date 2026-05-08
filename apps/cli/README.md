@@ -10,6 +10,7 @@ Kunai is a terminal-first media tool that resolves provider streams and launches
 - Kitty or Ghostty terminal for inline poster previews (optional)
 - ImageMagick (`magick`) for broader poster format support in Kitty/Ghostty (optional)
 - `ffmpeg` for download/offline queue support (optional)
+- Discord desktop app for Rich Presence (optional; `node` is required when Presence is enabled)
 
 Install core tools:
 

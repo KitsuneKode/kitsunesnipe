@@ -24,7 +24,7 @@ Kunai lets you browse in a fullscreen TUI, resolve provider streams, and hand pl
 - `ffmpeg` for downloads/offline queue
 - Kitty/Ghostty for inline poster previews
 - ImageMagick (`magick`) for broader poster compatibility (especially non-PNG)
-- Discord + `discord-rpc` for Rich Presence
+- Discord desktop app + local IPC support for Rich Presence (`node` is required when Presence is enabled)
 
 ### Install core tools by platform
 
