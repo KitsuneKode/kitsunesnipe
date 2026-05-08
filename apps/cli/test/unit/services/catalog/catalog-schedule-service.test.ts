@@ -4,7 +4,6 @@ import {
   buildLocalDayWindow,
   CatalogScheduleService,
   classifyReleaseStatus,
-  type CatalogScheduleItem,
   type CatalogScheduleLoaders,
 } from "@/services/catalog/CatalogScheduleService";
 

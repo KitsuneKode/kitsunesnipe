@@ -319,7 +319,7 @@ async function loadTmdbAiringToday(
   const results = Array.isArray(resultPayload) ? resultPayload.map(readRecord) : [];
   return results.slice(0, 25).flatMap((item) => {
     const id = item.id;
-    if (id == null) return [];
+    if (id === null || id === undefined) return [];
     const titleName = readString(item.name) || readString(item.original_name) || "Unknown";
     return [
       {

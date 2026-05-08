@@ -80,6 +80,7 @@ export function DiscoverShell({
           setVisibleSections(nextSections);
           setSectionIdx(0);
           setItemIdx(0);
+          return undefined;
         })
         .finally(() => {
           setRefreshing(false);
