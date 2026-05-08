@@ -29,6 +29,11 @@ const ACTIVE_ROOTS = [
 ];
 const SKIP_DIRS = new Set(["legacy", "node_modules", "dist"]);
 const SOURCE_EXTENSIONS = [".ts", ".tsx"];
+const IMPORT_SPECIFIER_REGEX = /from\s+["']([^"']+)["']/g;
+const ACTIVE_FORBIDDEN_IMPORT =
+  /(^|\/)(legacy|experiments)(\/|$)|apps\/legacy-reference|archive\/legacy/;
+const APP_SHELL_FORBIDDEN_IMPORT =
+  /^@\/services\/providers(?:\/|$)|^@\/(infra\/mpv|infra\/player|mpv|scraper)(?:\/|$)|^@kunai\/providers(?:\/|$)/;
 
 function collectSourceFiles(root: string): string[] {
   const absoluteRoot = join(REPO_ROOT, root);
@@ -60,7 +65,25 @@ describe("runtime boundary imports", () => {
   test("active runtime code does not import legacy or experiments modules", () => {
     const offenders = ACTIVE_ROOTS.flatMap(collectSourceFiles).filter((file) => {
       const source = readFileSync(join(REPO_ROOT, file), "utf8");
-      return /from\s+["'][^"']*(?:legacy|experiments)[^"']*["']/.test(source);
+      const imports = Array.from(
+        source.matchAll(IMPORT_SPECIFIER_REGEX),
+        (match) => match[1] ?? "",
+      );
+      return imports.some((specifier) => ACTIVE_FORBIDDEN_IMPORT.test(specifier));
+    });
+
+    expect(offenders).toEqual([]);
+  });
+
+  test("app-shell avoids direct provider and player-runtime imports", () => {
+    const appShellRoot = "apps/cli/src/app-shell";
+    const offenders = collectSourceFiles(appShellRoot).filter((file) => {
+      const source = readFileSync(join(REPO_ROOT, file), "utf8");
+      const imports = Array.from(
+        source.matchAll(IMPORT_SPECIFIER_REGEX),
+        (match) => match[1] ?? "",
+      );
+      return imports.some((specifier) => APP_SHELL_FORBIDDEN_IMPORT.test(specifier));
     });
 
     expect(offenders).toEqual([]);
