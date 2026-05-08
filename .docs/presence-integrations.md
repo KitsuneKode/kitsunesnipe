@@ -6,14 +6,15 @@ This is the canonical reference for local social presence integrations such as D
 
 Presence is implemented as a first-party service seam and is off by default.
 
-| Capability                           | Location                                                | Status      |
-| ------------------------------------ | ------------------------------------------------------- | ----------- |
-| Presence contract                    | `apps/cli/src/services/presence/PresenceService.ts`     | Implemented |
-| Discord RPC implementation           | `apps/cli/src/services/presence/PresenceServiceImpl.ts` | Implemented |
-| Config fields                        | `apps/cli/src/services/persistence/ConfigService.ts`    | Implemented |
-| Settings picker for provider/privacy | `apps/cli/src/app-shell/overlay-panel.tsx`              | Implemented |
-| Playback updates                     | `apps/cli/src/app/PlaybackPhase.ts`                     | Implemented |
-| Shutdown cleanup                     | `apps/cli/src/app/SessionController.ts`                 | Implemented |
+| Capability                     | Location                                                | Status      |
+| ------------------------------ | ------------------------------------------------------- | ----------- |
+| Presence contract              | `apps/cli/src/services/presence/PresenceService.ts`     | Implemented |
+| Discord RPC implementation     | `apps/cli/src/services/presence/PresenceServiceImpl.ts` | Implemented |
+| Config fields                  | `apps/cli/src/services/persistence/ConfigService.ts`    | Implemented |
+| Settings picker for onboarding | `apps/cli/src/app-shell/overlay-panel.tsx`              | Implemented |
+| Playback updates               | `apps/cli/src/app/PlaybackPhase.ts`                     | Implemented |
+| Shutdown cleanup               | `apps/cli/src/app/SessionController.ts`                 | Implemented |
+| Diagnostics snapshot           | `apps/cli/src/app-shell/panel-data.ts`                  | Implemented |
 
 ## How Discord Presence Connects
 
@@ -24,7 +25,23 @@ Discord presence is optional and local-only:
 3. The optional `discord-rpc` package must be available at runtime (ships as an optional dependency in the CLI package).
 4. Kunai connects through Discord IPC and calls `setActivity` during playback.
 
-If any requirement is missing, Kunai records a diagnostics event and disables retry for the rest of the process.
+If any requirement is missing, Kunai records a diagnostics event and disables automatic retry until
+the user reconnects from Settings or changes the presence configuration. This prevents every
+playback update from hammering Discord IPC when the desktop app or client id is unavailable.
+
+## Onboarding And Controls
+
+The Settings panel is the user-facing onboarding surface. Open it with `/presence` or `/settings`:
+
+- `Presence` chooses `off` or `discord`.
+- `Presence privacy` chooses full title/episode detail or generic private activity.
+- `Discord client ID` lets the user type a numeric Discord application client id, clear the
+  configured id, or rely on `KUNAI_DISCORD_CLIENT_ID`.
+- `Connect Discord now` saves pending settings and verifies local IPC without requiring playback.
+- `Disconnect Discord` clears the current activity and closes the local IPC client.
+
+Kunai does not connect to a Discord account directly. Discord Rich Presence uses the already-running
+Discord desktop app over local IPC, similar to editor/music-player presence integrations.
 
 ## Privacy Rules
 
@@ -58,8 +75,6 @@ Discord Rich Presence here is local IPC, not OAuth:
 
 ## Remaining Work
 
-- Add a first-run/setup path or settings input for `presenceDiscordClientId`.
-- Add command/help text that explains why Discord may be unavailable.
 - Consider optional package installation guidance without making `discord-rpc` a required dependency.
 - Add richer activity assets only after stable Discord application assets exist.
 

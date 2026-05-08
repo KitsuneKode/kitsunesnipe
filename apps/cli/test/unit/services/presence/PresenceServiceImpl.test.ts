@@ -5,8 +5,11 @@ import type { ConfigService, KitsuneConfig } from "@/services/persistence/Config
 import { DEFAULT_CONFIG } from "@/services/persistence/ConfigStore";
 import {
   buildDiscordActivity,
+  buildPresenceSnapshot,
   describePresenceConfiguration,
   PresenceServiceImpl,
+  resolvePresenceClientId,
+  resolvePresenceClientIdSource,
 } from "@/services/presence/PresenceServiceImpl";
 
 function createConfig(partial: Partial<KitsuneConfig>): ConfigService {
@@ -79,6 +82,12 @@ describe("PresenceServiceImpl", () => {
 
     expect(service.getStatus()).toBe("unavailable");
     expect(diagnostics.messages).toEqual(["Discord presence needs a client id"]);
+    expect(service.getSnapshot()).toMatchObject({
+      provider: "discord",
+      status: "unavailable",
+      clientIdSource: "missing",
+      canConnect: false,
+    });
   });
 
   test("builds privacy-safe discord activity", () => {
@@ -117,5 +126,55 @@ describe("PresenceServiceImpl", () => {
         KUNAI_DISCORD_CLIENT_ID: "env-id",
       }),
     ).toContain("env client id");
+  });
+
+  test("resolves Discord client id and source deterministically", () => {
+    expect(
+      resolvePresenceClientId(createConfig({ presenceDiscordClientId: " config-id " }), {
+        KUNAI_DISCORD_CLIENT_ID: "env-id",
+      }),
+    ).toBe("config-id");
+    expect(
+      resolvePresenceClientId(createConfig({ presenceDiscordClientId: "" }), {
+        KUNAI_DISCORD_CLIENT_ID: " env-id ",
+      }),
+    ).toBe("env-id");
+    expect(
+      resolvePresenceClientIdSource(
+        createConfig({ presenceProvider: "discord", presenceDiscordClientId: "config-id" }),
+        {},
+      ),
+    ).toBe("config");
+    expect(
+      resolvePresenceClientIdSource(createConfig({ presenceProvider: "discord" }), {
+        KUNAI_DISCORD_CLIENT_ID: "env-id",
+      }),
+    ).toBe("environment");
+  });
+
+  test("builds user-facing presence status snapshots", () => {
+    expect(
+      buildPresenceSnapshot({
+        provider: "off",
+        status: "idle",
+        privacy: "full",
+        clientIdSource: "config",
+        unavailableUntilRestart: false,
+      }),
+    ).toMatchObject({ status: "disabled", detail: "off", canConnect: false });
+
+    expect(
+      buildPresenceSnapshot({
+        provider: "discord",
+        status: "ready",
+        privacy: "private",
+        clientIdSource: "config",
+        unavailableUntilRestart: false,
+      }),
+    ).toMatchObject({
+      status: "ready",
+      detail: "connected to local Discord client",
+      canConnect: true,
+    });
   });
 });

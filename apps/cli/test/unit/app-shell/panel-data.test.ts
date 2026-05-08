@@ -66,12 +66,24 @@ describe("panel-data", () => {
     const lines = buildDiagnosticsPanelLines({
       state,
       recentEvents: [],
+      presenceSnapshot: {
+        provider: "discord",
+        status: "unavailable",
+        privacy: "full",
+        clientIdSource: "missing",
+        canConnect: false,
+        detail: "missing Discord application client id",
+      },
     });
 
     expect(lines.find((line) => line.label === "Selected subtitle URL")?.detail).toBe(
       "not resolved yet",
     );
     expect(lines.find((line) => line.label === "Subtitle diagnosis")?.tone).toBe("warning");
+    expect(lines.find((line) => line.label === "Presence")?.detail).toContain(
+      "missing Discord application client id",
+    );
+    expect(lines.find((line) => line.label === "Presence")?.tone).toBe("warning");
   });
 
   test("buildDiagnosticsPanelLines surfaces the latest playback problem", () => {

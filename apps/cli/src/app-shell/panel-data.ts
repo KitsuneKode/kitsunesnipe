@@ -6,6 +6,7 @@ import { buildRuntimeHealthSnapshot } from "@/services/diagnostics/runtime-healt
 import { resolveDownloadFeatureState } from "@/services/download/DownloadFeature";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 import { formatTimestamp, type HistoryEntry } from "@/services/persistence/HistoryStore";
+import type { PresenceSnapshot } from "@/services/presence/PresenceService";
 import { describePresenceConfiguration } from "@/services/presence/PresenceServiceImpl";
 import type { CapabilitySnapshot } from "@/ui";
 
@@ -118,7 +119,8 @@ export function buildHelpPanelLines(): readonly ShellPanelLine[] {
     },
     {
       label: "Presence",
-      detail: "Optional Discord presence is off by default and controlled from Settings.",
+      detail:
+        "/presence opens Discord setup. It uses local IPC only; no stream URLs or headers are sent.",
     },
     {
       label: "Report issue",
@@ -194,11 +196,13 @@ export function buildDiagnosticsPanelLines({
   recentEvents,
   capabilitySnapshot,
   downloadSummary,
+  presenceSnapshot,
 }: {
   state: SessionState;
   recentEvents: readonly DiagnosticEvent[];
   capabilitySnapshot?: CapabilitySnapshot | null;
   downloadSummary?: { active: number; completed: number } | null;
+  presenceSnapshot?: PresenceSnapshot | null;
 }): readonly ShellPanelLine[] {
   const subtitleState = describeSubtitleState(state);
   const bufferingEvent = findRecentMpvEvent(recentEvents, "network-buffering");
@@ -296,8 +300,15 @@ export function buildDiagnosticsPanelLines({
       label: "Presence",
       detail: presenceEvent
         ? `${presenceEvent.message}${presenceEvent.context ? `  ·  ${summarizeJson(presenceEvent.context)}` : ""}`
-        : "off or not used this session",
-      tone: presenceEvent ? "neutral" : "success",
+        : presenceSnapshot
+          ? `${presenceSnapshot.provider}  ·  ${presenceSnapshot.status}  ·  ${presenceSnapshot.detail}`
+          : "off or not used this session",
+      tone:
+        presenceSnapshot?.status === "unavailable" || presenceSnapshot?.status === "error"
+          ? "warning"
+          : presenceEvent
+            ? "neutral"
+            : "success",
     },
     {
       label: "Startup capabilities",

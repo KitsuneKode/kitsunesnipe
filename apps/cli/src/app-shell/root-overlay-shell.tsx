@@ -124,6 +124,7 @@ export function RootOverlayShell({
               state,
               recentEvents: container.diagnosticsStore.getRecent(10),
               capabilitySnapshot: container.capabilitySnapshot,
+              presenceSnapshot: container.presence.getSnapshot(),
             })
           : [];
   const lines = overlay.type === "history" ? (asyncLines ?? []) : staticLines;
@@ -235,6 +236,7 @@ export function RootOverlayShell({
     onResolve: (action) => {
       if (
         action === "settings" ||
+        action === "presence" ||
         action === "help" ||
         action === "about" ||
         action === "diagnostics" ||
@@ -257,7 +259,7 @@ export function RootOverlayShell({
                 }
               : action === "history"
                 ? { type: "history" }
-                : action === "settings"
+                : action === "settings" || action === "presence"
                   ? { type: "settings" }
                   : { type: action },
         });
@@ -346,6 +348,18 @@ export function RootOverlayShell({
       if (overlay.type === "settings") {
         const picked = filteredSettingsOptions[selectedIndex];
         if (!picked || !settingsDraft) {
+          if (settingsChoice === "presenceDiscordClientId" && settingsDraft) {
+            const typedClientId = filterQuery.trim();
+            if (/^\d{12,32}$/.test(typedClientId)) {
+              setSettingsDraft({ ...settingsDraft, presenceDiscordClientId: typedClientId });
+              setSettingsChoice(null);
+              setFilterQuery("");
+              setSelectedIndex(settingsParentIndex);
+              setSettingsError("Discord client id saved in draft. Press S to save settings.");
+              return;
+            }
+            setSettingsError("Type a numeric Discord application client id, or Esc to cancel.");
+          }
           return;
         }
         if (settingsChoice) {
@@ -368,6 +382,18 @@ export function RootOverlayShell({
             next.presenceProvider = picked.value as typeof next.presenceProvider;
           } else if (settingsChoice === "presencePrivacy") {
             next.presencePrivacy = picked.value as typeof next.presencePrivacy;
+          } else if (settingsChoice === "presenceDiscordClientId") {
+            const typedClientId = filterQuery.trim();
+            if (/^\d{12,32}$/.test(typedClientId)) {
+              next.presenceDiscordClientId = typedClientId;
+            } else if (picked.value === "__clear__" || picked.value === "__env__") {
+              next.presenceDiscordClientId = "";
+            } else if (picked.value === "__keep__") {
+              // Keep the existing draft value.
+            } else {
+              setSettingsError("Type a numeric Discord application client id, or Esc to cancel.");
+              return;
+            }
           } else if (settingsChoice === "quitNearEndBehavior") {
             next.quitNearEndBehavior = picked.value as QuitNearEndBehavior;
           } else if (settingsChoice === "quitNearEndThresholdMode") {
@@ -416,6 +442,43 @@ export function RootOverlayShell({
         if (picked.value === "skipPreview") {
           setSettingsDraft({ ...settingsDraft, skipPreview: !settingsDraft.skipPreview });
           setSettingsError(null);
+          return;
+        }
+        if (picked.value === "presenceConnect") {
+          setSettingsBusy(true);
+          setSettingsError(null);
+          void (async () => {
+            try {
+              const { applySettingsToRuntime } = await import("./workflows");
+              await applySettingsToRuntime({
+                container,
+                next: settingsDraft,
+                previous: container.config.getRaw(),
+              });
+              const snapshot = await container.presence.connect();
+              setSettingsDraft(container.config.getRaw());
+              setSettingsError(`Discord presence: ${snapshot.status}  ·  ${snapshot.detail}`);
+            } catch (error) {
+              setSettingsError(`Failed to connect Discord presence: ${String(error)}`);
+            } finally {
+              setSettingsBusy(false);
+            }
+          })();
+          return;
+        }
+        if (picked.value === "presenceDisconnect") {
+          setSettingsBusy(true);
+          setSettingsError(null);
+          void (async () => {
+            try {
+              const snapshot = await container.presence.disconnect("settings-disconnect");
+              setSettingsError(`Discord presence: ${snapshot.status}  ·  ${snapshot.detail}`);
+            } catch (error) {
+              setSettingsError(`Failed to disconnect Discord presence: ${String(error)}`);
+            } finally {
+              setSettingsBusy(false);
+            }
+          })();
           return;
         }
         if (picked.value === "clearCache") {

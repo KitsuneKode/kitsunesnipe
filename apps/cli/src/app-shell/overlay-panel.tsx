@@ -82,6 +82,9 @@ type SettingsAction =
   | "footerHints"
   | "presenceProvider"
   | "presencePrivacy"
+  | "presenceDiscordClientId"
+  | "presenceConnect"
+  | "presenceDisconnect"
   | "clearCache"
   | "clearHistory";
 
@@ -186,6 +189,12 @@ export function buildSettingsSummary(config: KitsuneConfig): string {
   return `${config.defaultMode} default  ·  series ${config.provider}  ·  anime ${config.animeProvider}  ·  presence ${config.presenceProvider}`;
 }
 
+function describeDiscordClientId(config: KitsuneConfig): string {
+  if (config.presenceDiscordClientId.trim()) return "configured";
+  if (process.env.KUNAI_DISCORD_CLIENT_ID?.trim()) return "env";
+  return "missing";
+}
+
 export function buildSettingsOptions(
   config: KitsuneConfig,
 ): readonly ShellPickerOption<SettingsAction>[] {
@@ -275,6 +284,21 @@ export function buildSettingsOptions(
       value: "presencePrivacy",
       label: `Presence privacy  ·  ${config.presencePrivacy}`,
       detail: "Controls how much title detail presence integrations may expose",
+    },
+    {
+      value: "presenceDiscordClientId",
+      label: `Discord client ID  ·  ${describeDiscordClientId(config)}`,
+      detail: "Type a Discord application client id, or use KUNAI_DISCORD_CLIENT_ID",
+    },
+    {
+      value: "presenceConnect",
+      label: "Connect Discord now",
+      detail: "Save pending settings and verify local Discord IPC without starting playback",
+    },
+    {
+      value: "presenceDisconnect",
+      label: "Disconnect Discord",
+      detail: "Clear Rich Presence and close the local Discord IPC client",
     },
     {
       value: "clearCache",
@@ -394,6 +418,33 @@ export function buildSettingsChoiceOverlay({
       ...option,
       label: option.value === config.presencePrivacy ? `${option.label}  ·  current` : option.label,
     })) as readonly ShellPickerOption<string>[];
+  } else if (setting === "presenceDiscordClientId") {
+    title = "Discord client ID";
+    subtitle =
+      describeDiscordClientId(config) === "env"
+        ? "Using KUNAI_DISCORD_CLIENT_ID unless a config value is typed here"
+        : `Current ${describeDiscordClientId(config)}`;
+    options = [
+      {
+        value: "__keep__",
+        label: "Keep current value",
+        detail: "Type a numeric client id to filter, then press Enter to draft it",
+      },
+      {
+        value: "__clear__",
+        label: "Clear configured client id",
+        detail: "Fall back to KUNAI_DISCORD_CLIENT_ID, or show missing if the env var is unset",
+      },
+      ...(process.env.KUNAI_DISCORD_CLIENT_ID?.trim()
+        ? [
+            {
+              value: "__env__",
+              label: "Use environment client id",
+              detail: "Keep config empty and read KUNAI_DISCORD_CLIENT_ID at connect time",
+            },
+          ]
+        : []),
+    ];
   } else if (setting === "quitNearEndBehavior") {
     title = "Quit near end";
     subtitle = `Current ${config.quitNearEndBehavior}`;

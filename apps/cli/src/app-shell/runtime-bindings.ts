@@ -66,6 +66,7 @@ export function buildShellRuntimeBindings(container: Container) {
           active: container.downloadService.listActive(200).length,
           completed: container.downloadService.listCompleted(200).length,
         },
+        presenceSnapshot: container.presence.getSnapshot(),
       }),
     loadHistoryPanel: async () =>
       buildHistoryPanelLines(Object.entries(await historyStore.getAll())),

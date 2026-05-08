@@ -1,6 +1,6 @@
 # Presence Integrations Plan
 
-Status: partially implemented; client-id entry flow and richer setup UX remaining
+Status: onboarding implemented; richer activity assets and manual Discord smoke remaining
 
 ## Current Behavior
 
@@ -8,26 +8,29 @@ Status: partially implemented; client-id entry flow and richer setup UX remainin
 - `presenceProvider: "discord"` enables Discord when configuration and runtime dependencies are available.
 - `presencePrivacy` controls full versus private activity detail.
 - `presenceDiscordClientId` or `KUNAI_DISCORD_CLIENT_ID` provides the Discord app id.
-- Missing client id, package, IPC, or update failure records diagnostics and disables retries until process restart.
+- Missing client id, package, IPC, or update failure records diagnostics and disables automatic retries
+  until Settings reconnects or presence configuration changes.
 - About/diagnostics copy shows whether the Discord client id comes from config, environment, or is missing.
+- Settings can enter/clear a Discord client id, connect now, and disconnect now.
+- `/presence` opens the same Settings onboarding surface from search, playback, and root overlays.
 
 ## Remaining Implementation
 
 ### Slice 1: Setup And Settings
 
-- Add a settings flow for entering or clearing `presenceDiscordClientId`.
-- Add `/presence` or settings detail copy that explains required Discord setup.
-- Keep `discord-rpc` optional at runtime (now shipped as an optional dependency in CLI package).
+- [x] Add a settings flow for entering or clearing `presenceDiscordClientId`.
+- [x] Add Settings actions for connect-now and disconnect-now.
+- [x] Keep `discord-rpc` optional at runtime (now shipped as an optional dependency in CLI package).
 
 ### Slice 2: Diagnostics And Help
 
-- Surface presence status in diagnostics with a compact reason:
+- [x] Surface presence status in diagnostics with a compact reason:
   - disabled
   - missing client id
   - missing package
   - Discord IPC unavailable
   - connected
-- Add command/help docs that say presence never sends stream URLs or headers.
+- [x] Add help/docs that say presence never sends stream URLs or headers.
 
 ### Slice 3: Activity Polish
 
@@ -44,6 +47,7 @@ Status: partially implemented; client-id entry flow and richer setup UX remainin
 
 - Unit-test activity payloads for private and full privacy.
 - Unit-test unavailable states do not retry repeatedly.
+- Unit-test status snapshots and settings/onboarding options.
 - Manual smoke with Discord running and `KUNAI_DISCORD_CLIENT_ID` set.
 
 ## Canonical Doc

@@ -111,7 +111,7 @@ export async function routeSearchShellAction({
       },
     };
   }
-  if (action === "settings") {
+  if (action === "settings" || action === "presence") {
     await openRootOwnedOverlay(container, { type: "settings" });
     return "handled";
   }
@@ -192,7 +192,7 @@ export async function routePlaybackShellAction({
       },
     };
   }
-  if (action === "settings") {
+  if (action === "settings" || action === "presence") {
     await openRootOwnedOverlay(container, { type: "settings" });
     return "handled";
   }

@@ -9,6 +9,7 @@ export type ShellAction =
   | "discover"
   | "back-to-results"
   | "settings"
+  | "presence"
   | "toggle-mode"
   | "quit"
   | "history"
@@ -148,6 +149,7 @@ export function toShellAction(commandId: AppCommandId): ShellAction {
     case "trending":
     case "discover":
     case "settings":
+    case "presence":
     case "toggle-mode":
     case "quit":
     case "history":

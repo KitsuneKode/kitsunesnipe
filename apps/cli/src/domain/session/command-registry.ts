@@ -6,6 +6,7 @@ export type AppCommandId =
   | "trending"
   | "discover"
   | "settings"
+  | "presence"
   | "toggle-mode"
   | "quit"
   | "provider"
@@ -48,6 +49,7 @@ export const COMMAND_CONTEXTS = {
   rootOverlay: [
     "setup",
     "settings",
+    "presence",
     "provider",
     "history",
     "help",
@@ -60,6 +62,7 @@ export const COMMAND_CONTEXTS = {
     "setup",
     "toggle-autoplay",
     "settings",
+    "presence",
     "recover",
     "fallback",
     "pick-episode",
@@ -81,6 +84,7 @@ export const COMMAND_CONTEXTS = {
     "search",
     "discover",
     "settings",
+    "presence",
     "toggle-mode",
     "provider",
     "history",
@@ -142,6 +146,12 @@ export const COMMANDS: readonly AppCommand[] = [
     label: "Settings",
     aliases: ["settings", "config", "prefs"],
     description: "Open settings",
+  },
+  {
+    id: "presence",
+    label: "Discord Presence",
+    aliases: ["presence", "discord", "rpc", "rich-presence"],
+    description: "Open settings for Discord Rich Presence setup and status",
   },
   {
     id: "toggle-mode",
@@ -410,6 +420,7 @@ function resolveCommandState(
     case "trending":
     case "discover":
     case "settings":
+    case "presence":
     case "history":
     case "details":
     case "diagnostics":

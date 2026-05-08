@@ -636,6 +636,13 @@ export async function applySettingsToRuntime({
       provider: next.defaultMode === "anime" ? next.animeProvider : next.provider,
     });
   }
+
+  if (
+    before.presenceProvider !== next.presenceProvider ||
+    before.presenceDiscordClientId !== next.presenceDiscordClientId
+  ) {
+    await container.presence.disconnect("settings-changed");
+  }
 }
 
 export async function handleShellAction({
@@ -873,7 +880,7 @@ export async function handleShellAction({
     return "handled";
   }
 
-  if (action === "settings") {
+  if (action === "settings" || action === "presence") {
     const next = await withOverlay({ type: "settings" }, () =>
       openSettingsShell({
         container,

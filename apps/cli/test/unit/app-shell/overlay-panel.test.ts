@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
 
-import { formatPickerDisplayRow, formatPickerOptionRow } from "@/app-shell/overlay-panel";
+import {
+  buildSettingsChoiceOverlay,
+  buildSettingsOptions,
+  formatPickerDisplayRow,
+  formatPickerOptionRow,
+} from "@/app-shell/overlay-panel";
+import { DEFAULT_CONFIG } from "@/services/persistence/ConfigStore";
 
 test("formatPickerOptionRow keeps settings rows within the available width", () => {
   const row = formatPickerOptionRow({
@@ -39,4 +45,37 @@ test("formatPickerDisplayRow reserves prefix width before truncating episode row
 
   expect(row.prefix).toBe("> ");
   expect(row.prefix.length + row.text.length + row.badgeSuffix.length).toBeLessThanOrEqual(64);
+});
+
+test("settings expose Discord presence onboarding actions", () => {
+  const config = {
+    ...DEFAULT_CONFIG,
+    presenceProvider: "discord" as const,
+    presenceDiscordClientId: "123456789012345678",
+  };
+  const options = buildSettingsOptions(config);
+
+  expect(options.map((option) => option.value)).toContain("presenceDiscordClientId");
+  expect(options.map((option) => option.value)).toContain("presenceConnect");
+  expect(options.map((option) => option.value)).toContain("presenceDisconnect");
+  expect(options.find((option) => option.value === "presenceDiscordClientId")?.label).toContain(
+    "configured",
+  );
+});
+
+test("Discord client id setting can keep or clear the configured id", () => {
+  const overlay = buildSettingsChoiceOverlay({
+    config: {
+      ...DEFAULT_CONFIG,
+      presenceProvider: "discord",
+      presenceDiscordClientId: "123456789012345678",
+    },
+    setting: "presenceDiscordClientId",
+    seriesProviderOptions: [],
+    animeProviderOptions: [],
+  });
+
+  expect(overlay.title).toBe("Discord client ID");
+  expect(overlay.options.map((option) => option.value)).toContain("__keep__");
+  expect(overlay.options.map((option) => option.value)).toContain("__clear__");
 });

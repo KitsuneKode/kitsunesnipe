@@ -1,7 +1,13 @@
 import type { DiagnosticsStore } from "@/services/diagnostics/DiagnosticsStore";
 import type { ConfigService } from "@/services/persistence/ConfigService";
 
-import type { PresencePlaybackActivity, PresenceService, PresenceStatus } from "./PresenceService";
+import type {
+  PresenceClientIdSource,
+  PresencePlaybackActivity,
+  PresenceService,
+  PresenceSnapshot,
+  PresenceStatus,
+} from "./PresenceService";
 
 type DiscordRpcClient = {
   login(input: { clientId: string }): Promise<void>;
@@ -30,6 +36,46 @@ export class PresenceServiceImpl implements PresenceService {
 
   getStatus(): PresenceStatus {
     return this.status;
+  }
+
+  getSnapshot(): PresenceSnapshot {
+    return buildPresenceSnapshot({
+      status: this.status,
+      provider: this.deps.config.presenceProvider,
+      privacy: this.deps.config.presencePrivacy,
+      clientIdSource: resolvePresenceClientIdSource(this.deps.config),
+      unavailableUntilRestart: this.unavailableUntilRestart,
+    });
+  }
+
+  async connect(): Promise<PresenceSnapshot> {
+    if (this.deps.config.presenceProvider === "off") {
+      this.status = "disabled";
+      return this.getSnapshot();
+    }
+    if (this.deps.config.presenceProvider !== "discord") return this.getSnapshot();
+
+    this.unavailableUntilRestart = false;
+    await this.ensureDiscordClient();
+    return this.getSnapshot();
+  }
+
+  async disconnect(reason: string): Promise<PresenceSnapshot> {
+    await this.clearPlayback(reason);
+    const client = this.discordClient;
+    this.discordClient = null;
+    this.connectPromise = null;
+    this.unavailableUntilRestart = false;
+    if (client) {
+      await client.destroy().catch(() => undefined);
+      this.deps.diagnosticsStore.record({
+        category: "presence",
+        message: "Discord presence disconnected",
+        context: { provider: "discord", reason },
+      });
+    }
+    this.status = this.deps.config.presenceProvider === "off" ? "disabled" : "idle";
+    return this.getSnapshot();
   }
 
   async updatePlayback(activity: PresencePlaybackActivity): Promise<void> {
@@ -69,6 +115,7 @@ export class PresenceServiceImpl implements PresenceService {
     const client = this.discordClient;
     this.discordClient = null;
     this.connectPromise = null;
+    this.unavailableUntilRestart = false;
     if (!client) return;
     await client.destroy().catch(() => undefined);
     this.status = this.deps.config.presenceProvider === "off" ? "disabled" : "idle";
@@ -78,8 +125,7 @@ export class PresenceServiceImpl implements PresenceService {
     if (this.discordClient) return this.discordClient;
     if (this.connectPromise) return this.connectPromise;
 
-    const clientId =
-      this.deps.config.presenceDiscordClientId || process.env.KUNAI_DISCORD_CLIENT_ID || "";
+    const clientId = resolvePresenceClientId(this.deps.config);
     if (!clientId) {
       this.markUnavailable("Discord presence needs a client id", "missing-client-id");
       return null;
@@ -175,11 +221,97 @@ export function describePresenceConfiguration(
   env?: { readonly KUNAI_DISCORD_CLIENT_ID?: string },
 ): string {
   if (config.presenceProvider === "off") return "off";
-  const discordClientId = env?.KUNAI_DISCORD_CLIENT_ID ?? process.env.KUNAI_DISCORD_CLIENT_ID;
-  const clientIdSource = config.presenceDiscordClientId
-    ? "config client id"
-    : discordClientId
-      ? "env client id"
-      : "missing client id";
+  const source = resolvePresenceClientIdSource(config, env);
+  const clientIdSource =
+    source === "config"
+      ? "config client id"
+      : source === "environment"
+        ? "env client id"
+        : "missing client id";
   return `${config.presenceProvider}  ·  privacy ${config.presencePrivacy}  ·  ${clientIdSource}`;
+}
+
+export function resolvePresenceClientId(
+  config: Pick<ConfigService, "presenceDiscordClientId">,
+  env?: { readonly KUNAI_DISCORD_CLIENT_ID?: string },
+): string {
+  return (
+    config.presenceDiscordClientId.trim() ||
+    env?.KUNAI_DISCORD_CLIENT_ID?.trim() ||
+    process.env.KUNAI_DISCORD_CLIENT_ID?.trim() ||
+    ""
+  );
+}
+
+export function resolvePresenceClientIdSource(
+  config: Pick<ConfigService, "presenceProvider" | "presenceDiscordClientId">,
+  env?: { readonly KUNAI_DISCORD_CLIENT_ID?: string },
+): PresenceClientIdSource {
+  if (config.presenceProvider === "off") return "off";
+  if (config.presenceDiscordClientId.trim()) return "config";
+  if ((env?.KUNAI_DISCORD_CLIENT_ID ?? process.env.KUNAI_DISCORD_CLIENT_ID)?.trim()) {
+    return "environment";
+  }
+  return "missing";
+}
+
+export function buildPresenceSnapshot({
+  status,
+  provider,
+  privacy,
+  clientIdSource,
+  unavailableUntilRestart,
+}: {
+  readonly status: PresenceStatus;
+  readonly provider: "off" | "discord";
+  readonly privacy: "full" | "private";
+  readonly clientIdSource: PresenceClientIdSource;
+  readonly unavailableUntilRestart: boolean;
+}): PresenceSnapshot {
+  if (provider === "off") {
+    return {
+      provider,
+      status: "disabled",
+      privacy,
+      clientIdSource: "off",
+      canConnect: false,
+      detail: "off",
+    };
+  }
+
+  if (clientIdSource === "missing") {
+    return {
+      provider,
+      status,
+      privacy,
+      clientIdSource,
+      canConnect: false,
+      detail: "missing Discord application client id",
+    };
+  }
+
+  if (unavailableUntilRestart) {
+    return {
+      provider,
+      status: "unavailable",
+      privacy,
+      clientIdSource,
+      canConnect: false,
+      detail: "unavailable until settings reconnect",
+    };
+  }
+
+  return {
+    provider,
+    status,
+    privacy,
+    clientIdSource,
+    canConnect: true,
+    detail:
+      status === "ready"
+        ? "connected to local Discord client"
+        : status === "connecting"
+          ? "connecting to local Discord client"
+          : "ready to connect",
+  };
 }
