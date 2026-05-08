@@ -1364,15 +1364,17 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             });
 
             if (postAction === "discover") {
-              const { openDiscoverShell } = await import("../app-shell/ink-shell");
-              const { buildDiscoverSections } = await import("./discover-sections");
-
-              const sections = await buildDiscoverSections(container);
-              await openDiscoverShell([...sections], async () => {
-                await container.recommendationService.clearCache();
-                return buildDiscoverSections(container);
+              const { loadDiscoverResults } = await import("./discover-results");
+              const discover = await loadDiscoverResults(container);
+              stateManager.dispatch({ type: "SET_SEARCH_QUERY", query: "" });
+              stateManager.dispatch({
+                type: "SET_SEARCH_RESULTS",
+                results: [...discover.results],
               });
-              continue postPlayback;
+              if (discover.results.length > 0) {
+                stateManager.dispatch({ type: "SELECT_RESULT", index: 0 });
+              }
+              return { status: "success", value: "back_to_search" };
             }
 
             const routedAction = await routePlaybackShellAction({

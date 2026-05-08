@@ -1640,6 +1640,7 @@ function BrowseShell<T>({
   onChangeProvider: _onChangeProvider,
   onSearch,
   onLoadDiscovery,
+  onLoadRecommendations,
   footerMode: _footerMode = "detailed",
   settings: _settings,
   settingsSeriesProviderOptions: _settingsSeriesProviderOptions,
@@ -1665,6 +1666,7 @@ function BrowseShell<T>({
   onChangeProvider?: (providerId: string) => Promise<void>;
   onSearch: (query: string) => Promise<BrowseShellSearchResponse<T>>;
   onLoadDiscovery?: () => Promise<BrowseShellSearchResponse<T>>;
+  onLoadRecommendations?: () => Promise<BrowseShellSearchResponse<T>>;
   footerMode?: ShellFooterMode;
   settings?: KitsuneConfig;
   settingsSeriesProviderOptions?: readonly ShellPickerOption<string>[];
@@ -1832,6 +1834,43 @@ function BrowseShell<T>({
     }
   };
 
+  const loadRecommendations = async () => {
+    if (!onLoadRecommendations || searchState === "loading") return;
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    setQuery("");
+    setSearchState("loading");
+    setErrorMessage(null);
+    setEmptyMessage("Loading recommendations…");
+    setSelectedDetail("Building personalized recommendations from history and TMDB…");
+
+    try {
+      const response = await onLoadRecommendations();
+      if (requestIdRef.current !== requestId) return;
+
+      setLastSearchedQuery("");
+      setOptions(response.options);
+      setSelectedIndex(0);
+      setResultSubtitle(response.subtitle);
+      setEmptyMessage(response.emptyMessage ?? "Recommendations are unavailable right now.");
+      setActiveFilterBadges([]);
+      setSearchState("ready");
+      setSelectedDetail(
+        response.options[0]?.detail ?? "Use ↑↓ to move through recommendation picks.",
+      );
+    } catch (error) {
+      if (requestIdRef.current !== requestId) return;
+
+      setSearchState("error");
+      setOptions([]);
+      setSelectedIndex(0);
+      setErrorMessage(String(error));
+      setEmptyMessage("Recommendations failed.");
+      setSelectedDetail("Recommendation loading failed. Try /discover again.");
+    }
+  };
+
   const closeOverlay = () => {
     setActiveOverlay(null);
   };
@@ -1860,6 +1899,13 @@ function BrowseShell<T>({
       setCommandInput("");
       setHighlightedCommandIndex(0);
       void loadDiscovery();
+      return true;
+    }
+    if (action === "discover") {
+      setCommandMode(false);
+      setCommandInput("");
+      setHighlightedCommandIndex(0);
+      void loadRecommendations();
       return true;
     }
     return false;
@@ -2340,6 +2386,7 @@ export function openBrowseShell<T>({
   onChangeProvider,
   onSearch,
   onLoadDiscovery,
+  onLoadRecommendations,
   footerMode,
   settings,
   settingsSeriesProviderOptions,
@@ -2362,6 +2409,7 @@ export function openBrowseShell<T>({
   onChangeProvider?: (providerId: string) => Promise<void>;
   onSearch: (query: string) => Promise<BrowseShellSearchResponse<T>>;
   onLoadDiscovery?: () => Promise<BrowseShellSearchResponse<T>>;
+  onLoadRecommendations?: () => Promise<BrowseShellSearchResponse<T>>;
   footerMode?: ShellFooterMode;
   settings?: KitsuneConfig;
   settingsSeriesProviderOptions?: readonly ShellPickerOption<string>[];
@@ -2388,6 +2436,7 @@ export function openBrowseShell<T>({
         onChangeProvider={onChangeProvider}
         onSearch={onSearch}
         onLoadDiscovery={onLoadDiscovery}
+        onLoadRecommendations={onLoadRecommendations}
         footerMode={footerMode}
         settings={settings}
         settingsSeriesProviderOptions={settingsSeriesProviderOptions}

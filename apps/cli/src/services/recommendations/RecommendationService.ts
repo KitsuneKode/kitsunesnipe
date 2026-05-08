@@ -6,6 +6,12 @@
 
 import type { ContentType, SearchResult } from "@/domain/types";
 
+export interface RecommendationHistorySeed {
+  readonly title: string;
+  readonly type: ContentType;
+  readonly watchedAt: string;
+}
+
 export interface RecommendationSection {
   readonly label: string;
   readonly reason: "similar" | "trending" | "genre-affinity";
@@ -19,6 +25,13 @@ export interface RecommendationService {
   getForTitle(tmdbId: string, type: ContentType): Promise<RecommendationSection>;
   /** TMDB /trending/all/week. Cached 6 h. */
   getTrending(): Promise<RecommendationSection>;
+  /**
+   * History-driven recommendations via TMDB discover + weighted genre profile.
+   * Returns an empty section when history is insufficient or upstream calls fail.
+   */
+  getPersonalizedByHistory(
+    historyEntries: readonly RecommendationHistorySeed[],
+  ): Promise<RecommendationSection>;
   /** Top-rated titles in the user's most-watched genres. Cached 24 h. */
   getGenreAffinity(topGenreIds: number[]): Promise<RecommendationSection>;
 }

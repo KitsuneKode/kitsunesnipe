@@ -6,6 +6,7 @@ import type { AppCommandId, ResolvedAppCommand } from "./commands";
 import { isHardGlobalQuit, routeShellInput } from "./input-router";
 import { CommandPalette, LineEditorText, useShellInput } from "./shell-command-ui";
 import { ShellFooter } from "./shell-primitives";
+import { truncateLine } from "./shell-text";
 import { palette, statusColor } from "./shell-theme";
 import type { FooterAction, ShellAction, ShellFooterMode, ShellStatus } from "./types";
 
@@ -130,6 +131,8 @@ export function InputField({
   const wideField = (stdout.columns ?? 0) >= 112;
   const fieldWidth = Math.max(20, maxWidth ?? (stdout.columns ?? 80) - 8);
   const textWidth = Math.max(4, fieldWidth - 8);
+  const hintWidth = Math.max(12, fieldWidth - (wideField ? 18 : 2));
+  const renderedHint = hint ? truncateLine(hint, hintWidth) : undefined;
   const editor = useLineEditor({
     value,
     onChange,
@@ -160,9 +163,9 @@ export function InputField({
     <Box marginTop={1} flexDirection="column">
       <Box justifyContent="space-between">
         <Text color={palette.muted}>{label}</Text>
-        {hint && wideField ? (
+        {renderedHint && wideField ? (
           <Text color={palette.gray} dimColor>
-            {hint}
+            {renderedHint}
           </Text>
         ) : null}
       </Box>
@@ -182,10 +185,10 @@ export function InputField({
           maxWidth={textWidth}
         />
       </Box>
-      {hint && !wideField ? (
+      {renderedHint && !wideField ? (
         <Box marginTop={1}>
           <Text color={palette.gray} dimColor>
-            {hint}
+            {renderedHint}
           </Text>
         </Box>
       ) : null}

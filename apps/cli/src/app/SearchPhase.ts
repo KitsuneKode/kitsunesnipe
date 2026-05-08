@@ -11,6 +11,7 @@ import { openBrowseShell } from "@/app-shell/ink-shell";
 import { buildShellRuntimeBindings } from "@/app-shell/runtime-bindings";
 import { mapAnimeDiscoveryResultToProviderNative } from "@/app/anime-provider-mapping";
 import { chooseSearchResultTitle, toBrowseResultOption } from "@/app/browse-option-mappers";
+import { loadDiscoverResults } from "@/app/discover-results";
 import { loadDiscoveryList } from "@/app/discovery-lists";
 import type { Phase, PhaseResult, PhaseContext } from "@/app/Phase";
 import { searchTitles } from "@/app/search-routing";
@@ -157,7 +158,9 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
           ),
           initialResultSubtitle:
             currentState.searchResults.length > 0
-              ? `${currentState.searchResults.length} results · previous search`
+              ? currentState.searchQuery.trim().length === 0
+                ? `${currentState.searchResults.length} discover picks · loaded`
+                : `${currentState.searchResults.length} results · previous search`
               : undefined,
           initialSelectedIndex: currentState.selectedResultIndex,
           placeholder: currentState.mode === "anime" ? "Demon Slayer" : "Breaking Bad",
@@ -166,6 +169,7 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
             "setup",
             "settings",
             "trending",
+            "discover",
             "toggle-mode",
             "provider",
             "history",
@@ -272,6 +276,35 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
               emptyMessage: "Trending is unavailable right now. Search still works normally.",
             };
           },
+          onLoadRecommendations: async () => {
+            stateManager.dispatch({ type: "SET_SEARCH_QUERY", query: "" });
+            stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "loading" });
+
+            const discover = await loadDiscoverResults(container, { refresh: true });
+            const results = [...discover.results];
+            stateManager.dispatch({ type: "SET_SEARCH_RESULTS", results });
+
+            const freshHistoryMap = await historyStore
+              .getAll()
+              .catch(
+                () =>
+                  ({}) as Record<
+                    string,
+                    import("@/services/persistence/HistoryStore").HistoryEntry
+                  >,
+              );
+            return {
+              options: results.map((r) =>
+                toBrowseResultOption(
+                  r,
+                  freshHistoryMap[r.id] ?? null,
+                  container.config.animeTitlePreference,
+                ),
+              ),
+              subtitle: discover.subtitle,
+              emptyMessage: discover.emptyMessage,
+            };
+          },
         });
 
         if (outcome.type === "cancelled") {
@@ -280,40 +313,15 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
 
         if (outcome.type === "action") {
           if (outcome.action === "discover") {
-            const { openDiscoverShell } = await import("../app-shell/ink-shell");
-            const { buildDiscoverSections } = await import("./discover-sections");
-
-            const sections = await buildDiscoverSections(container);
-            const discoverResult = await openDiscoverShell([...sections], async () => {
-              await container.recommendationService.clearCache();
-              return buildDiscoverSections(container);
+            const discover = await loadDiscoverResults(container);
+            stateManager.dispatch({ type: "SET_SEARCH_QUERY", query: "" });
+            stateManager.dispatch({
+              type: "SET_SEARCH_RESULTS",
+              results: [...discover.results],
             });
-
-            if (discoverResult.type === "open") {
-              const selected = discoverResult.result;
-              stateManager.dispatch({ type: "SET_SEARCH_RESULTS", results: [selected] });
+            if (discover.results.length > 0) {
               stateManager.dispatch({ type: "SELECT_RESULT", index: 0 });
-              const mapped = await mapAnimeDiscoveryResultToProviderNative(selected, {
-                mode: stateManager.getState().mode,
-                providerId: stateManager.getState().provider,
-                animeLang: stateManager.getState().animeLang,
-                providerRegistry,
-                signal: context.signal,
-              });
-              const title: TitleInfo = {
-                id: mapped.id,
-                type: mapped.type,
-                name: chooseSearchResultTitle(mapped, container.config.animeTitlePreference),
-                titleAliases: mapped.titleAliases,
-                year: mapped.year,
-                overview: mapped.overview,
-                posterUrl: mapped.posterPath ?? undefined,
-                episodeCount: mapped.episodeCount,
-              };
-              stateManager.dispatch({ type: "SELECT_TITLE", title });
-              return { status: "success", value: title };
             }
-            // discoverResult.type === "back" — return to browse shell
             continue;
           }
 
