@@ -1347,14 +1347,6 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               loadHistoryPanel: shellRuntime.loadHistoryPanel,
             });
 
-            if (typeof postAction !== "string") {
-              stateManager.dispatch({
-                type: "SELECT_EPISODE",
-                episode: { season: postAction.season, episode: postAction.episode },
-              });
-              break postPlayback;
-            }
-
             if (postAction === "discover") {
               const { openDiscoverShell } = await import("../app-shell/ink-shell");
               const { buildDiscoverSections } = await import("./discover-sections");

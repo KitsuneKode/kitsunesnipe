@@ -132,13 +132,7 @@ export type BrowseShellResult<T> =
   | { type: "action"; action: ShellAction }
   | { type: "cancelled" };
 
-export type PlaybackShellResult =
-  | ShellAction
-  | {
-      type: "episode-selection";
-      season: number;
-      episode: number;
-    };
+export type PlaybackShellResult = ShellAction;
 
 export function toShellAction(commandId: AppCommandId): ShellAction {
   switch (commandId) {

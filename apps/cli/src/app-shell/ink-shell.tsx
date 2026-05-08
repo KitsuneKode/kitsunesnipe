@@ -867,19 +867,6 @@ function PlaybackShell({
   onChangeProvider?: (providerId: string) => Promise<void>;
   onResolve: (result: PlaybackShellResult) => void;
 }) {
-  const [activeOverlay, setActiveOverlay] = useState<BrowseOverlay | null>(null);
-  const activeOverlayEditor = useLineEditor({
-    value:
-      activeOverlay && activeOverlay.type === "episode-picker" ? activeOverlay.filterQuery : "",
-    onChange: (nextValue) => {
-      setActiveOverlay((current) =>
-        current && current.type === "episode-picker"
-          ? { ...current, filterQuery: nextValue, selectedIndex: 0 }
-          : current,
-      );
-    },
-    onRedraw: clearShellScreen,
-  });
   const { stdout } = useStdout();
   const playbackViewport = getShellViewportPolicy("playback", stdout.columns, stdout.rows);
   const playbackWide = (stdout.columns ?? 0) >= 150;
@@ -954,99 +941,6 @@ function PlaybackShell({
       ? "warning"
       : "success";
 
-  const handleLocalAction = (action: ShellAction): boolean => {
-    void action;
-    return false;
-  };
-
-  const filteredOverlayOptions =
-    activeOverlay && activeOverlay.type === "episode-picker"
-      ? activeOverlay.options.filter((option) => {
-          const filter = activeOverlay.filterQuery.trim().toLowerCase();
-          if (filter.length === 0) return true;
-          return `${option.label} ${option.detail ?? ""} ${option.badge ?? ""}`
-            .toLowerCase()
-            .includes(filter);
-        })
-      : [];
-  const activeOverlayPanel =
-    activeOverlay && activeOverlay.type === "episode-picker"
-      ? ({
-          ...activeOverlay,
-          options: filteredOverlayOptions,
-          selectedIndex: Math.min(
-            activeOverlay.selectedIndex,
-            Math.max(filteredOverlayOptions.length - 1, 0),
-          ),
-        } satisfies BrowseOverlay)
-      : activeOverlay;
-
-  const resolvePlaybackAction = (action: ShellAction) => {
-    if (!handleLocalAction(action)) {
-      onResolve(action);
-    }
-  };
-
-  useInput((input, key) => {
-    if (activeOverlay) {
-      if (input === "/") {
-        return;
-      }
-
-      if (key.escape) {
-        setActiveOverlay(null);
-        return;
-      }
-
-      if (activeOverlay.type === "episode-picker") {
-        if (key.upArrow && filteredOverlayOptions.length > 0) {
-          setActiveOverlay({
-            ...activeOverlay,
-            selectedIndex:
-              (activeOverlay.selectedIndex - 1 + filteredOverlayOptions.length) %
-              filteredOverlayOptions.length,
-          });
-          return;
-        }
-        if (key.downArrow && filteredOverlayOptions.length > 0) {
-          setActiveOverlay({
-            ...activeOverlay,
-            selectedIndex: (activeOverlay.selectedIndex + 1) % filteredOverlayOptions.length,
-          });
-          return;
-        }
-        if (key.return) {
-          const target = filteredOverlayOptions[activeOverlay.selectedIndex];
-          if (!target) return;
-          const selection = decodeEpisodeSelectionValue(target.value);
-          if (!selection) return;
-          onResolve({
-            type: "episode-selection",
-            season: selection.season,
-            episode: selection.episode,
-          });
-          return;
-        }
-        if (activeOverlayEditor.handleInput(input, key)) {
-          return;
-        }
-        return;
-      }
-
-      if ("lines" in activeOverlay && (key.upArrow || key.downArrow) && !activeOverlay.loading) {
-        if (activeOverlay.lines.length === 0) {
-          return;
-        }
-        const maxScroll = Math.max(0, activeOverlay.lines.length - 1);
-        const nextScroll = key.upArrow
-          ? Math.max(0, (activeOverlay.scrollIndex ?? 0) - 1)
-          : Math.min(maxScroll, (activeOverlay.scrollIndex ?? 0) + 1);
-        setActiveOverlay({ ...activeOverlay, scrollIndex: nextScroll });
-      }
-      return;
-    }
-  });
-
   return (
     <ShellFrame
       eyebrow={APP_LABEL}
@@ -1057,9 +951,9 @@ function PlaybackShell({
       footerActions={footerActions}
       footerMode={state.footerMode}
       commands={commands}
-      inputLocked={activeOverlay !== null}
+      inputLocked={false}
       escapeAction="back-to-results"
-      onResolve={resolvePlaybackAction}
+      onResolve={onResolve}
     >
       {playbackViewport.tooSmall ? (
         <ResizeBlocker
@@ -1086,9 +980,6 @@ function PlaybackShell({
                 label={state.autoplayPaused ? "autoplay paused" : "autoplay ready"}
                 tone={state.autoplayPaused ? "warning" : "success"}
               />
-              {activeOverlay ? (
-                <Badge label={`${activeOverlay.title.toLowerCase()} panel`} tone="success" />
-              ) : null}
             </Box>
             <Text color={palette.gray} dimColor>
               Playback controls stay visible and command-driven
@@ -1216,12 +1107,6 @@ function PlaybackShell({
               </Box>
             ) : null}
           </Box>
-          {activeOverlay ? (
-            <OverlayPanel
-              overlay={activeOverlayPanel ?? activeOverlay}
-              width={Math.max(24, process.stdout.columns - 8)}
-            />
-          ) : null}
         </>
       )}
     </ShellFrame>
