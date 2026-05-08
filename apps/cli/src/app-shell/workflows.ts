@@ -282,6 +282,11 @@ export async function runSetupWizard({
           detail: "Change onboarding decisions anytime",
         },
         {
+          value: "tips-presence" as const,
+          label: "Enable Discord Presence now",
+          detail: "Use /presence to turn on Rich Presence (Discord desktop app required)",
+        },
+        {
           value: "done" as const,
           label: "Start using Kunai",
           detail: "Jump into search and start watching",
