@@ -745,27 +745,57 @@ export async function enqueueCurrentPlaybackDownload({
     return false;
   }
 
-  const job = await container.downloadService.enqueue({
-    title: state.currentTitle,
-    episode: state.currentEpisode,
-    stream: state.stream,
-    providerId: state.provider,
-  });
-  container.diagnosticsStore.record({
-    category: "download",
-    message: "Download queued",
-    context: {
-      reason,
-      jobId: job.id,
-      titleId: job.titleId,
-      season: job.season,
-      episode: job.episode,
-      provider: job.providerId,
-      outputPath: job.outputPath,
-    },
-  });
-  void container.downloadService.processQueue();
-  return true;
+  try {
+    const job = await container.downloadService.enqueue({
+      title: state.currentTitle,
+      episode: state.currentEpisode,
+      stream: state.stream,
+      providerId: state.provider,
+    });
+    container.diagnosticsStore.record({
+      category: "download",
+      message: "Download queued",
+      context: {
+        reason,
+        jobId: job.id,
+        titleId: job.titleId,
+        season: job.season,
+        episode: job.episode,
+        provider: job.providerId,
+        outputPath: job.outputPath,
+      },
+    });
+    const successNote = `Download queued: ${job.titleName} S${String(job.season ?? 1).padStart(2, "0")}E${String(job.episode ?? 1).padStart(2, "0")}`;
+    container.stateManager.dispatch({
+      type: "SET_PLAYBACK_FEEDBACK",
+      note: successNote,
+    });
+    setTimeout(() => {
+      if (container.stateManager.getState().playbackNote === successNote) {
+        container.stateManager.dispatch({
+          type: "SET_PLAYBACK_FEEDBACK",
+          note: null,
+        });
+      }
+    }, 3000);
+    void container.downloadService.processQueue();
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    container.stateManager.dispatch({
+      type: "SET_PLAYBACK_FEEDBACK",
+      note: `Download queue failed: ${message}`,
+    });
+    container.diagnosticsStore.record({
+      category: "download",
+      message: "Download queue failed",
+      context: {
+        reason,
+        error: message,
+      },
+    });
+    return false;
+  }
 }
 
 export async function resolveQuitWithDownloadQueue(
