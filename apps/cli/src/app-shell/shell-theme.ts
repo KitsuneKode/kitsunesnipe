@@ -29,7 +29,7 @@ export const palette = {
   dim: tokens.dim,
 } as const;
 
-export const APP_LABEL = "🥷 Kunai beta";
+export const APP_LABEL = "🦊 Kunai";
 
 export function statusColor(tone: ShellStatus["tone"] = "neutral"): string {
   switch (tone) {

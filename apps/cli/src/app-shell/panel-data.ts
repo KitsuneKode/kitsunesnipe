@@ -147,7 +147,7 @@ export function buildAboutPanelLines({
   return [
     {
       label: "Version",
-      detail: "v0.1.0-beta.0",
+      detail: "v0.1.0",
     },
     {
       label: "Runtime",

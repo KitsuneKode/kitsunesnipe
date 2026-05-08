@@ -25,7 +25,7 @@ import type { TitleInfo } from "@/domain/types";
 import type { MpvRuntimeOptions } from "@/infra/player/mpv-runtime-options";
 import { checkDeps } from "@/ui";
 
-const KUNAI_VERSION = "2.0.0-beta";
+const KUNAI_VERSION = "0.1.0";
 
 // Simple CLI arg parser
 export function parseArgs(argv: string[]): {

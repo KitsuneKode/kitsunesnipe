@@ -57,7 +57,7 @@ async function saveCapabilityNoticeState(state: CapabilityNoticeState): Promise<
   await Bun.write(NOTICE_FILE, JSON.stringify(state, null, 2));
 }
 
-export async function checkDeps(appVersion = "2.0.0-beta"): Promise<CapabilitySnapshot> {
+export async function checkDeps(appVersion = "0.1.0"): Promise<CapabilitySnapshot> {
   const issues: CapabilityIssue[] = [];
   const mpv = Boolean(Bun.which("mpv"));
   const ffmpeg = Boolean(Bun.which("ffmpeg"));

@@ -11,6 +11,13 @@ This repo uses Changesets + Turborepo for versioning, changelogs, and release no
   - Workflow file: `.github/workflows/release.yml`
 - No long-lived `NPM_TOKEN` is required once Trusted Publishing is enabled.
 
+## First stable release (0.1.0 bootstrap)
+
+- Keep package versions at `0.1.0` in `apps/cli/package.json` and `packages/*/package.json`.
+- Ensure there are no pending `.changeset/*.md` files for this bootstrap cut.
+- Merge release-prep changes into `main`, then run the `Release` workflow via `workflow_dispatch` once.
+- After `0.1.0` is published, return to normal per-change changeset workflow below.
+
 ## Per-change workflow
 
 1. Implement the change.

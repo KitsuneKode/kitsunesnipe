@@ -14,7 +14,7 @@ Kunai lets you browse in a fullscreen TUI, resolve provider streams, and hand pl
 
 ## What You Need
 
-- Bun `>=1.3.9` (current beta runtime path)
+- Bun `>=1.3.9`
 - `mpv` on your `PATH` (**required**)
 - Playwright Chromium (**optional**, only needed if browser-runtime providers return in future phases)
 - Kitty/Ghostty terminal (**optional**, for inline poster previews in browse/discover)
@@ -30,7 +30,7 @@ bunx playwright install chromium
 
 ## Install And Run
 
-### From source (recommended during beta)
+### From source
 
 ```bash
 git clone https://github.com/kitsunekode/kunai.git
@@ -70,9 +70,9 @@ kunai
 - Press `Ctrl+T` in browse mode to reload trending discovery lists
 - Discover uses cached recommendation/catalog responses for deterministic UX
 
-## Provider Reality (Beta)
+## Provider Reality
 
-- Active beta runtime providers are `rivestream`, `vidking`, `allanime`, and `miruro`
+- Active runtime providers are `rivestream`, `vidking`, `allanime`, and `miruro`
 - Legacy Playwright provider code is archived under `archive/legacy/**` as reference-only material
 - Experimental provider research lives in `apps/experiments/scratchpads/**` and does not ship as runtime behavior
 
@@ -102,7 +102,7 @@ kunai
 - Use `/ report-issue` to open issue triage guidance
 - Open Diagnostics/About panels to confirm startup capabilities (`mpv`, `ffmpeg`, Kitty, `magick`)
 
-## Provider Caveats (Beta)
+## Provider Caveats
 
 - Providers are third-party integrations and may drift
 - Availability can vary by title, region, subtitle track, or source mirror
@@ -120,11 +120,7 @@ apps/cli/src/services/*   -> orchestration services
 apps/cli/src/infra/*      -> player/ipc/filesystem/runtime mechanics
 ```
 
-## Beta Note
-
-Kunai is actively hardened for public beta publish. Reliability, deterministic behavior, and diagnosable failure paths are prioritized over broad feature expansion.
-
-## Beta Publish Status
+## Current Release Status
 
 ### Stable now
 
@@ -133,19 +129,19 @@ Kunai is actively hardened for public beta publish. Reliability, deterministic b
 - Watch history, diagnostics, provider fallback, and discover/recommendation are integrated
 - Optional capability guardrails now cover `mpv`, `ffmpeg`, Kitty/Ghostty, and `magick`
 
-### Explicitly remaining before beta publish sign-off
+### Remaining improvements (non-blocking)
 
-- Live verify autoplay advance at natural EOF for TMDB series and AllAnime
-- Expand/keep architecture boundary tests to block regressions into legacy/experiments imports
-- Keep package boundaries strict: no premature large extraction outside stable contracts
+- Continue live autoplay/provider drift validation on real sessions
+- Expand architecture guardrails against regressions into archive/experiments imports
+- Keep package boundaries strict without premature large extraction
 
-## Recommended Execution Passes (From Now)
+## Recommended Execution Passes
 
 1. **Publish hygiene pass**: metadata, README, package tarball, release dry-run
 2. **Boundary hardening pass**: enforce import fences and app-shell/service boundaries
 3. **Live reliability pass**: validate autoplay/provider drift handling on real sessions
 4. **Download/offline pass**: move from feature gate to queue + library + setup wizard slices
-5. **Beta release pass**: final checks, changelog, publish
+5. **Release pass**: final checks, changelog, publish
 
 ## Demos (VHS)
 

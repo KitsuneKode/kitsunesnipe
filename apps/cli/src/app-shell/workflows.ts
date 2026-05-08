@@ -499,11 +499,11 @@ export async function handleShellAction({
     await withOverlay({ type: "about" }, () =>
       openStaticInfoShell({
         title: "About",
-        subtitle: "Kunai beta",
+        subtitle: "Kunai",
         lines: [
           {
             label: "Version",
-            detail: "v0.1.0-beta.0",
+            detail: "v0.1.0",
           },
           {
             label: "Runtime",
