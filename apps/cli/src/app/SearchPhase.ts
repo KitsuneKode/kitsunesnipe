@@ -283,7 +283,10 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
             const { buildDiscoverSections } = await import("./discover-sections");
 
             const sections = await buildDiscoverSections(container);
-            const discoverResult = await openDiscoverShell([...sections]);
+            const discoverResult = await openDiscoverShell([...sections], async () => {
+              await container.recommendationService.clearCache();
+              return buildDiscoverSections(container);
+            });
 
             if (discoverResult.type === "open") {
               const selected = discoverResult.result;

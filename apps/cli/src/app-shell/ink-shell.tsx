@@ -2449,11 +2449,15 @@ export function openListShell<T>({
 
 export function openDiscoverShell(
   sections: import("@/services/recommendations/RecommendationService").RecommendationSection[],
+  onRefresh?: () => Promise<
+    readonly import("@/services/recommendations/RecommendationService").RecommendationSection[]
+  >,
 ): Promise<DiscoverShellResult> {
   const session = mountShell<DiscoverShellResult>({
     renderShell: (finish) => (
       <DiscoverShell
         sections={sections}
+        onRefresh={onRefresh}
         onResult={(result) => {
           finish(result);
         }}

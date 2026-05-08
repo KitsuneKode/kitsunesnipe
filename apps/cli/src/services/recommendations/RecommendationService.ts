@@ -13,6 +13,8 @@ export interface RecommendationSection {
 }
 
 export interface RecommendationService {
+  /** Clears persisted recommendation cache so the next request fetches fresh catalog data. */
+  clearCache(): Promise<void>;
   /** TMDB /recommendations for a specific title. Cached 24 h. */
   getForTitle(tmdbId: string, type: ContentType): Promise<RecommendationSection>;
   /** TMDB /trending/all/week. Cached 6 h. */

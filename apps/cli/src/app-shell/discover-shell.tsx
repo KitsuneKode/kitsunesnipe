@@ -50,28 +50,46 @@ function DiscoverSectionView({
 
 export function DiscoverShell({
   sections,
+  onRefresh,
   onResult,
 }: {
   sections: RecommendationSection[];
+  onRefresh?: () => Promise<readonly RecommendationSection[]>;
   onResult: (result: DiscoverShellResult) => void;
 }) {
+  const [visibleSections, setVisibleSections] =
+    useState<readonly RecommendationSection[]>(sections);
   const [sectionIdx, setSectionIdx] = useState(0);
   const [itemIdx, setItemIdx] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const viewport = useViewportPolicy("browse");
   const sepWidth = Math.max(24, (viewport.minColumns ?? 80) - 4);
 
-  const currentSection = sections[sectionIdx];
+  const currentSection = visibleSections[sectionIdx];
   const currentItems = currentSection?.items ?? [];
 
-  useInput((_input, key) => {
+  useInput((input, key) => {
     if (key.escape) {
       onResult({ type: "back" });
+      return;
+    }
+    if (input === "r" && onRefresh && !refreshing) {
+      setRefreshing(true);
+      void onRefresh()
+        .then((nextSections) => {
+          setVisibleSections(nextSections);
+          setSectionIdx(0);
+          setItemIdx(0);
+        })
+        .finally(() => {
+          setRefreshing(false);
+        });
       return;
     }
     if (key.upArrow) {
       if (itemIdx > 0) setItemIdx((i) => i - 1);
       else if (sectionIdx > 0) {
-        const prevSection = sections[sectionIdx - 1];
+        const prevSection = visibleSections[sectionIdx - 1];
         setSectionIdx((s) => s - 1);
         setItemIdx((prevSection?.items.length ?? 1) - 1);
       }
@@ -79,14 +97,14 @@ export function DiscoverShell({
     }
     if (key.downArrow) {
       if (itemIdx < currentItems.length - 1) setItemIdx((i) => i + 1);
-      else if (sectionIdx < sections.length - 1) {
+      else if (sectionIdx < visibleSections.length - 1) {
         setSectionIdx((s) => s + 1);
         setItemIdx(0);
       }
       return;
     }
     if (key.tab) {
-      if (sectionIdx < sections.length - 1) {
+      if (sectionIdx < visibleSections.length - 1) {
         setSectionIdx((s) => s + 1);
         setItemIdx(0);
       }
@@ -110,13 +128,14 @@ export function DiscoverShell({
           <Text bold color={palette.amber}>
             ⬡ Discover
           </Text>
+          {refreshing ? <Text color={palette.cyan}>refreshing</Text> : null}
         </Box>
         <Text color={palette.dim}>{"─".repeat(sepWidth)}</Text>
         <Box marginTop={1} flexDirection="column" flexGrow={1}>
-          {sections.length === 0 ? (
+          {visibleSections.length === 0 ? (
             <Text color={palette.dim}> Loading recommendations…</Text>
           ) : (
-            sections.map((section, idx) => (
+            visibleSections.map((section, idx) => (
               <DiscoverSectionView
                 key={section.reason + String(idx)}
                 section={section}
@@ -134,6 +153,12 @@ export function DiscoverShell({
           <Text color={palette.muted}> open </Text>
           <Text color={palette.amber}>tab</Text>
           <Text color={palette.muted}> next section </Text>
+          {onRefresh ? (
+            <>
+              <Text color={palette.amber}>r</Text>
+              <Text color={palette.muted}> refresh </Text>
+            </>
+          ) : null}
           <Text color={palette.amber}>esc</Text>
           <Text color={palette.muted}> back</Text>
         </Text>

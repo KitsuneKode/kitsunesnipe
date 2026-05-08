@@ -1357,7 +1357,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               const { buildDiscoverSections } = await import("./discover-sections");
 
               const sections = await buildDiscoverSections(container);
-              await openDiscoverShell([...sections]);
+              await openDiscoverShell([...sections], async () => {
+                await container.recommendationService.clearCache();
+                return buildDiscoverSections(container);
+              });
               continue postPlayback;
             }
 

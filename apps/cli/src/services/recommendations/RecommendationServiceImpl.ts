@@ -90,6 +90,10 @@ function toSearchResult(item: Record<string, unknown>): SearchResult | null {
 // ── Implementation ────────────────────────────────────────────────────────────
 
 export class RecommendationServiceImpl implements RecommendationService {
+  async clearCache(): Promise<void> {
+    await writeCache({});
+  }
+
   async getForTitle(tmdbId: string, type: ContentType): Promise<RecommendationSection> {
     const key = buildRecommendCacheKey(tmdbId, type);
     const cache = await readCache();
