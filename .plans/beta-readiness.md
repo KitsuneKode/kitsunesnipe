@@ -2,13 +2,36 @@
 
 Status: Active
 
-Last updated: 2026-05-04
+Last updated: 2026-05-08
 
 This plan tracks the work needed to ship a releasable public beta. It is the operational companion to the roadmap.
 Everything here is concrete and ordered. Each item is either done, in progress, or explicitly deferred.
 
 Product pillars and architecture contracts (playback, subtitles, cache seams, telemetry posture): [kunai-beta-v1-scope-and-contracts.md](kunai-beta-v1-scope-and-contracts.md).  
 Sequencing, CLI minimal/quick flags, autoskip behavior notes: [kunai-execution-passes-and-cli-modes.md](kunai-execution-passes-and-cli-modes.md).
+
+---
+
+## Immediate Publish Passes (ordered)
+
+These are the recommended passes to finish beta publish safely without broad UX feature expansion:
+
+1. **Publish hygiene pass**
+   - finalize README for real users
+   - finalize package metadata and tarball contents
+   - run `bun run pkg:check` and `bun run release:dry-run`
+2. **Legacy quarantine pass**
+   - move legacy runtime references into `archive/legacy/**`
+   - keep active runtime free of legacy imports
+3. **Boundary hardening pass**
+   - enforce import fences in architecture tests
+   - keep app-shell isolated from provider/player runtime internals
+4. **Live reliability pass**
+   - verify autoplay near-EOF behavior on real sessions
+   - confirm diagnostics clearly explain fallback/recovery outcomes
+5. **Beta release pass**
+   - re-run typecheck/lint/fmt/test/pkg/release checks
+   - publish only after all blocking checklist items are complete
 
 ---
 

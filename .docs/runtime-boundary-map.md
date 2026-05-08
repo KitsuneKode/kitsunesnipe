@@ -18,19 +18,19 @@ why the overlap is temporary.
 
 ## Ownership
 
-| Area                     | Owns                                                                                                         | Must not own                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| `packages/types`         | Serializable contracts crossing package, storage, and provider boundaries                                    | UI state, app policy, provider quirks       |
-| `packages/schemas`       | Runtime validation for untrusted or persisted data                                                           | Business decisions                          |
-| `packages/core`          | Provider SDK contracts, resolver primitives, cache-key policy, fallback abstractions, trace models           | Ink UI, mpv IPC, history writes             |
-| `packages/providers`     | Provider-specific source extraction, mirror/source retry, decryption, language/source evidence               | Global fallback UX, history, app settings   |
-| `packages/storage`       | SQLite paths, migrations, repositories, TTL helpers                                                          | UI behavior, provider scraping              |
-| `apps/cli/src/services`  | App services such as playback resolve, source inventory, diagnostics, presence, search/catalog orchestration | Ink rendering, raw mpv sockets              |
-| `apps/cli/src/app`       | Session phases, playback/search policy, user-intent semantics, history decisions                             | Provider internals, terminal drawing        |
-| `apps/cli/src/infra`     | mpv, IPC, process, filesystem, terminal/runtime mechanics                                                    | User-facing playback policy                 |
-| `apps/cli/src/app-shell` | Ink components, overlays, footer, command palette, picker rendering                                          | Stream resolution, provider fallback policy |
-| `apps/cli/src/legacy`    | Quarantined old runtime/provider/browser code                                                                | Active beta runtime imports                 |
-| `apps/experiments`       | Provider research and scratchpads                                                                            | Production runtime behavior                 |
+| Area                          | Owns                                                                                                         | Must not own                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| `packages/types`              | Serializable contracts crossing package, storage, and provider boundaries                                    | UI state, app policy, provider quirks       |
+| `packages/schemas`            | Runtime validation for untrusted or persisted data                                                           | Business decisions                          |
+| `packages/core`               | Provider SDK contracts, resolver primitives, cache-key policy, fallback abstractions, trace models           | Ink UI, mpv IPC, history writes             |
+| `packages/providers`          | Provider-specific source extraction, mirror/source retry, decryption, language/source evidence               | Global fallback UX, history, app settings   |
+| `packages/storage`            | SQLite paths, migrations, repositories, TTL helpers                                                          | UI behavior, provider scraping              |
+| `apps/cli/src/services`       | App services such as playback resolve, source inventory, diagnostics, presence, search/catalog orchestration | Ink rendering, raw mpv sockets              |
+| `apps/cli/src/app`            | Session phases, playback/search policy, user-intent semantics, history decisions                             | Provider internals, terminal drawing        |
+| `apps/cli/src/infra`          | mpv, IPC, process, filesystem, terminal/runtime mechanics                                                    | User-facing playback policy                 |
+| `apps/cli/src/app-shell`      | Ink components, overlays, footer, command palette, picker rendering                                          | Stream resolution, provider fallback policy |
+| `archive/legacy/apps/cli/src` | Quarantined old runtime/provider/browser reference code                                                      | Active beta runtime imports                 |
+| `apps/experiments`            | Provider research and scratchpads                                                                            | Production runtime behavior                 |
 
 ## Playback Intent Contract
 
@@ -80,7 +80,7 @@ should expose provider/source exhaustion in diagnostics.
 
 ## Legacy Quarantine
 
-Active runtime code must not import `apps/cli/src/legacy` or `apps/experiments`.
+Active runtime code must not import `archive/legacy`, `apps/experiments`, or other reference-only legacy paths.
 The unit boundary test enforces this for active runtime roots.
 
 When removing legacy:

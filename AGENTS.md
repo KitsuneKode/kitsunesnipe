@@ -76,8 +76,8 @@ apps/cli/src/session-flow.ts         start-episode selection and provider/sessio
 apps/cli/src/history.ts              watch history persistence
 apps/cli/src/config.ts               persisted user config + provider overrides
 apps/cli/src/services/providers/*    active direct-provider adapters and registry
-apps/cli/src/legacy/browser/*        quarantined Playwright interception path; not active beta runtime
-apps/cli/src/legacy/providers/*      quarantined browser/legacy providers; not active beta runtime
+archive/legacy/apps/cli/src/browser/*        quarantined Playwright interception reference; not active beta runtime
+archive/legacy/apps/cli/src/providers/*      quarantined browser/legacy provider reference; not active beta runtime
 apps/experiments/*                   private provider research lab, not production runtime
 apps/experiments/scratchpads/*       raw provider probes, captures, and reverse-engineering scratch work
 ```
@@ -113,7 +113,7 @@ Unit tests live under `apps/cli/test/unit/`, integration tests under `apps/cli/t
 - `packages/providers/src/allmanga/api-client.ts` contains ani-cli parity logic; check external parity before changing crypto or decoder constants
 - On this machine, the local canonical ani-cli checkout for AllAnime or AllManga parity checks is `~/Projects/osc/ani-cli`
 - If AllAnime or AllManga issues arise, compare against that local ani-cli checkout first, treat it as the reference behavior until upstream is clearly unmaintained, and document any temporary local divergence in provider docs or plans
-- Browser/Playwright provider behavior belongs in `apps/cli/src/legacy/browser/*` until a future optional `@kunai/runtime-browser` package exists
+- Browser/Playwright legacy reference code lives in `archive/legacy/apps/cli/src/browser/*` until a future optional `@kunai/runtime-browser` package exists
 
 ## User Data
 
