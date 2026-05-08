@@ -169,3 +169,17 @@ export function buildDiscordActivity(
     smallImageText: activity.stream?.subtitle ? "Subtitles attached" : undefined,
   };
 }
+
+export function describePresenceConfiguration(
+  config: Pick<ConfigService, "presenceProvider" | "presencePrivacy" | "presenceDiscordClientId">,
+  env?: { readonly KUNAI_DISCORD_CLIENT_ID?: string },
+): string {
+  if (config.presenceProvider === "off") return "off";
+  const discordClientId = env?.KUNAI_DISCORD_CLIENT_ID ?? process.env.KUNAI_DISCORD_CLIENT_ID;
+  const clientIdSource = config.presenceDiscordClientId
+    ? "config client id"
+    : discordClientId
+      ? "env client id"
+      : "missing client id";
+  return `${config.presenceProvider}  ·  privacy ${config.presencePrivacy}  ·  ${clientIdSource}`;
+}

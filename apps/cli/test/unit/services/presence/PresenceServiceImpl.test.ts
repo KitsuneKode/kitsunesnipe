@@ -3,7 +3,11 @@ import { describe, expect, test } from "bun:test";
 import type { DiagnosticsStore } from "@/services/diagnostics/DiagnosticsStore";
 import type { ConfigService, KitsuneConfig } from "@/services/persistence/ConfigService";
 import { DEFAULT_CONFIG } from "@/services/persistence/ConfigStore";
-import { buildDiscordActivity, PresenceServiceImpl } from "@/services/presence/PresenceServiceImpl";
+import {
+  buildDiscordActivity,
+  describePresenceConfiguration,
+  PresenceServiceImpl,
+} from "@/services/presence/PresenceServiceImpl";
 
 function createConfig(partial: Partial<KitsuneConfig>): ConfigService {
   const raw: KitsuneConfig = { ...DEFAULT_CONFIG, ...partial };
@@ -94,5 +98,24 @@ describe("PresenceServiceImpl", () => {
       details: "Watching with Kunai",
       state: "Playback active",
     });
+  });
+
+  test("describes effective discord client id source", () => {
+    expect(
+      describePresenceConfiguration(createConfig({ presenceProvider: "off" }), {
+        KUNAI_DISCORD_CLIENT_ID: "env-id",
+      }),
+    ).toBe("off");
+    expect(
+      describePresenceConfiguration(
+        createConfig({ presenceProvider: "discord", presenceDiscordClientId: "config-id" }),
+        {},
+      ),
+    ).toContain("config client id");
+    expect(
+      describePresenceConfiguration(createConfig({ presenceProvider: "discord" }), {
+        KUNAI_DISCORD_CLIENT_ID: "env-id",
+      }),
+    ).toContain("env client id");
   });
 });

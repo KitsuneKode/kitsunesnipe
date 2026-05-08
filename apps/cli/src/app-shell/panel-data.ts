@@ -6,6 +6,7 @@ import { buildRuntimeHealthSnapshot } from "@/services/diagnostics/runtime-healt
 import { resolveDownloadFeatureState } from "@/services/download/DownloadFeature";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 import { formatTimestamp, type HistoryEntry } from "@/services/persistence/HistoryStore";
+import { describePresenceConfiguration } from "@/services/presence/PresenceServiceImpl";
 import type { CapabilitySnapshot } from "@/ui";
 
 import type { ShellPanelLine, ShellPickerOption } from "./types";
@@ -162,10 +163,7 @@ export function buildAboutPanelLines({
     },
     {
       label: "Presence",
-      detail:
-        config.presenceProvider === "off"
-          ? "off"
-          : `${config.presenceProvider}  ·  privacy ${config.presencePrivacy}`,
+      detail: describePresenceConfiguration(config),
     },
     {
       label: "Downloads",
