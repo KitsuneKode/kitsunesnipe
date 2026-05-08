@@ -44,6 +44,11 @@ jobs:
       - name: Verify workspace before release
         run: bun run ci
 
+      # Ensures apps/cli/dist exists before pack; avoids npm "No bin file at dist/kunai.js"
+      # warnings if publish tooling validates package.json before prepack completes.
+      - name: Build packages for publish
+        run: bun run build
+
       - name: Create release PR or publish
         uses: changesets/action@v1
         with:
