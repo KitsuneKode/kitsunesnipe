@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { describeEpisodeWatchPresentation } from "@/app/playback-episode-picker";
 import { describePlaybackSubtitleStatus } from "@/app/subtitle-status";
@@ -14,6 +14,7 @@ import {
   type HistoryStore,
 } from "@/services/persistence/HistoryStore";
 import { fetchEpisodes, fetchSeasons, type EpisodeInfo } from "@/tmdb";
+import { getKunaiPaths } from "@kunai/storage";
 
 import { resolveCommands, type ResolvedAppCommand } from "./commands";
 import { openSessionPicker } from "./session-picker";
@@ -38,6 +39,8 @@ type ShellOption<T> = {
   label: string;
   detail?: string;
 };
+
+export type SetupWizardResult = "completed" | "cancelled" | "skipped";
 
 const SUBTITLE_OPTIONS = [
   { value: "en", label: "English" },
@@ -68,6 +71,125 @@ async function chooseOption<T>({
 }): Promise<T | null> {
   const { openListShell } = await import("./ink-shell");
   return openListShell({ title, subtitle, options, actionContext });
+}
+
+export async function runSetupWizard({
+  container,
+  force = false,
+}: {
+  container: Container;
+  force?: boolean;
+}): Promise<SetupWizardResult> {
+  const current = container.config.getRaw();
+  const needsOnboarding = current.onboardingVersion < 1 || !current.downloadOnboardingDismissed;
+  if (!force && !needsOnboarding) {
+    return "skipped";
+  }
+
+  const defaultDownloadPath = join(dirname(getKunaiPaths().dataDbPath), "downloads");
+  const ffmpegAvailable = container.capabilitySnapshot?.ffmpeg ?? Boolean(Bun.which("ffmpeg"));
+
+  const startChoice = await chooseOption({
+    title: "Setup Wizard",
+    subtitle: "Configure downloads and offline defaults without leaving the TUI",
+    options: [
+      {
+        value: "continue" as const,
+        label: "Continue setup",
+        detail: "Pick download defaults and save onboarding preferences",
+      },
+      {
+        value: "skip" as const,
+        label: "Skip for now",
+        detail: "Dismiss setup and continue straight to search",
+      },
+    ],
+  });
+
+  if (!startChoice || startChoice === "skip") {
+    await container.config.update({
+      onboardingVersion: 1,
+      downloadOnboardingDismissed: true,
+    });
+    await container.config.save();
+    container.diagnosticsStore.record({
+      category: "session",
+      message: "Setup wizard skipped",
+      context: { force },
+    });
+    return startChoice ? "skipped" : "cancelled";
+  }
+
+  const downloadChoice = await chooseOption({
+    title: "Offline Downloads",
+    subtitle: ffmpegAvailable
+      ? "ffmpeg detected — downloads can run immediately"
+      : "ffmpeg not found — playback works, downloads stay disabled until ffmpeg is installed",
+    options: [
+      {
+        value: "enable" as const,
+        label: "Enable downloads",
+        detail: ffmpegAvailable
+          ? "Queue downloads from active playback and manage them in-shell"
+          : "Saves the preference now; downloads become usable after ffmpeg is installed",
+      },
+      {
+        value: "disable" as const,
+        label: "Keep downloads disabled",
+        detail: "You can rerun setup anytime with /setup",
+      },
+    ],
+  });
+
+  if (!downloadChoice) {
+    return "cancelled";
+  }
+
+  let downloadPath = current.downloadPath;
+  if (downloadChoice === "enable") {
+    const pathChoice = await chooseOption({
+      title: "Download Location",
+      subtitle: `Current: ${current.downloadPath || defaultDownloadPath}`,
+      options: [
+        {
+          value: "default" as const,
+          label: "Use default path",
+          detail: defaultDownloadPath,
+        },
+        {
+          value: "keep" as const,
+          label: "Keep current configured path",
+          detail: current.downloadPath || "No custom path configured yet",
+        },
+      ],
+    });
+
+    if (!pathChoice) {
+      return "cancelled";
+    }
+    downloadPath = pathChoice === "default" ? defaultDownloadPath : current.downloadPath;
+  }
+
+  await container.config.update({
+    onboardingVersion: 1,
+    downloadsEnabled: downloadChoice === "enable",
+    downloadPath,
+    downloadOnboardingDismissed: true,
+  });
+  await container.config.save();
+
+  container.diagnosticsStore.record({
+    category: "session",
+    message: "Setup wizard completed",
+    context: {
+      downloadsEnabled: downloadChoice === "enable",
+      downloadPath: downloadChoice === "enable" ? downloadPath || defaultDownloadPath : null,
+      ffmpegAvailable,
+      force,
+    },
+  });
+
+  return "completed";
 }
 
 export async function chooseSeasonFromOptions(
@@ -659,6 +781,11 @@ export async function handleShellAction({
       await applySettingsToRuntime({ container, next, previous: config.getRaw() });
     }
 
+    return "handled";
+  }
+
+  if (action === "setup") {
+    await runSetupWizard({ container, force: true });
     return "handled";
   }
 

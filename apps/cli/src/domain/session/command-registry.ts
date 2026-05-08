@@ -1,6 +1,7 @@
 import type { SessionState } from "./SessionState";
 
 export type AppCommandId =
+  | "setup"
   | "search"
   | "trending"
   | "discover"
@@ -45,6 +46,7 @@ export type ResolvedAppCommand = AppCommand & {
 
 export const COMMAND_CONTEXTS = {
   rootOverlay: [
+    "setup",
     "settings",
     "provider",
     "history",
@@ -55,6 +57,7 @@ export const COMMAND_CONTEXTS = {
     "report-issue",
   ],
   activePlayback: [
+    "setup",
     "toggle-autoplay",
     "settings",
     "recover",
@@ -74,6 +77,7 @@ export const COMMAND_CONTEXTS = {
     "quit",
   ],
   postPlayback: [
+    "setup",
     "search",
     "discover",
     "settings",
@@ -103,6 +107,12 @@ export const COMMAND_CONTEXTS = {
 export type CommandContextId = keyof typeof COMMAND_CONTEXTS;
 
 export const COMMANDS: readonly AppCommand[] = [
+  {
+    id: "setup",
+    label: "Setup Wizard",
+    aliases: ["setup", "onboarding", "wizard"],
+    description: "Run the onboarding wizard to configure downloads and offline defaults",
+  },
   {
     id: "download",
     label: "Download Current Episode",
@@ -395,6 +405,7 @@ function resolveCommandState(
     state.playbackStatus === "error";
 
   switch (id) {
+    case "setup":
     case "search":
     case "trending":
     case "discover":

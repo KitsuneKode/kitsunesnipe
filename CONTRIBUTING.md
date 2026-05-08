@@ -94,7 +94,7 @@ Add a changeset for any user-facing change (feature, fix, behavior change, depre
 bun run changeset
 ```
 
-- Select the affected package (usually `kunai-cli`).
+- Select the affected package (usually `@kitsunekode/kunai`).
 - Choose the semver bump level: `patch` for fixes, `minor` for new features.
 - Write a concise user-facing description.
 - Include platform notes when relevant (Linux, macOS, Windows differences).

@@ -16,9 +16,6 @@
 // compatibility shim while migration residue is retired.
 // =============================================================================
 
-import { stdin as input, stdout as output } from "node:process";
-import { createInterface } from "node:readline/promises";
-
 import { SessionController } from "@/app/SessionController";
 import { createContainer, type ShellChrome } from "@/container";
 import type { TitleInfo } from "@/domain/types";
@@ -117,34 +114,11 @@ async function maybeRunSetupWizard(
   args: { setup: boolean },
   container: Awaited<ReturnType<typeof createContainer>>,
 ) {
-  if (!args.setup) {
-    return;
-  }
-
-  const rl = createInterface({ input, output });
-  try {
-    const shouldEnableDownloads = (
-      await rl.question("Enable downloads (requires ffmpeg)? [y/N] ")
-    ).trim();
-    const enableDownloads = shouldEnableDownloads.toLowerCase().startsWith("y");
-    let downloadPath = container.config.downloadPath;
-    if (enableDownloads) {
-      const customPath = (await rl.question("Download path (leave blank for default): ")).trim();
-      if (customPath.length > 0) {
-        downloadPath = customPath;
-      }
-    }
-    await container.config.update({
-      onboardingVersion: 1,
-      downloadsEnabled: enableDownloads,
-      downloadPath,
-      downloadOnboardingDismissed: true,
-    });
-    await container.config.save();
-    console.log("Setup saved.");
-  } finally {
-    rl.close();
-  }
+  const { runSetupWizard } = await import("./app-shell/workflows");
+  await runSetupWizard({
+    container,
+    force: args.setup,
+  });
 }
 
 async function maybeRunOfflineMode(
@@ -189,7 +163,6 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
     capabilitySnapshot,
   });
   const { logger, config, stateManager, cacheStore } = container;
-  await maybeRunSetupWizard(args, container);
   if (await maybeRunOfflineMode(args, container)) {
     return;
   }
@@ -263,6 +236,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
   // Launch the persistent state-driven UI
   const { launchSessionApp } = await import("./app-shell/ink-shell");
   launchSessionApp(container);
+  await maybeRunSetupWizard(args, container);
 
   // Run the main session loop
   try {

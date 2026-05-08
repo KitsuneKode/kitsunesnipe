@@ -163,6 +163,7 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
           placeholder: currentState.mode === "anime" ? "Demon Slayer" : "Breaking Bad",
           footerMode: effectiveFooterHints(container),
           commands: resolveCommands(currentState, [
+            "setup",
             "settings",
             "trending",
             "toggle-mode",

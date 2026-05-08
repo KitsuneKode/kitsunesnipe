@@ -5,7 +5,7 @@ This repo uses Changesets + Turborepo for versioning, changelogs, and release no
 ## One-time setup
 
 - Keep `main` as the release branch.
-- Configure npm Trusted Publishing (OIDC) for `kunai-cli`:
+- Configure npm Trusted Publishing (OIDC) for `@kitsunekode/kunai`:
   - npm package settings -> Trusted publishers
   - GitHub repository: `kitsunekode/kunai`
   - Workflow file: `.github/workflows/release.yml`

@@ -30,6 +30,13 @@ bunx playwright install chromium
 
 ## Install And Run
 
+### Quick install (npm)
+
+```bash
+npm install -g @kitsunekode/kunai
+kunai
+```
+
 ### From source
 
 ```bash

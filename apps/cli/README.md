@@ -1,6 +1,6 @@
-# kunai-cli
+# @kitsunekode/kunai
 
-`kunai-cli` is the published CLI package for Kunai.
+`@kitsunekode/kunai` is the published CLI package for Kunai.
 
 Kunai is a terminal-first media tool that resolves provider streams and launches playback in `mpv`.
 
@@ -18,7 +18,7 @@ bunx playwright install chromium
 ## Install
 
 ```bash
-npm install -g kunai-cli
+npm install -g @kitsunekode/kunai
 ```
 
 Run:

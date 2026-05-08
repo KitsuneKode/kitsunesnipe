@@ -10,6 +10,7 @@ import { createInitialState } from "@/domain/session/SessionState";
 describe("command registry contexts", () => {
   test("keeps active playback commands focused on safe playback actions", () => {
     expect([...COMMAND_CONTEXTS.activePlayback]).toEqual([
+      "setup",
       "toggle-autoplay",
       "settings",
       "recover",
@@ -59,6 +60,7 @@ describe("command registry contexts", () => {
 
   test("keeps post-playback commands as the broader safe menu", () => {
     expect([...COMMAND_CONTEXTS.postPlayback]).toEqual([
+      "setup",
       "search",
       "discover",
       "settings",
