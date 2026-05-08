@@ -1,6 +1,7 @@
 import { Box, Text } from "ink";
 import React from "react";
 
+import { truncateLine } from "./shell-text";
 import { hotkeyLabel, palette } from "./shell-theme";
 import type { FooterAction, ShellFooterMode } from "./types";
 
@@ -43,7 +44,7 @@ export function InlineBadge({
 
   return (
     <Box marginRight={1}>
-      <Text color={color}>{label}</Text>
+      <Text color={color}>{truncateLine(label, 28)}</Text>
     </Box>
   );
 }
@@ -189,7 +190,7 @@ export function Badge({ label, tone = "neutral" }: { label: string; tone?: Badge
   return (
     <Box borderStyle="round" borderColor={color} paddingX={1} marginRight={1}>
       <Text color={color} bold={tone !== "neutral"}>
-        {label}
+        {truncateLine(label, 26)}
       </Text>
     </Box>
   );
