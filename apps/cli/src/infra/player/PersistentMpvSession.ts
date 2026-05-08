@@ -76,6 +76,7 @@ type PlayerCycleOptions = {
   /** Human-readable offset for the prompt (e.g. "12:34"). */
   resumeChoiceTimeLabel?: string;
   timing?: PlaybackTimingMetadata | null;
+  autoSkipEnabled?: boolean;
   skipRecap?: boolean;
   skipIntro?: boolean;
   skipPreview?: boolean;
@@ -861,11 +862,11 @@ export class PersistentMpvSession {
 
   private skipConfig(options: PlayerCycleOptions): PlaybackSkipConfig {
     return {
-      skipRecap: options.skipRecap ?? true,
-      skipIntro: options.skipIntro ?? true,
-      skipPreview: options.skipPreview ?? true,
-      skipCredits: options.skipCredits ?? true,
-      autoNextEnabled: options.autoNextEnabled ?? false,
+      skipRecap: options.autoSkipEnabled !== false && (options.skipRecap ?? true),
+      skipIntro: options.autoSkipEnabled !== false && (options.skipIntro ?? true),
+      skipPreview: false,
+      skipCredits: options.autoSkipEnabled !== false && (options.skipCredits ?? true),
+      autoNextEnabled: options.autoSkipEnabled !== false && (options.autoNextEnabled ?? false),
     };
   }
 

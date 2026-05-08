@@ -308,6 +308,11 @@ export class PlayerControlServiceImpl implements PlayerControlService {
     return this.stopWithAction("previous", reason, true);
   }
 
+  async returnToSearchFromPlayback(reason = "user-requested"): Promise<boolean> {
+    this.lastAction = "back-to-search";
+    return this.stopWithAction("back-to-search", reason);
+  }
+
   updateCurrentPlaybackTiming(
     timing: PlaybackTimingMetadata | null,
     reason = "background-fetch",

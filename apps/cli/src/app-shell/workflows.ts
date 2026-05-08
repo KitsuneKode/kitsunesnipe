@@ -1058,11 +1058,6 @@ export async function openSettingsShell({
           detail: "Auto-skip intro segments when IntroDB timing exists",
         },
         {
-          value: "skipPreview" as const,
-          label: `Skip previews  ·  ${next.skipPreview ? "on" : "off"}`,
-          detail: "Auto-skip preview segments when IntroDB timing exists",
-        },
-        {
           value: "skipCredits" as const,
           label: `Skip credits  ·  ${next.skipCredits ? "on" : "off"}`,
           detail: "Skip to end of credits when detected; with autoNext on, advances immediately",
@@ -1311,12 +1306,6 @@ export async function openSettingsShell({
 
     if (action === "skipIntro") {
       next.skipIntro = !next.skipIntro;
-      changed = true;
-      continue;
-    }
-
-    if (action === "skipPreview") {
-      next.skipPreview = !next.skipPreview;
       changed = true;
       continue;
     }

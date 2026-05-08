@@ -165,6 +165,23 @@ describe("resolvePlaybackResultDecision", () => {
     });
   });
 
+  test("does not treat return-to-search as an interrupted autoplay pause", () => {
+    const session = createPlaybackSessionState({ autoNextEnabled: true });
+    expect(
+      resolvePlaybackResultDecision({
+        result: { watchedSeconds: 300, duration: 1200, endReason: "quit" },
+        controlAction: "back-to-search",
+        session,
+      }),
+    ).toMatchObject({
+      session: {
+        autoplayPauseReason: null,
+        autoplayPaused: false,
+      },
+      shouldTreatAsInterrupted: false,
+    });
+  });
+
   test("treats a quit after credits timing as complete instead of interrupted", () => {
     const session = createPlaybackSessionState({ autoNextEnabled: true });
     expect(

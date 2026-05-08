@@ -569,6 +569,7 @@ function AppRoot({ container }: { container: Container }) {
                   fallbackAvailable: Boolean(fallbackProvider),
                   fallbackProviderName:
                     fallbackProvider?.metadata.name ?? fallbackProvider?.metadata.id,
+                  autoskipPaused: state.autoskipSessionPaused,
                   latestIssue: state.playbackNote,
                   stopHint:
                     state.playbackStatus === "playing" ||
@@ -584,7 +585,7 @@ function AppRoot({ container }: { container: Container }) {
                     state.playbackStatus === "buffering" ||
                     state.playbackStatus === "seeking" ||
                     state.playbackStatus === "stalled"
-                      ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  e episodes  ·  k streams  ·  r recover`
+                      ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  u ${state.autoskipSessionPaused ? "resume autoskip" : "pause autoskip"}  ·  e episodes  ·  k streams  ·  r recover`
                       : undefined,
                   commands: resolveCommandContext(state, "activePlayback"),
                   footerMode: "detailed",
@@ -609,9 +610,22 @@ function AppRoot({ container }: { container: Container }) {
                       });
                       return;
                     }
+                    if (action === "toggle-autoskip") {
+                      container.stateManager.dispatch({
+                        type: "SET_SESSION_AUTOSKIP_PAUSED",
+                        paused: !container.stateManager.getState().autoskipSessionPaused,
+                      });
+                      return;
+                    }
                     if (action === "search") {
-                      void container.playerControl.refreshCurrentPlayback(
-                        "playback-loading-command-refresh",
+                      void container.playerControl.returnToSearchFromPlayback(
+                        "playback-loading-command-search",
+                      );
+                      return;
+                    }
+                    if (action === "back-to-search") {
+                      void container.playerControl.returnToSearchFromPlayback(
+                        "playback-loading-command-search",
                       );
                       return;
                     }
@@ -742,6 +756,12 @@ function AppRoot({ container }: { container: Container }) {
                       }
                     : undefined
                 }
+                onToggleAutoskip={() => {
+                  container.stateManager.dispatch({
+                    type: "SET_SESSION_AUTOSKIP_PAUSED",
+                    paused: !container.stateManager.getState().autoskipSessionPaused,
+                  });
+                }}
                 onStopAfterCurrent={
                   canStopAfterCurrent
                     ? () => {
@@ -757,6 +777,9 @@ function AppRoot({ container }: { container: Container }) {
                 }}
                 onPickQuality={() => {
                   void openPlaybackStreamSelectionPicker(container, "quality", "playback-shell-v");
+                }}
+                onReturnToSearch={() => {
+                  void container.playerControl.returnToSearchFromPlayback("playback-shell-shift-s");
                 }}
               />
             ) : rootSurface === "root-content" && rootContent ? (

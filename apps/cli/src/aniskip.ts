@@ -238,7 +238,9 @@ async function resolveMALForSkipTiming(opts: {
   return await resolveMALFromTheMovieDbId(catalogId, signal);
 }
 
-function skipTypeToField(skipType: string): "intro" | "recap" | "credits" | "preview" | null {
+export function mapAniSkipTypeToTimingField(
+  skipType: string,
+): "intro" | "recap" | "credits" | null {
   switch (skipType) {
     case "op":
     case "mixed-op":
@@ -317,7 +319,7 @@ export async function fetchAniSkipTimingMetadata(opts: {
 
     for (const result of data.results) {
       const skipKind = result.skipType ?? result.skip_type ?? "";
-      const field = skipTypeToField(skipKind);
+      const field = mapAniSkipTypeToTimingField(skipKind);
       if (!field) continue;
       if (!result.interval) continue;
       const seg = intervalToSegment(result.interval);
@@ -325,7 +327,6 @@ export async function fetchAniSkipTimingMetadata(opts: {
       if (field === "intro") intro.push(seg);
       else if (field === "recap") recap.push(seg);
       else if (field === "credits") credits.push(seg);
-      else if (field === "preview") preview.push(seg);
     }
 
     if (!intro.length && !recap.length && !credits.length && !preview.length) return null;

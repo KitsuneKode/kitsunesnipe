@@ -13,7 +13,8 @@ export type PlaybackControlAction =
   | "pick-episode"
   | "reload-subtitles"
   | "next"
-  | "previous";
+  | "previous"
+  | "back-to-search";
 
 export type PlaybackPickerAction = Extract<
   PlaybackControlAction,
@@ -71,5 +72,6 @@ export interface PlayerControlService {
   pickQualityCurrentPlayback(reason?: string): Promise<boolean>;
   nextCurrentPlayback(reason?: string): Promise<boolean>;
   previousCurrentPlayback(reason?: string): Promise<boolean>;
+  returnToSearchFromPlayback(reason?: string): Promise<boolean>;
   updateCurrentPlaybackTiming(timing: PlaybackTimingMetadata | null, reason?: string): void;
 }

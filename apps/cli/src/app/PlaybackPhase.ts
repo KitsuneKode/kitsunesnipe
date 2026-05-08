@@ -912,6 +912,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             continue;
           }
 
+          if (playbackControlAction === "back-to-search") {
+            return { status: "success", value: "back_to_search" };
+          }
+
           if (playbackControlAction === "next" && title.type === "series") {
             if (episodeAvailability.nextEpisode) {
               pendingStart = await startNavigationToEpisode(episodeAvailability.nextEpisode);
@@ -1765,6 +1769,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         playbackMode,
         timing,
         resumeStartChoicePrompt: suppressResumePrompt ? false : config.resumeStartChoicePrompt,
+        autoSkipEnabled: !stateManager.getState().autoskipSessionPaused,
         skipRecap: config.skipRecap,
         skipIntro: config.skipIntro,
         skipPreview: config.skipPreview,

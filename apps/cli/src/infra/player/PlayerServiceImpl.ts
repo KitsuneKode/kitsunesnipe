@@ -154,6 +154,7 @@ export class PlayerServiceImpl implements PlayerService {
       startAt: options.startAt,
       attach: options.attach,
       timing: options.timing,
+      autoSkipEnabled: options.autoSkipEnabled,
       skipRecap: options.skipRecap,
       skipIntro: options.skipIntro,
       skipPreview: options.skipPreview,
@@ -193,6 +194,7 @@ export class PlayerServiceImpl implements PlayerService {
           ? formatTimestamp(Math.floor(resumePromptAt))
           : undefined,
       timing: options.timing,
+      autoSkipEnabled: options.autoSkipEnabled,
       skipRecap: options.skipRecap,
       skipIntro: options.skipIntro,
       skipPreview: options.skipPreview,

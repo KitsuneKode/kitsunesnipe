@@ -38,6 +38,7 @@ export async function launchMpv(opts: {
   startAt?: number;
   attach?: boolean;
   timing?: import("@/domain/types").PlaybackTimingMetadata | null;
+  autoSkipEnabled?: boolean;
   skipRecap?: boolean;
   skipIntro?: boolean;
   skipPreview?: boolean;
@@ -86,10 +87,10 @@ export async function launchMpv(opts: {
   const watchdog = createPlaybackWatchdog(emitPlaybackEvent);
   const skippedSegments = new Set<string>();
   const skipConfig: PlaybackSkipConfig = {
-    skipRecap: opts.skipRecap ?? true,
-    skipIntro: opts.skipIntro ?? true,
-    skipPreview: opts.skipPreview ?? true,
-    skipCredits: opts.skipCredits ?? true,
+    skipRecap: opts.autoSkipEnabled !== false && (opts.skipRecap ?? true),
+    skipIntro: opts.autoSkipEnabled !== false && (opts.skipIntro ?? true),
+    skipPreview: false,
+    skipCredits: opts.autoSkipEnabled !== false && (opts.skipCredits ?? true),
     autoNextEnabled: false, // launchMpv is only used for one-shot/manual playback
   };
   const notifyPlayerReady = () => {

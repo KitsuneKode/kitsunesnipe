@@ -35,7 +35,7 @@ test("findPlaybackSegmentAtPosition ignores user toggles", () => {
   expect(playbackSkipKindLabel("intro")).toBe("SKIP INTRO");
 });
 
-test("findActivePlaybackSkip prefers recap, intro, preview, and credits windows only when enabled", () => {
+test("findActivePlaybackSkip prefers recap intro and credits windows only when enabled", () => {
   expect(findActivePlaybackSkip(timing, 10, BASE_CONFIG)).toMatchObject({
     kind: "recap",
     startSeconds: 0,
@@ -48,11 +48,8 @@ test("findActivePlaybackSkip prefers recap, intro, preview, and credits windows 
     endSeconds: 120,
   });
 
-  expect(findActivePlaybackSkip(timing, 1260, BASE_CONFIG)).toMatchObject({
-    kind: "preview",
-    startSeconds: 1250,
-    endSeconds: 1290,
-  });
+  expect(findPlaybackSegmentAtPosition(timing, 1260)).toMatchObject({ kind: "preview" });
+  expect(findActivePlaybackSkip(timing, 1260, BASE_CONFIG)).toBeNull();
 
   expect(findActivePlaybackSkip(timing, 70, { ...BASE_CONFIG, skipIntro: false })).toBeNull();
 

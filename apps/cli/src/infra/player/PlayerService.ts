@@ -73,6 +73,7 @@ export interface PlayerOptions {
   attach?: boolean;
   playbackMode?: "manual" | "autoplay-chain";
   timing?: PlaybackTimingMetadata | null;
+  autoSkipEnabled?: boolean;
   skipRecap?: boolean;
   skipIntro?: boolean;
   skipPreview?: boolean;

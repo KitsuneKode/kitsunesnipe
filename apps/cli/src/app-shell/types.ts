@@ -3,6 +3,7 @@ import type { ResolvedAppCommand, AppCommandId } from "./commands";
 export type ShellAction =
   | "command-mode"
   | "search"
+  | "back-to-search"
   | "trending"
   | "discover"
   | "back-to-results"
@@ -16,6 +17,7 @@ export type ShellAction =
   | "about"
   | "image-pane"
   | "toggle-autoplay"
+  | "toggle-autoskip"
   | "resume"
   | "replay"
   | "recover"
@@ -85,6 +87,7 @@ export type LoadingShellState = {
   getRuntimeHealth?: () => ShellPanelLine | undefined;
   cancellable?: boolean;
   fallbackAvailable?: boolean;
+  autoskipPaused?: boolean;
   fallbackProviderName?: string;
   latestIssue?: string | null;
   stopHint?: string;

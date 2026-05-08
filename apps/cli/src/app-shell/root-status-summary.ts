@@ -86,6 +86,9 @@ export function buildRootStatusSummary({
   if (state.autoplaySessionPaused) {
     badges.push({ label: "autoplay paused", tone: "warning" });
   }
+  if (state.autoskipSessionPaused) {
+    badges.push({ label: "autoskip paused", tone: "warning" });
+  }
   if (state.stopAfterCurrent) {
     badges.push({ label: "stop after current", tone: "warning" });
   }

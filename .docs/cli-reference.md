@@ -121,6 +121,7 @@ These are useful for docs parity so users do not search for a `--history` flag.
 | Reload / recover               | `r`; keeps the current playback position                                                                                           |
 | Source / quality               | Source changes restart the selected source; quality changes keep the current playback position                                     |
 | Provider fallback              | `f`; skips to the next compatible provider during resolve or recovery                                                              |
+| Pause autoskip                 | `u` during active playback; suppresses automatic segment skips for the current title/session without changing config               |
 
 ### Optional presence settings
 

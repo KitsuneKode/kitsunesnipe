@@ -22,6 +22,7 @@ PlaybackPhase
 - **Requires a TMDB id** in the query. Anime providers that use opaque catalog ids (e.g. AllAnime `_id`) are **not** valid IntroDB keys.
 - **IntroDB in anime mode:** `IntroDbTimingSource` only runs when `title.id` looks like a numeric TMDB id (`apps/cli/src/infra/timing/IntroDbTimingSource.ts`). Otherwise IntroDB is skipped so AniSkip is not blocked by useless calls.
 - **Segments without `end_ms`:** IntroDB may return open-ended credits. Skip logic ignores segments without a finite end; see `.plans/kunai-execution-passes-and-cli-modes.md` for rationale.
+- **Autoskip policy:** config is the parent gate. `skipIntro`, `skipCredits`, and optional `skipRecap` enable automatic skipping; the per-session autoskip pause (`u` during playback) suppresses automatic skipping without changing config. Manual skip prompts can still appear for finite known segments.
 
 Official product/docs: [theintrodb.org/docs](https://theintrodb.org/docs).
 
@@ -31,6 +32,7 @@ Official product/docs: [theintrodb.org/docs](https://theintrodb.org/docs).
 - The public API expects a **MyAnimeList numeric anime id** in the path, **not** AniList, TMDB, or AllAnime `_id` directly.
 - **Query types:** Only `op` and `ed` are accepted on the live API; requesting `recap` caused HTTP 400 for the entire request (regression fixed in `apps/cli/src/aniskip.ts`).
 - **JSON shape:** Responses use **snake_case** (`skip_type`, `start_time`, `end_time`). The client normalizes both snake_case and camelCase.
+- **Type mapping:** `op` / `mixed-op` become intro, `ed` / `mixed-ed` become credits. Unknown labels such as prologue, epilogue, post-credits, afterscene, and preview are ignored defensively.
 
 Reference ecosystem: [synacktraa/ani-skip](https://github.com/synacktraa/ani-skip) (shell helper) and [aniskip/aniskip-api](https://github.com/aniskip/aniskip-api) (HTTP service).
 
@@ -38,11 +40,11 @@ Reference ecosystem: [synacktraa/ani-skip](https://github.com/synacktraa/ani-ski
 
 `TitleInfo.id` depends on **search/catalog** source:
 
-| `title.id` shape        | Typical source              | Resolution strategy (see `resolveMalIdForAniSkip` in `aniskip.ts`) |
-| ----------------------- | --------------------------- | ------------------------------------------------------------------ |
+| `title.id` shape                 | Typical source                 | Resolution strategy (see `resolveMalIdForAniSkip` in `aniskip.ts`)                                                                                                    |
+| -------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Opaque string (e.g. 24-char hex) | AllAnime / AllManga `show._id` | When `providerId === "allanime"`: GraphQL `show(_id){ malId }` on `https://api.allanime.day/api` (same idea as ani-skip `-s allanime -i <_id>`), then AniSkip by MAL. |
-| Numeric                 | AniList, TMDB TV, or other  | Try ARM `anilist` → MAL; if missing, try ARM **TMDB → MAL** list (first entry; split cours caveat). |
-| Opaque + non-AllAnime provider | Unknown catalog            | Fall back: AniList **title search** (optional `seasonYear` from `title.year`) → ARM AniList → MAL. |
+| Numeric                          | AniList, TMDB TV, or other     | Try ARM `anilist` → MAL; if missing, try ARM **TMDB → MAL** list (first entry; split cours caveat).                                                                   |
+| Opaque + non-AllAnime provider   | Unknown catalog                | Fall back: AniList **title search** (optional `seasonYear` from `title.year`) → ARM AniList → MAL.                                                                    |
 
 **Important:** `PlaybackTimingFetchContext.providerId` must match the **manifest provider id** (e.g. `allanime` from `@kunai/core`), because branching keys off that string.
 
@@ -131,12 +133,12 @@ Thread new fields from `PlaybackPhase` where timing is resolved; **do not** thre
 
 ## File map
 
-| Area | Path |
-| ---- | ---- |
-| AniSkip fetch + MAL resolution | `apps/cli/src/aniskip.ts` |
-| AniSkip timing source | `apps/cli/src/infra/timing/AniSkipTimingSource.ts` |
-| IntroDB fetch | `apps/cli/src/introdb.ts` |
-| IntroDB timing source | `apps/cli/src/infra/timing/IntroDbTimingSource.ts` |
+| Area                              | Path                                                                                                  |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| AniSkip fetch + MAL resolution    | `apps/cli/src/aniskip.ts`                                                                             |
+| AniSkip timing source             | `apps/cli/src/infra/timing/AniSkipTimingSource.ts`                                                    |
+| IntroDB fetch                     | `apps/cli/src/introdb.ts`                                                                             |
+| IntroDB timing source             | `apps/cli/src/infra/timing/IntroDbTimingSource.ts`                                                    |
 | Merge + aggregator + context type | `apps/cli/src/infra/timing/merge-timing.ts`, `PlaybackTimingAggregator.ts`, `PlaybackTimingSource.ts` |
-| Wiring provider id into timing | `apps/cli/src/app/PlaybackPhase.ts` |
-| Skip application (mpv) | `apps/cli/src/infra/player/playback-skip.ts`, `PersistentMpvSession.ts` |
+| Wiring provider id into timing    | `apps/cli/src/app/PlaybackPhase.ts`                                                                   |
+| Skip application (mpv)            | `apps/cli/src/infra/player/playback-skip.ts`, `PersistentMpvSession.ts`                               |

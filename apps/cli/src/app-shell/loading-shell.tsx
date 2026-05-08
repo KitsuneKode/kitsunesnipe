@@ -136,7 +136,9 @@ export function LoadingShell({
   onPickEpisode,
   onPickSource,
   onPickQuality,
+  onReturnToSearch,
   onToggleAutoplay,
+  onToggleAutoskip,
   onStopAfterCurrent,
   onFallback,
 }: {
@@ -152,7 +154,9 @@ export function LoadingShell({
   onPickEpisode?: () => void;
   onPickSource?: () => void;
   onPickQuality?: () => void;
+  onReturnToSearch?: () => void;
   onToggleAutoplay?: () => void;
+  onToggleAutoskip?: () => void;
   onStopAfterCurrent?: () => void;
   onFallback?: () => void;
 }) {
@@ -208,6 +212,9 @@ export function LoadingShell({
     }
     if (input.toLowerCase() === "s" && state.operation === "playing" && onReloadSubtitles) {
       onReloadSubtitles();
+    }
+    if (input === "S" && state.operation === "playing" && onReturnToSearch) {
+      onReturnToSearch();
     }
     if (
       input.toLowerCase() === "n" &&
@@ -271,6 +278,14 @@ export function LoadingShell({
       !state.onCommandAction
     ) {
       onToggleAutoplay();
+    }
+    if (
+      input.toLowerCase() === "u" &&
+      state.operation === "playing" &&
+      onToggleAutoskip &&
+      !state.onCommandAction
+    ) {
+      onToggleAutoskip();
     }
     if (input.toLowerCase() === "x" && state.operation === "playing" && onStopAfterCurrent) {
       onStopAfterCurrent();
@@ -341,6 +356,13 @@ export function LoadingShell({
             reason: "Autoplay is unavailable for this title.",
           },
           {
+            key: "u",
+            label: state.autoskipPaused ? "autoskip paused" : "autoskip",
+            action: "toggle-autoskip",
+            disabled: !onToggleAutoskip,
+            reason: "Autoskip is unavailable for this playback.",
+          },
+          {
             key: "e",
             label: "episodes",
             action: "pick-episode",
@@ -374,6 +396,13 @@ export function LoadingShell({
             action: "fallback",
             disabled: !state.fallbackAvailable || !onFallback,
             reason: "No fallback provider is available.",
+          },
+          {
+            key: "S",
+            label: "search",
+            action: "back-to-search",
+            disabled: !onReturnToSearch,
+            reason: "Search is unavailable during this playback state.",
           },
           {
             key: "r",

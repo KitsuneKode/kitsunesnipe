@@ -49,7 +49,7 @@ export function isPlaybackAutoSkipEnabled(
     case "intro":
       return config.skipIntro;
     case "preview":
-      return config.skipPreview;
+      return false;
     case "credits":
       // hybrid: skip credits when the toggle is on OR autoNext is active
       return config.skipCredits || config.autoNextEnabled;

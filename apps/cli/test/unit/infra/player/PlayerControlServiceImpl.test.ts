@@ -135,6 +135,22 @@ test("PlayerControlServiceImpl records next and previous episode intents as stop
   expect(stoppedCurrentReasons).toEqual(["next-key", "previous-key"]);
 });
 
+test("PlayerControlServiceImpl records return-to-search as a full-stop action", async () => {
+  const stoppedReasons: string[] = [];
+  const service = makeService();
+
+  service.setActive({
+    id: "player-1",
+    async stop(reason) {
+      stoppedReasons.push(reason ?? "");
+    },
+  });
+
+  expect(await service.returnToSearchFromPlayback("search-key")).toBe(true);
+  expect(service.consumeLastAction()).toBe("back-to-search");
+  expect(stoppedReasons).toEqual(["search-key"]);
+});
+
 test("PlayerControlServiceImpl opens stream picker requests without stopping playback", async () => {
   const stoppedCurrentReasons: string[] = [];
   const messages: string[] = [];

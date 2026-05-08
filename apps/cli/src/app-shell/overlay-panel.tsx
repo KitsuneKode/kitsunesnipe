@@ -262,11 +262,6 @@ export function buildSettingsOptions(
       detail: "Auto-skip credits segments when IntroDB or AniSkip timing exists",
     },
     {
-      value: "skipPreview",
-      label: `Skip previews  ·  ${config.skipPreview ? "on" : "off"}`,
-      detail: "Auto-skip preview segments when IntroDB timing exists",
-    },
-    {
       value: "footerHints",
       label: `Footer hints  ·  ${config.footerHints}`,
       detail: "Detailed keeps two lines, minimal keeps only the task line",

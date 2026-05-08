@@ -133,11 +133,15 @@ describe("SessionState overlays", () => {
     expect(state.provider).toBe("vidking");
   });
 
-  test("resets session-only autoplay pause when a new title is selected or content is cleared", () => {
+  test("resets session-only playback pauses when a new title is selected or content is cleared", () => {
     let state = createInitialState("vidking", "allanime");
 
     state = reduceState(state, {
       type: "SET_SESSION_AUTOPLAY_PAUSED",
+      paused: true,
+    });
+    state = reduceState(state, {
+      type: "SET_SESSION_AUTOSKIP_PAUSED",
       paused: true,
     });
     state = reduceState(state, {
@@ -150,9 +154,14 @@ describe("SessionState overlays", () => {
     });
 
     expect(state.autoplaySessionPaused).toBe(false);
+    expect(state.autoskipSessionPaused).toBe(false);
 
     state = reduceState(state, {
       type: "SET_SESSION_AUTOPLAY_PAUSED",
+      paused: true,
+    });
+    state = reduceState(state, {
+      type: "SET_SESSION_AUTOSKIP_PAUSED",
       paused: true,
     });
     state = reduceState(state, {
@@ -162,6 +171,7 @@ describe("SessionState overlays", () => {
     state = reduceState(state, { type: "RESET_CONTENT" });
 
     expect(state.autoplaySessionPaused).toBe(false);
+    expect(state.autoskipSessionPaused).toBe(false);
     expect(state.stopAfterCurrent).toBe(false);
   });
 
