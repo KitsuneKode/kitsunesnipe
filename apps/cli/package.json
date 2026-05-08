@@ -21,7 +21,7 @@
     "url": "git+https://github.com/kitsunekode/kunai.git"
   },
   "bin": {
-    "kunai": "./dist/kunai.js"
+    "kunai": "dist/kunai.js"
   },
   "files": [
     "dist",
