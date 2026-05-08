@@ -93,7 +93,7 @@ interface ApiProvider extends BaseProvider {
 }
 ```
 
-`opts.embedScraper` is injected from `index.ts` so providers can reuse Playwright scraping without importing `scraper.ts` directly.
+`opts.embedScraper` is a legacy pattern kept for archival/reference providers. Active beta providers resolve through direct module adapters in `apps/cli/src/services/providers/definitions/`.
 
 ## When A Playwright Provider Can Become Browser-Less
 
@@ -112,9 +112,9 @@ Providers must not import Playwright directly once runtime ports land. They shou
 
 ## Registration
 
-- Add the implementation under `src/providers/`
-- Register it in `src/providers/index.ts`
-- Treat `src/providers/index.ts` as the source of truth for available providers
+- Add the implementation under `apps/cli/src/services/providers/definitions/`
+- Register it in `apps/cli/src/services/providers/definitions/index.ts`
+- Treat `apps/cli/src/services/providers/definitions/index.ts` as the source of truth for active providers
 
 ## Workflow Reminder
 
@@ -136,7 +136,7 @@ Use `apps/experiments/scratchpads/provider-*` as the research lab. The reports a
 
 The current Provider SDK migration follows the updated dossiers, not the older legacy provider classes:
 
-1. `vidking` first: production direct Videasy payload/decryption path, with Playwright fallback only.
+1. `vidking` first: production direct Videasy payload/decryption path in the active beta runtime.
 2. `allanime` / AllManga-compatible client second: production GraphQL/AES client with ani-cli parity discipline.
 3. `rivestream` and `miruro` next: candidate 0-RAM providers proven in scratchpads, pending fixtures.
 4. `anikai` after the runtime-browser package: it needs harvest-and-fetch/JIT Playwright boundaries.
@@ -152,12 +152,12 @@ The current Provider SDK migration follows the updated dossiers, not the older l
 - Providers emit cache policy and hints; they do not write SQLite, history, cache, health, or trace stores directly
 - Providers receive runtime ports such as `fetch` or `browserLease`; they do not own environment-specific runtime setup
 
-## Adding a Playwright Provider
+## Adding a Playwright Provider (future/runtime-browser path)
 
 1. Implement `PlaywrightProvider`
 2. Return a stable embed URL from `buildUrl()`
 3. Set `needsClick: true` only if playback requires user activation
-4. Register the provider in `src/providers/index.ts`
+4. Register the provider in `apps/cli/src/services/providers/definitions/index.ts`
 
 Minimal shape:
 
@@ -177,7 +177,7 @@ export const MyProvider: PlaywrightProvider = {
 1. Implement `search()` if the provider owns a search backend today
 2. Implement `resolveStream()`
 3. Use `opts.embedScraper()` if the last step still needs a browser
-4. Register the provider in `src/providers/index.ts`
+4. Register the provider in `apps/cli/src/services/providers/definitions/index.ts`
 
 Minimal shape:
 
@@ -242,16 +242,19 @@ Recommended workflow:
 | `needsClick: true`      | Scraper performs an activation click after navigation        |
 | `searchBackend`         | Documents which search backend currently feeds this provider |
 
-## Current Providers
+## Active Beta Providers
 
-| ID             | Kind       | Notes                                            |
-| -------------- | ---------- | ------------------------------------------------ |
-| `vidking`      | API        | Direct Videasy resolver with Playwright fallback |
-| `cineby`       | Playwright | Needs click                                      |
-| `bitcine`      | Playwright | Similar to Cineby                                |
-| `braflix`      | API        | HTTP metadata plus embed scrape                  |
-| `allanime`     | API        | AllManga-compatible ani-cli parity logic         |
-| `cineby-anime` | API        | HiAnime search plus anime embed scrape           |
+Current active runtime providers are the definitions wired in `apps/cli/src/services/providers/definitions/index.ts`.
+
+| ID           | Kind | Notes                                                                |
+| ------------ | ---- | -------------------------------------------------------------------- |
+| `rivestream` | API  | Direct module adapter (`@kunai/providers`) for movie/series          |
+| `vidking`    | API  | Direct module adapter (`@kunai/providers`) with subtitle merge logic |
+| `allanime`   | API  | AllManga-compatible GraphQL/AES path (anime)                         |
+| `miruro`     | API  | Direct module adapter (`@kunai/providers`) for anime                 |
+
+Legacy Playwright providers now live under `archive/legacy/apps/cli/src/providers/` as reference-only code.
+For current beta publish scope, Playwright is not a required runtime dependency.
 
 ## User Overrides
 

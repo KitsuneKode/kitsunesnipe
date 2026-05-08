@@ -16,7 +16,7 @@ Kunai lets you browse in a fullscreen TUI, resolve provider streams, and hand pl
 
 - Bun `>=1.3.9` (current beta runtime path)
 - `mpv` on your `PATH` (**required**)
-- Playwright Chromium (**recommended**, required for browser-backed providers)
+- Playwright Chromium (**optional**, only needed if browser-runtime providers return in future phases)
 - Kitty/Ghostty terminal (**optional**, for inline poster previews in browse/discover)
 - ImageMagick `magick` (**optional**, improves poster compatibility for non-PNG sources)
 - Discord + `discord-rpc` (**optional**, only for presence)
@@ -67,6 +67,12 @@ kunai
 - Run `/ discover` to open recommendation + trending sections
 - Press `Ctrl+T` in browse mode to reload trending discovery lists
 - Discover uses cached recommendation/catalog responses for deterministic UX
+
+## Provider Reality (Beta)
+
+- Active beta runtime providers are `rivestream`, `vidking`, `allanime`, and `miruro`
+- Legacy Playwright provider code is archived under `archive/legacy/**` as reference-only material
+- Experimental provider research lives in `apps/experiments/scratchpads/**` and does not ship as runtime behavior
 
 ## Controls
 
@@ -128,17 +134,37 @@ Kunai is actively hardened for public beta publish. Reliability, deterministic b
 ### Explicitly remaining before beta publish sign-off
 
 - Live verify autoplay advance at natural EOF for TMDB series and AllAnime
-- Complete legacy quarantine move out of active CLI tree into `archive/legacy/**` reference-only paths
 - Expand/keep architecture boundary tests to block regressions into legacy/experiments imports
 - Keep package boundaries strict: no premature large extraction outside stable contracts
 
 ## Recommended Execution Passes (From Now)
 
 1. **Publish hygiene pass**: metadata, README, package tarball, release dry-run
-2. **Legacy quarantine pass**: move legacy references out of active CLI tree
-3. **Boundary hardening pass**: enforce import fences and app-shell/service boundaries
-4. **Live reliability pass**: validate autoplay/provider drift handling on real sessions
+2. **Boundary hardening pass**: enforce import fences and app-shell/service boundaries
+3. **Live reliability pass**: validate autoplay/provider drift handling on real sessions
+4. **Download/offline pass**: move from feature gate to queue + library + setup wizard slices
 5. **Beta release pass**: final checks, changelog, publish
+
+## Demos (VHS)
+
+For contributor-friendly shell walkthroughs:
+
+```bash
+bun run --cwd apps/cli test:vhs:browse
+bun run --cwd apps/cli test:vhs:help
+bun run --cwd apps/cli test:vhs:launch
+```
+
+These are demos and visual regression references, not a replacement for unit/integration/live verification.
+
+## Appreciation And Inspiration
+
+Kunai stands on the shoulders of terminal-first and streaming UX inspirations:
+
+- `ani-cli` for proving fast, shell-native playback can be joyful
+- App-grade browsing UX patterns that keep search, details, episodes, and playback connected
+
+The goal is not to clone those tools, but to bring that same daily-driver confidence into a deterministic CLI workflow.
 
 ## Disclaimer
 

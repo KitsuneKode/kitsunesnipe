@@ -119,7 +119,7 @@ Use this file as the planning index. It should stay short. Put implementation de
 
 ## Milestone notes
 
-- **2026-05-04** — Beta readiness checkpoint: near-end quit policy in config + Ink/list settings, Playwright Chromium guardrail at startup, `--minimal` / `--quick` / `--jump` wired through `SessionController`, redacted diagnostics export command, `StreamResolveCache` helpers + `StreamRequest.animeLang`, shell playback `LoadingShell` remount key for episode transitions, history panel shows TMDB id. Details: [beta-readiness.md](beta-readiness.md), [.docs/lint-policy.md](../.docs/lint-policy.md).
+- **2026-05-04** — Beta readiness checkpoint: near-end quit policy in config + Ink/list settings, startup capability guardrails, `--minimal` / `--quick` / `--jump` wired through `SessionController`, redacted diagnostics export command, `StreamResolveCache` helpers + `StreamRequest.animeLang`, shell playback `LoadingShell` remount key for episode transitions, history panel shows TMDB id. Details: [beta-readiness.md](beta-readiness.md), [.docs/lint-policy.md](../.docs/lint-policy.md).
 
 ## Rules For This Folder
 

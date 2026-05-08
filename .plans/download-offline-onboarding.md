@@ -23,7 +23,7 @@ Add local downloads, an offline library, and a first-run/setup flow without slow
   - `onboardingVersion`
   - `downloadsEnabled`
   - `downloadPath`
-  - `suppressOfflinePrompt`
+  - `downloadOnboardingDismissed` (or rename to `suppressOfflinePrompt` if we standardize later)
 - Add a pure `FeatureGate` service for `downloads` and `autoSkip`.
 - Extend dependency checks to detect `ffmpeg` without blocking playback.
 - Add unit tests for config normalization and feature-gate decisions.

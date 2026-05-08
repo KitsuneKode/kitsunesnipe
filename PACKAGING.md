@@ -11,7 +11,7 @@ Use this before tagging a public beta or publishing packages.
 ## Install surfaces
 
 - [ ] **npm / Git** — documented clone + `bun install` + optional `bun run link:global` ([README](README.md), [.docs/quickstart.md](.docs/quickstart.md))
-- [ ] **Playwright** — `bunx playwright install chromium` documented for embedded providers ([.docs/quickstart.md](.docs/quickstart.md))
+- [ ] **Optional browser runtime deps** — `bunx playwright install chromium` documented as optional/future browser-runtime support, not a baseline requirement ([.docs/quickstart.md](.docs/quickstart.md))
 - [ ] **AUR / brew** — track separately when maintainers pick up the release; keep CLI flags in sync with `--help` / quickstart
 
 ## Smoke

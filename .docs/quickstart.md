@@ -6,7 +6,7 @@ Use this doc for setup, local execution, and common environment issues. Architec
 
 - Bun `>=1.3.9` for source installs during beta
 - `mpv` in `PATH`
-- Playwright Chromium for **embedded** providers (browser scrape); API-only anime sources may still work without it — Kunai warns at startup if the browser is missing
+- Playwright Chromium is optional for the current beta provider set; install only for future browser-runtime provider work
 - Kitty graphics protocol support if you want inline posters
 
 Kunai is Bun-first in beta. A Node/npm-only source checkout is not supported because the CLI uses Bun runtime APIs directly. Packaged binaries are the preferred future path for users who should not need to install Bun manually.
@@ -17,8 +17,13 @@ Kunai is Bun-first in beta. A Node/npm-only source checkout is not supported bec
 git clone <repo>
 cd kunai
 bun install
-bunx playwright install chromium
 bun run link:global   # optional: installs local CLI command
+```
+
+Optional browser runtime dependency:
+
+```sh
+bunx playwright install chromium
 ```
 
 ## Run
@@ -46,6 +51,16 @@ bun run test
 ```
 
 Do not use `bun test` directly.
+
+## VHS Demo Tour
+
+Use these when you want an intuitive visual walkthrough of the shell flows:
+
+```sh
+bun run --cwd apps/cli test:vhs:browse
+bun run --cwd apps/cli test:vhs:help
+bun run --cwd apps/cli test:vhs:launch
+```
 
 ## CLI flags
 
@@ -78,7 +93,7 @@ Then run `/ report-issue` to open the GitHub issue form with triage guidance.
 
 Kunai must drive the **same** native `mpv.exe` binary it spawned: IPC uses a Bun duplex **named pipe** (`//./pipe/kunai-mpv-…`), not your WSL Linux socket unless you run Kunai **inside** WSL. Player diagnostics will mention `ipc-bootstrap` with extra hints (`--debug` / `KITSUNE_DEBUG=1` logs structured `ipcTransport` / `bootstrapMs`). See [.docs/cli-reference.md](./cli-reference.md#mpv-bridge-script-persistent-autoplay).
 
-**Playwright cannot find Chromium**
+**Playwright cannot find Chromium (future browser-runtime providers only)**
 
 ```sh
 bunx playwright install chromium
@@ -87,7 +102,7 @@ bunx playwright install chromium
 **No stream resolved**
 
 Try a different provider from the shell picker, use provider fallback, or change the default provider in settings.
-If Playwright Chromium is missing, install it and retry browser-backed providers.
+If an experimental browser-runtime provider path is enabled in the future, install Playwright Chromium and retry.
 
 **Subtitles are missing or not selectable**
 

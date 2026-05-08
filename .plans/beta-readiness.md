@@ -146,7 +146,7 @@ These are the recommended passes to finish beta publish safely without broad UX 
 
 ### Remaining
 
-- [x] Startup warns when Playwright Chromium is missing (embedded providers); see [.docs/quickstart.md](../.docs/quickstart.md)
+- [x] Startup capability checks are non-blocking for optional dependencies and only block missing `mpv`; see [.docs/quickstart.md](../.docs/quickstart.md)
 - [ ] Ideally: friendly guided setup flow in the shell itself
 
 ---

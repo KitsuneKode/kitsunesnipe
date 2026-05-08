@@ -7,7 +7,7 @@ Kunai is a terminal-first media tool that resolves provider streams and launches
 ## Requirements
 
 - `mpv` on your `PATH` (required)
-- Playwright Chromium for browser-backed providers:
+- Playwright Chromium is not required for the current active beta provider set (optional for future browser-runtime providers)
 - Kitty or Ghostty terminal for inline poster previews (optional)
 - ImageMagick (`magick`) for broader poster format support in Kitty/Ghostty (optional)
 

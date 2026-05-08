@@ -2,7 +2,7 @@
 
 This is the canonical design reference for future download/offline/onboarding work.
 
-Status: planned, not implemented.
+Status: partially implemented (feature gate + config fields landed; queue/worker/library/setup wizard pending).
 
 ## Product Shape
 
@@ -44,15 +44,18 @@ Layering rule: UI asks services for capability/state; services do not render UI.
 - `--offline` should enter local library mode directly once implemented.
 - Local files should validate before playback; corrupt or missing files should offer re-download, not crash.
 
-## Proposed Config Fields
+## Config Fields (current + planned)
 
 Keep config flat unless the config model is deliberately refactored:
 
-- `onboardingVersion`
-- `downloadsEnabled`
-- `downloadPath`
-- `suppressOfflinePrompt`
-- `autoSkip`
+- Current:
+  - `downloadsEnabled`
+  - `downloadPath`
+  - `downloadOnboardingDismissed`
+- Planned follow-up fields:
+  - `onboardingVersion`
+  - `suppressOfflinePrompt` (or keep `downloadOnboardingDismissed` as the canonical equivalent)
+  - `autoSkip`
 
 ## Related Plan
 
