@@ -19,7 +19,7 @@
     "test:live:providers": "bun run --cwd apps/cli test:live:providers",
     "test:live:rivestream": "bun run --cwd apps/cli test:live:rivestream",
     "test:live:vidking": "bun run --cwd apps/cli test:live:vidking",
-    "ci": "turbo run typecheck lint fmt:check test",
+    "ci": "turbo run typecheck lint fmt:check test --summarize",
     "build": "turbo run build",
     "check": "turbo run check",
     "clean": "turbo run clean",

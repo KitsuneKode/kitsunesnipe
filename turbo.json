@@ -5,15 +5,12 @@
       "outputs": []
     },
     "lint": {
-      "cache": false,
       "outputs": []
     },
     "fmt": {
-      "cache": false,
       "outputs": []
     },
     "fmt:check": {
-      "cache": false,
       "outputs": []
     },
     "test": {
