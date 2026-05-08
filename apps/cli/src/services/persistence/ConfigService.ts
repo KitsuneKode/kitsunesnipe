@@ -63,6 +63,12 @@ export interface KitsuneConfig {
   presencePrivacy: PresencePrivacy;
   /** Discord application client id. Empty string = read KUNAI_DISCORD_CLIENT_ID when needed. */
   presenceDiscordClientId: string;
+  /** Optional offline download feature gate. Default off until the user opts in. */
+  downloadsEnabled: boolean;
+  /** Directory for offline downloads. Empty string = use Kunai app data defaults when implemented. */
+  downloadPath: string;
+  /** Suppress the first-run offline/download onboarding reminder. */
+  downloadOnboardingDismissed: boolean;
 }
 
 export interface ConfigService extends KitsuneConfig {

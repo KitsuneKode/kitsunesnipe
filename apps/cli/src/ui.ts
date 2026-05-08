@@ -8,7 +8,7 @@ import { log } from "@clack/prompts";
 export type CapabilitySeverity = "fatal" | "degraded";
 
 export interface CapabilityIssue {
-  readonly id: "mpv-missing";
+  readonly id: "mpv-missing" | "ffmpeg-missing";
   readonly severity: CapabilitySeverity;
   readonly message: string;
   readonly remediation: readonly string[];
@@ -16,6 +16,7 @@ export interface CapabilityIssue {
 
 export interface CapabilitySnapshot {
   readonly mpv: boolean;
+  readonly ffmpeg: boolean;
   readonly issues: readonly CapabilityIssue[];
 }
 
@@ -32,7 +33,7 @@ function capabilityFingerprint(snapshot: CapabilitySnapshot): string {
     .map((issue) => `${issue.id}:${issue.severity}`)
     .sort()
     .join(",");
-  return `mpv:${snapshot.mpv ? "1" : "0"}|issues:${issueBits}`;
+  return `mpv:${snapshot.mpv ? "1" : "0"}|ffmpeg:${snapshot.ffmpeg ? "1" : "0"}|issues:${issueBits}`;
 }
 
 async function loadCapabilityNoticeState(): Promise<CapabilityNoticeState | null> {
@@ -57,6 +58,7 @@ async function saveCapabilityNoticeState(state: CapabilityNoticeState): Promise<
 export async function checkDeps(appVersion = "2.0.0-beta"): Promise<CapabilitySnapshot> {
   const issues: CapabilityIssue[] = [];
   const mpv = Boolean(Bun.which("mpv"));
+  const ffmpeg = Boolean(Bun.which("ffmpeg"));
 
   if (!mpv) {
     const remediation = [
@@ -73,7 +75,7 @@ export async function checkDeps(appVersion = "2.0.0-beta"): Promise<CapabilitySn
     log.error("mpv not found — required for playback.");
   }
 
-  const snapshot: CapabilitySnapshot = { mpv, issues };
+  const snapshot: CapabilitySnapshot = { mpv, ffmpeg, issues };
   const fingerprint = capabilityFingerprint(snapshot);
   const previous = await loadCapabilityNoticeState();
   const shouldShowRemediation =

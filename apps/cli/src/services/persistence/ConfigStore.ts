@@ -41,4 +41,7 @@ export const DEFAULT_CONFIG: KitsuneConfig = {
   presenceProvider: "off",
   presencePrivacy: "full",
   presenceDiscordClientId: "",
+  downloadsEnabled: false,
+  downloadPath: "",
+  downloadOnboardingDismissed: false,
 };

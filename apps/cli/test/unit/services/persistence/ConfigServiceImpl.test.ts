@@ -60,6 +60,26 @@ describe("ConfigServiceImpl", () => {
     expect((await store.load()).presencePrivacy).toBe("private");
   });
 
+  test("defaults downloads off and persists the offline path gate", async () => {
+    const store = new MemoryConfigStore();
+    const service = await ConfigServiceImpl.load(store);
+
+    expect(service.downloadsEnabled).toBe(false);
+    expect(service.downloadPath).toBe("");
+    expect(service.downloadOnboardingDismissed).toBe(false);
+
+    await service.update({
+      downloadsEnabled: true,
+      downloadPath: "~/Videos/Kunai",
+      downloadOnboardingDismissed: true,
+    });
+    await service.save();
+
+    expect((await store.load()).downloadsEnabled).toBe(true);
+    expect((await store.load()).downloadPath).toBe("~/Videos/Kunai");
+    expect((await store.load()).downloadOnboardingDismissed).toBe(true);
+  });
+
   test("normalizes legacy subtitle defaults back to english on load", async () => {
     const noneService = await ConfigServiceImpl.load(
       new MemoryConfigStore({

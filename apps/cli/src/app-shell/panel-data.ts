@@ -3,6 +3,7 @@ import type { SessionState } from "@/domain/session/SessionState";
 import type { ProviderMetadata } from "@/domain/types";
 import type { DiagnosticEvent } from "@/services/diagnostics/DiagnosticsStore";
 import { buildRuntimeHealthSnapshot } from "@/services/diagnostics/runtime-health";
+import { resolveDownloadFeatureState } from "@/services/download/DownloadFeature";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 import { formatTimestamp, type HistoryEntry } from "@/services/persistence/HistoryStore";
 import type { CapabilitySnapshot } from "@/ui";
@@ -138,6 +139,10 @@ export function buildAboutPanelLines({
     capabilitySnapshot && capabilitySnapshot.issues.length > 0
       ? `${capabilitySnapshot.issues.length} degraded capability ${capabilitySnapshot.issues.length === 1 ? "check" : "checks"}`
       : "all required capabilities available";
+  const downloadFeature = resolveDownloadFeatureState({
+    config,
+    capabilities: capabilitySnapshot,
+  });
   return [
     {
       label: "Version",
@@ -161,6 +166,18 @@ export function buildAboutPanelLines({
         config.presenceProvider === "off"
           ? "off"
           : `${config.presenceProvider}  ·  privacy ${config.presencePrivacy}`,
+    },
+    {
+      label: "Downloads",
+      detail: downloadFeature.downloadPath
+        ? `${downloadFeature.detail}  ·  ${downloadFeature.downloadPath}`
+        : downloadFeature.detail,
+      tone:
+        downloadFeature.status === "ready"
+          ? "success"
+          : downloadFeature.status === "missing-ffmpeg"
+            ? "warning"
+            : "neutral",
     },
     {
       label: "Capabilities",
@@ -289,7 +306,7 @@ export function buildDiagnosticsPanelLines({
           ? capabilitySnapshot.issues
               .map((issue) => `${issue.id} (${issue.severity})`)
               .join("  ·  ")
-          : "no startup capability issues",
+          : `mpv ${capabilitySnapshot?.mpv ? "ready" : "missing"}  ·  ffmpeg ${capabilitySnapshot?.ffmpeg ? "ready" : "missing"}`,
       tone: capabilitySnapshot?.issues.length ? "warning" : "success",
     },
     {

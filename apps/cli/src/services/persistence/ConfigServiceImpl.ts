@@ -135,6 +135,18 @@ export class ConfigServiceImpl implements ConfigService {
     return this.config.presenceDiscordClientId;
   }
 
+  get downloadsEnabled(): boolean {
+    return this.config.downloadsEnabled;
+  }
+
+  get downloadPath(): string {
+    return this.config.downloadPath;
+  }
+
+  get downloadOnboardingDismissed(): boolean {
+    return this.config.downloadOnboardingDismissed;
+  }
+
   get discoverShowOnStartup(): boolean {
     return this.config.discoverShowOnStartup;
   }

@@ -47,11 +47,15 @@ describe("panel-data", () => {
         presenceProvider: "off",
         presencePrivacy: "full",
         presenceDiscordClientId: "",
+        downloadsEnabled: false,
+        downloadPath: "",
+        downloadOnboardingDismissed: false,
       },
       state: createInitialState("vidking", "allanime"),
     });
 
     expect(lines.find((line) => line.label === "Default startup mode")?.detail).toContain("anime");
+    expect(lines.find((line) => line.label === "Downloads")?.detail).toBe("off");
   });
 
   test("buildDiagnosticsPanelLines surfaces missing subtitles clearly", () => {
