@@ -166,10 +166,7 @@ function titlesOverlap(left: string, right: string): boolean {
 }
 
 function stripHtml(value: string): string {
-  return value
-    .replace(/<[^>]+>/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return value.replace(/[<>]/g, "").replace(/\s+/g, " ").trim();
 }
 
 function scoreToRating(score: number | null | undefined): number | null {

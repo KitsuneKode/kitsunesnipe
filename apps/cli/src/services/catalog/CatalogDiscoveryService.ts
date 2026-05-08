@@ -194,8 +194,5 @@ function readString(value: unknown): string {
 }
 
 function stripHtml(value: string): string {
-  return value
-    .replace(/<[^>]+>/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return value.replace(/[<>]/g, "").replace(/\s+/g, " ").trim();
 }
