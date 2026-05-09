@@ -76,6 +76,7 @@ import {
   type ShellPickerOption,
   type ShellAction,
   type ShellFooterMode,
+  type ShellStatusTone,
 } from "./types";
 import { usePosterPreview } from "./use-poster-preview";
 import { useSessionSelector } from "./use-session-selector";
@@ -390,6 +391,13 @@ function AppRoot({ container }: { container: Container }) {
   const rootContent = useRootContentSession();
   const { stdout } = useStdout();
   const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
+  const presenceBootTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestPresenceProviderRef = useRef(container.config.presenceProvider);
+  latestPresenceProviderRef.current = container.config.presenceProvider;
+  const [presenceBootLine, setPresenceBootLine] = useState<{
+    readonly text: string;
+    readonly tone: ShellStatusTone;
+  } | null>(null);
 
   // Global Ctrl+C / Ctrl+D handler. Ink normalizes control characters to their
   // letter name with key.ctrl=true, so we check both forms for safety.
@@ -429,6 +437,60 @@ function AppRoot({ container }: { container: Container }) {
       }),
     [container],
   );
+
+  // Eager Discord RPC: choosing Discord presence in settings opens the local IPC pipe here and
+  // after saves that enable Discord / change the Discord app id (applySettings disconnects first).
+  // Failures backoff inside PresenceServiceImpl; never block Ink on this task.
+  const presenceProvider = container.config.presenceProvider;
+  const presenceDiscordClientId = container.config.presenceDiscordClientId;
+  useEffect(() => {
+    const clearPresenceBootTimer = () => {
+      if (presenceBootTimerRef.current) {
+        clearTimeout(presenceBootTimerRef.current);
+        presenceBootTimerRef.current = null;
+      }
+    };
+
+    clearPresenceBootTimer();
+    if (presenceProvider !== "discord") {
+      setPresenceBootLine(null);
+      return () => {
+        clearPresenceBootTimer();
+      };
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const snapshot = await container.presence.connect();
+      if (cancelled) return;
+      if (latestPresenceProviderRef.current !== "discord") return;
+
+      clearPresenceBootTimer();
+      if (snapshot.status === "ready") {
+        setPresenceBootLine({ text: "Discord presence · connected", tone: "success" });
+      } else if (snapshot.status === "disabled") {
+        return;
+      } else {
+        const rawDetail = snapshot.detail.trim() || snapshot.status;
+        const detail = rawDetail.length > 56 ? `${rawDetail.slice(0, 53).trimEnd()}…` : rawDetail;
+        const tone: ShellStatusTone = snapshot.status === "error" ? "error" : "warning";
+        setPresenceBootLine({
+          text: `Discord presence · ${snapshot.status} · ${detail}`,
+          tone,
+        });
+      }
+
+      presenceBootTimerRef.current = setTimeout(() => {
+        presenceBootTimerRef.current = null;
+        setPresenceBootLine(null);
+      }, 6200);
+    })();
+
+    return () => {
+      cancelled = true;
+      clearPresenceBootTimer();
+    };
+  }, [container.presence, presenceDiscordClientId, presenceProvider]);
 
   useEffect(() => {
     const resolveStatus = () => {
@@ -552,6 +614,13 @@ function AppRoot({ container }: { container: Container }) {
             />
           ))}
         </Box>
+        {presenceBootLine ? (
+          <Box marginTop={0}>
+            <Text dimColor color={statusColor(presenceBootLine.tone)}>
+              {truncateLine(presenceBootLine.text, Math.max(36, shellWidth - 8))}
+            </Text>
+          </Box>
+        ) : null}
         <Box marginTop={1} flexDirection="column" flexGrow={1} justifyContent="space-between">
           <Box flexDirection="column" flexGrow={1}>
             {rootSurface === "error" ? (

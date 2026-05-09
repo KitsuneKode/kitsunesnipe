@@ -31,6 +31,10 @@ type NodeBridgeResponse = {
 
 const DEFAULT_DISCORD_CLIENT_ID = "1502307419047461025";
 
+/** Shown in diagnostics when IPC/update fails and another consumer may hold the Discord app pipe. */
+const DISCORD_PRESENCE_MULTI_INSTANCE_DIAGNOSTIC =
+  "Another Kunai window or discord-rpc app using the same Discord application id may contend for IPC; close other instances or disable Rich Presence there.";
+
 export class PresenceServiceImpl implements PresenceService {
   private status: PresenceStatus = "idle";
   private discordClient: DiscordRpcClient | null = null;
@@ -132,7 +136,9 @@ export class PresenceServiceImpl implements PresenceService {
       this.unavailableRetryAtMs = 0;
       this.unavailableBackoffMs = 1_000;
     } catch (error) {
-      this.markUnavailable("Discord presence update failed", error);
+      this.markUnavailable("Discord presence update failed", error, {
+        suspectedDuplicateDiscordConsumer: true,
+      });
     }
   }
 
@@ -146,7 +152,9 @@ export class PresenceServiceImpl implements PresenceService {
         context: { provider: "discord", reason },
       });
     } catch (error) {
-      this.markUnavailable("Discord presence clear failed", error);
+      this.markUnavailable("Discord presence clear failed", error, {
+        suspectedDuplicateDiscordConsumer: true,
+      });
     }
   }
 
@@ -222,12 +230,18 @@ export class PresenceServiceImpl implements PresenceService {
       });
       return client;
     } catch (error) {
-      this.markUnavailable("Discord presence unavailable", error);
+      this.markUnavailable("Discord presence unavailable", error, {
+        suspectedDuplicateDiscordConsumer: true,
+      });
       return null;
     }
   }
 
-  private markUnavailable(message: string, error: unknown): void {
+  private markUnavailable(
+    message: string,
+    error: unknown,
+    options?: { suspectedDuplicateDiscordConsumer?: boolean },
+  ): void {
     this.status = "unavailable";
     this.unavailableUntilRestart = true;
     this.unavailableReason = normalizePresenceError(error);
@@ -240,6 +254,9 @@ export class PresenceServiceImpl implements PresenceService {
         provider: "discord",
         error: this.unavailableReason ?? String(error),
         retry: `auto-retry-in-${Math.max(1, Math.ceil((this.unavailableRetryAtMs - Date.now()) / 1000))}s`,
+        ...(options?.suspectedDuplicateDiscordConsumer
+          ? { suspectedDuplicateDiscordConsumer: DISCORD_PRESENCE_MULTI_INSTANCE_DIAGNOSTIC }
+          : {}),
       },
     });
   }
