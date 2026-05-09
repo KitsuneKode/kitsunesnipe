@@ -146,7 +146,7 @@ test("cli stream adapter returns shared provider resolve result with trace evide
     stream: {
       url: "https://cdn.example/master.m3u8",
       headers: { referer: "https://vidking.net" },
-      audioLanguage: "ja",
+      audioLanguages: ["ja"],
       hardSubLanguage: "en",
       subtitle: "https://cdn.example/en.vtt",
       subtitleList: [{ url: "https://cdn.example/en.vtt", language: "en", display: "English" }],
@@ -159,7 +159,7 @@ test("cli stream adapter returns shared provider resolve result with trace evide
 
   expect(result.providerId).toBe("vidking");
   expect(result.streams[0]?.protocol).toBe("hls");
-  expect(result.streams[0]?.audioLanguage).toBe("ja");
+  expect(result.streams[0]?.audioLanguages).toEqual(["ja"]);
   expect(result.streams[0]?.hardSubLanguage).toBe("en");
   expect(result.subtitles[0]?.language).toBe("en");
   expect(result.trace.cacheHit).toBe(true);

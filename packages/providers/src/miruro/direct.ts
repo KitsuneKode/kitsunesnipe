@@ -154,7 +154,7 @@ export const miruroProviderModule: CoreProviderModule = {
           url: streamRaw.url,
           protocol,
           container: protocol === "hls" ? "m3u8" : "mp4",
-          audioLanguage: targetAudio,
+          audioLanguages: [targetAudio],
           qualityLabel: qualityStr,
           qualityRank: parseInt(qualityStr) || 0,
           headers: {
@@ -173,7 +173,7 @@ export const miruroProviderModule: CoreProviderModule = {
           qualityRank: parseInt(qualityStr) || 0,
           protocol,
           container: protocol === "hls" ? "m3u8" : "mp4",
-          audioLanguage: targetAudio,
+          audioLanguages: [targetAudio],
           streamIds: [streamId],
           confidence: 0.95,
         });

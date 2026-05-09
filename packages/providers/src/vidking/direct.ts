@@ -507,7 +507,10 @@ function normalizeStreamCandidates({
             : protocol === "mp4"
               ? "mp4"
               : "unknown",
-      audioLanguage: normalizeLanguage(source.language),
+      audioLanguages:
+        source.language && normalizeLanguage(source.language)
+          ? [normalizeLanguage(source.language) as string]
+          : undefined,
       qualityLabel: source.quality,
       qualityRank,
       headers: {
@@ -596,7 +599,7 @@ function createVariantCandidates({
     qualityRank: stream.qualityRank,
     protocol: stream.protocol,
     container: stream.container,
-    audioLanguage: stream.audioLanguage,
+    audioLanguages: stream.audioLanguages,
     subtitleLanguages: subtitles
       .map((subtitle) => subtitle.language)
       .filter((language): language is string => Boolean(language)),

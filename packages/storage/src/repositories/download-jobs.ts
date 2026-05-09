@@ -401,7 +401,12 @@ export class DownloadJobsRepository {
   listFailed(limit = 100): readonly DownloadJobRecord[] {
     return this.db
       .query<DownloadJobRow, [number]>(
-        "SELECT * FROM download_jobs WHERE status = 'failed' ORDER BY updated_at DESC LIMIT ?",
+        `
+          SELECT * FROM download_jobs
+          WHERE status IN ('failed', 'aborted')
+          ORDER BY updated_at DESC
+          LIMIT ?
+        `,
       )
       .all(limit)
       .map(mapRow);

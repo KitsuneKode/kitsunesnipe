@@ -139,7 +139,7 @@ export const allmangaProviderModule: CoreProviderModule = {
           url: link.url,
           protocol,
           container: protocol === "hls" ? "m3u8" : "mp4",
-          audioLanguage: mode,
+          audioLanguages: [mode],
           hardSubLanguage: mode === "sub" ? "en" : undefined,
           qualityLabel: qualityStr,
           qualityRank: parseInt(qualityStr) || 0,
@@ -156,7 +156,7 @@ export const allmangaProviderModule: CoreProviderModule = {
           qualityRank: parseInt(qualityStr) || 0,
           protocol,
           container: protocol === "hls" ? "m3u8" : "mp4",
-          audioLanguage: mode,
+          audioLanguages: [mode],
           streamIds: [streamId],
           confidence: protocol === "hls" ? 0.95 : 0.85,
         });

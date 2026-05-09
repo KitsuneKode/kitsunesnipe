@@ -69,8 +69,10 @@ export interface StreamCandidate {
   readonly deferredLocator?: string;
   readonly protocol: "hls" | "dash" | "mp4" | "iframe" | "unknown";
   readonly container?: "m3u8" | "mpd" | "mp4" | "webm" | "unknown";
-  readonly audioLanguage?: string;
+  readonly audioLanguages?: readonly string[];
   readonly hardSubLanguage?: string;
+  readonly subtitleLanguages?: readonly string[];
+  readonly serverName?: string;
   readonly qualityLabel?: string;
   readonly qualityRank?: number;
   readonly headers?: Record<string, string>;
@@ -135,7 +137,7 @@ export interface ProviderVariantCandidate {
   readonly qualityRank?: number;
   readonly protocol?: StreamCandidate["protocol"];
   readonly container?: StreamCandidate["container"];
-  readonly audioLanguage?: string;
+  readonly audioLanguages?: readonly string[];
   readonly hardSubLanguage?: string;
   readonly subtitleLanguages?: readonly string[];
   readonly streamIds?: readonly string[];
