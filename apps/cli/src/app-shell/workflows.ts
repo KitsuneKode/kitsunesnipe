@@ -5,6 +5,7 @@ import { describePlaybackSubtitleStatus } from "@/app/subtitle-status";
 import type { Container } from "@/container";
 import { effectiveFooterHints } from "@/container";
 import type { EpisodePickerOption } from "@/domain/types";
+import { isChafaAvailable } from "@/image";
 import { writeAtomicJson } from "@/infra/fs/atomic-write";
 import { DownloadEnqueueRejectedError } from "@/services/download/DownloadService";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
@@ -107,7 +108,7 @@ export async function runSetupWizard({
   const defaultDownloadPath = join(dirname(getKunaiPaths().dataDbPath), "downloads");
   const capabilitySnapshot = container.capabilitySnapshot;
   const ffmpegAvailable = capabilitySnapshot?.ffmpeg ?? Boolean(Bun.which("ffmpeg"));
-  const chafaAvailable = capabilitySnapshot?.chafa ?? Boolean(Bun.which("chafa"));
+  const chafaAvailable = capabilitySnapshot?.chafa ?? isChafaAvailable();
   const imageCapability = capabilitySnapshot?.image;
   const postersAvailable = imageCapability?.available ?? false;
   const posterDetail = imageCapability

@@ -11,6 +11,7 @@ import {
   __testing as capabilityTesting,
   detectImageCapability,
   detectTerminal,
+  isChafaAvailable,
 } from "@/image/capability";
 import { ensurePngBytes, __testing as convertTesting } from "@/image/convert";
 import { isPngBytes } from "@/image/png";
@@ -372,6 +373,23 @@ describe("detectImageCapability", () => {
     } finally {
       restoreWhich();
       restoreTty();
+    }
+  });
+});
+
+describe("isChafaAvailable", () => {
+  test("uses the same runtime.which stub as capability tests", () => {
+    const restoreNone = mockBunWhich(null);
+    try {
+      expect(isChafaAvailable()).toBe(false);
+    } finally {
+      restoreNone();
+    }
+    const restorePath = mockBunWhich("/usr/bin/chafa");
+    try {
+      expect(isChafaAvailable()).toBe(true);
+    } finally {
+      restorePath();
     }
   });
 });

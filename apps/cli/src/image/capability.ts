@@ -65,6 +65,11 @@ const runtime = {
   which: (command: string): string | null => Bun.which(command),
 };
 
+/** True when `chafa` resolves on PATH. Uses the same injectable `runtime.which` as `detectImageCapability` (see `__testing`). */
+export function isChafaAvailable(): boolean {
+  return Boolean(runtime.which("chafa"));
+}
+
 export function detectImageCapability(env: NodeJS.ProcessEnv = process.env): ImageCapability {
   if (!runtime.isStdoutTty()) {
     return noneCapability("unknown", "stdout is not a TTY");
@@ -75,7 +80,7 @@ export function detectImageCapability(env: NodeJS.ProcessEnv = process.env): Ima
   }
 
   const terminal = detectTerminal(env);
-  const hasChafa = Boolean(runtime.which("chafa"));
+  const hasChafa = isChafaAvailable();
   const override = normalizeProtocol(env.KUNAI_IMAGE_PROTOCOL);
 
   if (override === "invalid") {

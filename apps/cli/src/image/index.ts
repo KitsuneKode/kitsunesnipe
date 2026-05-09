@@ -1,5 +1,5 @@
 import { getCachedPoster } from "./cache";
-import { detectImageCapability } from "./capability";
+import { detectImageCapability, isChafaAvailable } from "./capability";
 import { debugImage } from "./debug";
 import { NonPngError, renderChafaKitty, renderPosterFile } from "./renderers";
 import type { ImageRenderOptions } from "./types";
@@ -42,7 +42,7 @@ export async function displayPoster(
     } catch (error) {
       if (error instanceof NonPngError) {
         debugImage("kitty-native skipped: non-PNG input");
-        if (capability.renderer === "kitty-native" && Bun.which("chafa")) {
+        if (capability.renderer === "kitty-native" && isChafaAvailable()) {
           try {
             await renderChafaKitty(cachedPath, resolvedOptions);
           } catch (fallbackError) {
@@ -64,7 +64,12 @@ export async function displayPoster(
   }
 }
 
-export { detectImageCapability, detectTerminal, isKittyCompatible } from "./capability";
+export {
+  detectImageCapability,
+  detectTerminal,
+  isChafaAvailable,
+  isKittyCompatible,
+} from "./capability";
 export type {
   ImageCapability,
   ImageProtocol,

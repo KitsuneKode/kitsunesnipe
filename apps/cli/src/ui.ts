@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { ImageCapability } from "@/image";
-import { detectImageCapability } from "@/image";
+import { detectImageCapability, isChafaAvailable } from "@/image";
 
 // ── Dependency check ───────────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ export async function checkDeps(appVersion = "0.1.0"): Promise<CapabilitySnapsho
   const issues: CapabilityIssue[] = [];
   const mpv = Boolean(Bun.which("mpv"));
   const ffmpeg = Boolean(Bun.which("ffmpeg"));
-  const chafa = Boolean(Bun.which("chafa"));
+  const chafa = isChafaAvailable();
   const magick = Boolean(Bun.which("magick"));
   const image = detectImageCapability();
 
