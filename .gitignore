@@ -60,3 +60,4 @@ stream_cache.json
 
 # Brainstorm session files
 .superpowers/
+.context/
