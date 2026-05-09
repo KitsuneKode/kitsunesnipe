@@ -8,6 +8,7 @@ import type { ConfigService } from "@/services/persistence/ConfigService";
 import { DownloadJobsRepository, openKunaiDatabase, runMigrations } from "@kunai/storage";
 
 const encoder = new TextEncoder();
+const originalFetch = globalThis.fetch;
 
 describe("DownloadService", () => {
   let tempDir: string;
@@ -23,6 +24,7 @@ describe("DownloadService", () => {
   });
 
   afterEach(() => {
+    globalThis.fetch = originalFetch;
     spawnSpy.mockRestore();
     rmSync(tempDir, { recursive: true, force: true });
     mock.restore();
@@ -129,6 +131,122 @@ describe("DownloadService", () => {
     expect(completed?.streamUrl).toBe("https://fresh.example/master.m3u8");
     expect(completed?.mode).toBe("series");
     expect(completed?.subLang).toBe("eng");
+  });
+
+  test("downloads subtitles from the freshly resolved stream metadata", async () => {
+    const service = buildService({
+      repo,
+      downloadsEnabled: true,
+      ytDlpAvailable: true,
+      downloadPath: tempDir,
+      resolveDownloadStream: async () => ({
+        stream: {
+          url: "https://fresh.example/master.m3u8",
+          headers: { Referer: "https://fresh.example" },
+          timestamp: 0,
+          subtitle: "https://fresh.example/subs/en.vtt?q=selected",
+          subtitleList: [
+            {
+              url: "https://fresh.example/subs/en.vtt?q=inventory",
+              language: "en",
+              display: "English",
+            },
+          ],
+        },
+        providerId: "vidking",
+        selectionChanged: false,
+      }),
+    });
+    spawnSpy.mockImplementation((command: string[]) => {
+      const oIndex = command.indexOf("-o");
+      const outputPath = oIndex >= 0 ? command[oIndex + 1] : command[command.length - 1];
+      if (typeof outputPath === "string") writeFileSync(outputPath, "video-bytes");
+      return {
+        stdout: streamOf("[download] 100% of 1.2GiB\n"),
+        stderr: streamOf("Duration: 00:00:10.00\n"),
+        exited: Promise.resolve(0),
+      } as never;
+    });
+    globalThis.fetch = mock(
+      async () => new Response("WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHi"),
+    ) as unknown as typeof fetch;
+
+    const job = await service.enqueue({
+      title: { id: "tmdb:1", type: "series", name: "Example" },
+      episode: { season: 1, episode: 3, name: "Episode 3" },
+      providerId: "vidking",
+      mode: "series",
+      audioPreference: "original",
+      subtitlePreference: "en",
+    });
+    await service.processQueue();
+
+    const completed = repo.get(job.id);
+    expect(completed?.status).toBe("completed");
+    expect(completed?.subtitleUrl).toBe("https://fresh.example/subs/en.vtt?q=selected");
+    expect(completed?.subtitleLanguage).toBe("en");
+    expect(completed?.subtitlePath).toBeDefined();
+    expect(existsSync(completed?.subtitlePath ?? "")).toBe(true);
+  });
+
+  test("clears stale subtitle metadata when a refreshed stream has no subtitles", async () => {
+    const service = buildService({
+      repo,
+      downloadsEnabled: true,
+      ytDlpAvailable: true,
+      downloadPath: tempDir,
+      resolveDownloadStream: async () => ({
+        stream: {
+          url: "https://fresh.example/master.m3u8",
+          headers: {},
+          timestamp: 0,
+        },
+        providerId: "vidking",
+        selectionChanged: false,
+      }),
+    });
+    spawnSpy.mockImplementation((command: string[]) => {
+      const oIndex = command.indexOf("-o");
+      const outputPath = oIndex >= 0 ? command[oIndex + 1] : command[command.length - 1];
+      if (typeof outputPath === "string") writeFileSync(outputPath, "video-bytes");
+      return {
+        stdout: streamOf("[download] 100% of 1.2GiB\n"),
+        stderr: streamOf("Duration: 00:00:10.00\n"),
+        exited: Promise.resolve(0),
+      } as never;
+    });
+    globalThis.fetch = mock(async () => {
+      throw new Error("stale subtitle URL should not be fetched");
+    }) as unknown as typeof fetch;
+
+    const job = await service.enqueue({
+      title: { id: "tmdb:1", type: "series", name: "Example" },
+      episode: { season: 1, episode: 4, name: "Episode 4" },
+      stream: {
+        url: "https://stale.example/master.m3u8",
+        headers: {},
+        timestamp: 0,
+        subtitle: "https://stale.example/subs/en.vtt",
+      },
+      providerId: "vidking",
+      mode: "series",
+      audioPreference: "original",
+      subtitlePreference: "en",
+    });
+    const staleSubtitlePath = join(tempDir, "old-sidecar.vtt");
+    writeFileSync(staleSubtitlePath, "old subtitle");
+    repo.updateOfflineMetadata(
+      job.id,
+      { subtitlePath: staleSubtitlePath, subtitleLanguage: "en" },
+      new Date().toISOString(),
+    );
+    await service.processQueue();
+
+    const completed = repo.get(job.id);
+    expect(completed?.status).toBe("completed");
+    expect(completed?.subtitleUrl).toBeUndefined();
+    expect(completed?.subtitlePath).toBeUndefined();
+    expect(completed?.subtitleLanguage).toBeUndefined();
   });
 
   test("marks zero-byte artifacts invalid instead of completed", async () => {

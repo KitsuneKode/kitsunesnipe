@@ -160,28 +160,33 @@ export class DownloadJobsRepository {
     },
     updatedAt: string,
   ): void {
+    const assignments: string[] = [];
+    const values: Array<string | number | null> = [];
+
+    const setIfPresent = (key: keyof typeof input, column: string) => {
+      if (!Object.hasOwn(input, key)) return;
+      assignments.push(`${column} = ?`);
+      values.push(input[key] ?? null);
+    };
+
+    setIfPresent("subtitleUrl", "subtitle_url");
+    setIfPresent("subtitlePath", "subtitle_path");
+    setIfPresent("subtitleLanguage", "subtitle_language");
+    setIfPresent("introSkipJson", "intro_skip_json");
+    setIfPresent("durationMs", "duration_ms");
+
+    assignments.push("updated_at = ?");
+    values.push(updatedAt, id);
+
     this.db
       .query(
         `
           UPDATE download_jobs
-          SET subtitle_url = COALESCE(?, subtitle_url),
-              subtitle_path = COALESCE(?, subtitle_path),
-              subtitle_language = COALESCE(?, subtitle_language),
-              intro_skip_json = COALESCE(?, intro_skip_json),
-              duration_ms = COALESCE(?, duration_ms),
-              updated_at = ?
+          SET ${assignments.join(", ")}
           WHERE id = ?
         `,
       )
-      .run(
-        input.subtitleUrl ?? null,
-        input.subtitlePath ?? null,
-        input.subtitleLanguage ?? null,
-        input.introSkipJson ?? null,
-        input.durationMs ?? null,
-        updatedAt,
-        id,
-      );
+      .run(...values);
   }
 
   updateFileSize(id: string, fileSize: number, updatedAt: string): void {

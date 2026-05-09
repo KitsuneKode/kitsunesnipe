@@ -4,6 +4,8 @@
 // Delegates to the existing mpv.ts for media playback.
 // =============================================================================
 
+import { stat } from "node:fs/promises";
+
 import type { PlaybackResult, StreamInfo } from "@/domain/types";
 import type { Logger } from "@/infra/logger/Logger";
 import type { Tracer } from "@/infra/tracer/Tracer";
@@ -149,6 +151,7 @@ export class PlayerServiceImpl implements PlayerService {
     onPlayerReady?: () => void;
     onPlaybackEvent?: (event: PlayerPlaybackEvent) => void;
   }): Promise<PlaybackResult> {
+    const subtitlePath = await this.resolveReadableSubtitlePath(options.subtitlePath ?? null);
     options.onPlaybackEvent?.({ type: "launching-player" });
     this.deps.logger.info("Launching local MPV", {
       title: options.displayTitle,
@@ -160,14 +163,14 @@ export class PlayerServiceImpl implements PlayerService {
       context: {
         title: options.displayTitle,
         filePath: options.filePath,
-        hasSubtitle: Boolean(options.subtitlePath),
+        hasSubtitle: Boolean(subtitlePath),
       },
     });
 
     const result = await launchMpv({
       url: options.filePath,
       headers: {},
-      subtitle: options.subtitlePath ?? null,
+      subtitle: subtitlePath,
       displayTitle: options.displayTitle,
       attach: options.attach,
       timing: options.timing,
@@ -182,6 +185,23 @@ export class PlayerServiceImpl implements PlayerService {
     });
 
     return result;
+  }
+
+  private async resolveReadableSubtitlePath(subtitlePath: string | null): Promise<string | null> {
+    if (!subtitlePath) return null;
+    try {
+      const fileStat = await stat(subtitlePath);
+      if (fileStat.isFile() && fileStat.size > 0) return subtitlePath;
+    } catch {
+      // fall through to launch without a broken sidecar path
+    }
+    this.deps.logger.warn("Skipping unreadable local subtitle sidecar", { subtitlePath });
+    this.deps.diagnosticsStore.record({
+      category: "subtitle",
+      message: "Skipping unreadable local subtitle sidecar",
+      context: { subtitlePath },
+    });
+    return null;
   }
 
   private async playOneShotStream(

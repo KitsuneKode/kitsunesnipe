@@ -11,6 +11,7 @@ import type {
 } from "@/domain/types";
 import type { Logger } from "@/infra/logger/Logger";
 import type { ConfigService } from "@/services/persistence/ConfigService";
+import { normalizeSubtitleUrl } from "@/subtitle";
 import { getKunaiPaths, type DownloadJobRecord, type DownloadJobsRepository } from "@kunai/storage";
 
 import { persistLanguageHintsFromEnqueueInput } from "./download-language-hints";
@@ -253,9 +254,9 @@ export class DownloadService {
     this.deps.repo.markRunning(next.id, now);
 
     try {
-      await this.executeYtDlpDownload(next);
-      await this.downloadSubtitleIfAvailable(next);
-      await this.persistOutputFileSize(next);
+      const downloaded = await this.executeYtDlpDownload(next);
+      await this.downloadSubtitleIfAvailable(downloaded);
+      await this.persistOutputFileSize(downloaded);
       const completedAt = new Date().toISOString();
       this.deps.repo.complete(next.id, completedAt);
       return this.deps.repo.get(next.id) ?? null;
@@ -388,8 +389,10 @@ export class DownloadService {
     this.deps.repo.delete(jobId);
   }
 
-  private async executeYtDlpDownload(job: DownloadJobRecord): Promise<void> {
+  private async executeYtDlpDownload(job: DownloadJobRecord): Promise<DownloadJobRecord> {
     const resolved = await this.resolveStreamForJob(job);
+    const subtitleLanguage = resolveSubtitleLanguage(resolved.stream);
+    const updatedAt = new Date().toISOString();
     this.deps.repo.updateResolvedStream(
       job.id,
       {
@@ -397,12 +400,23 @@ export class DownloadService {
         headers: resolved.stream.headers,
         providerId: resolved.providerId,
       },
-      new Date().toISOString(),
+      updatedAt,
+    );
+    this.deps.repo.updateOfflineMetadata(
+      job.id,
+      {
+        subtitleUrl: resolved.stream.subtitle ?? null,
+        subtitlePath: null,
+        subtitleLanguage,
+      },
+      updatedAt,
     );
     job = this.deps.repo.get(job.id) ?? {
       ...job,
       streamUrl: resolved.stream.url,
       headers: resolved.stream.headers,
+      subtitleUrl: resolved.stream.subtitle ?? job.subtitleUrl,
+      subtitleLanguage: subtitleLanguage ?? job.subtitleLanguage,
       lastResolvedProviderId: resolved.providerId as never,
     };
 
@@ -485,6 +499,7 @@ export class DownloadService {
 
       await rename(job.tempPath, job.outputPath);
       await this.validateCompletedArtifact(job.outputPath);
+      return this.deps.repo.get(job.id) ?? job;
     } finally {
       stopHeartbeat();
     }
@@ -641,6 +656,7 @@ export class DownloadService {
 
   private async downloadSubtitleIfAvailable(job: DownloadJobRecord): Promise<void> {
     if (!job.subtitleUrl) return;
+    let tempPath: string | null = null;
     try {
       const policy = buildDownloadStreamPolicy(job.headers);
       const res = await fetch(job.subtitleUrl, {
@@ -656,13 +672,18 @@ export class DownloadService {
         contentType: res.headers.get("content-type"),
       });
       const buffer = new Uint8Array(await res.arrayBuffer());
-      await Bun.write(targetPath, buffer);
+      if (buffer.byteLength <= 0) return;
+      tempPath = `${targetPath}.tmp.${job.id}`;
+      await Bun.write(tempPath, buffer);
+      await rename(tempPath, targetPath);
+      tempPath = null;
       this.deps.repo.updateOfflineMetadata(
         job.id,
         { subtitlePath: targetPath },
         new Date().toISOString(),
       );
     } catch {
+      if (tempPath) await rm(tempPath, { force: true }).catch(() => {});
       // subtitle download is best-effort
     }
   }
@@ -856,7 +877,10 @@ function appendBounded(current: string, line: string, maxBytes: number): string 
 }
 
 function resolveSubtitleLanguage(stream: StreamInfo): string | null {
-  const candidate = stream.subtitleList?.find((track) => track.url === stream.subtitle);
+  const subtitleKey = stream.subtitle ? normalizeSubtitleUrl(stream.subtitle) : null;
+  const candidate = stream.subtitleList?.find(
+    (track) => subtitleKey && normalizeSubtitleUrl(track.url) === subtitleKey,
+  );
   if (candidate?.language) return candidate.language;
   if (stream.hardSubLanguage) return stream.hardSubLanguage;
   return null;
