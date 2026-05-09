@@ -151,6 +151,21 @@ test("buildMpvArgs skips slang for interactive subtitle mode", () => {
   expect(args.some((arg) => arg.startsWith("--slang="))).toBe(false);
 });
 
+test("buildMpvArgs keeps legacy fzf subtitle mode compatibility without slang", () => {
+  const args = buildMpvArgs(
+    {
+      url: "https://cdn.example/master.m3u8",
+      headers: {},
+      subtitle: null,
+      subtitlePreference: "fzf",
+      displayTitle: "Legacy subtitle mode compatibility",
+    },
+    "/tmp/kunai-test.sock",
+  );
+
+  expect(args.some((arg) => arg.startsWith("--slang="))).toBe(false);
+});
+
 test("collectAdditionalSubtitleTracks excludes the primary subtitle and dedupes extras", () => {
   expect(
     collectAdditionalSubtitleTracks("https://sub.example/en.srt", [

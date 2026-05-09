@@ -105,4 +105,17 @@ describe("ConfigServiceImpl", () => {
 
     expect(service.animeLanguageProfile.subtitle).toBe("interactive");
   });
+
+  test("round-trips legacy profile subtitle preference as interactive on save", async () => {
+    const store = new MemoryConfigStore({
+      animeLanguageProfile: { audio: "original", subtitle: "fzf" },
+    });
+    const service = await ConfigServiceImpl.load(store);
+
+    expect(service.animeLanguageProfile.subtitle).toBe("interactive");
+
+    await service.save();
+    const persisted = await store.load();
+    expect(persisted.animeLanguageProfile?.subtitle).toBe("interactive");
+  });
 });
