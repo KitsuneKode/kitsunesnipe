@@ -33,6 +33,8 @@ export async function launchMpv(opts: {
   url: string;
   headers: Record<string, string>;
   subtitle: string | null;
+  audioPreference?: string;
+  subtitlePreference?: string;
   subtitleTracks?: readonly SubtitleTrack[];
   displayTitle: string;
   startAt?: number;
@@ -245,6 +247,8 @@ export function buildMpvArgs(
     url: string;
     headers: Record<string, string>;
     subtitle: string | null;
+    audioPreference?: string;
+    subtitlePreference?: string;
     subtitleTracks?: readonly SubtitleTrack[];
     displayTitle: string;
     startAt?: number;
@@ -270,6 +274,15 @@ export function buildMpvArgs(
 
   if (opts.subtitle) {
     args.push(`--sub-file=${opts.subtitle}`);
+  }
+
+  const alang = toMpvLanguageToken(opts.audioPreference, { forSubtitle: false });
+  if (alang) {
+    args.push(`--alang=${alang}`);
+  }
+  const slang = toMpvLanguageToken(opts.subtitlePreference, { forSubtitle: true });
+  if (slang) {
+    args.push(`--slang=${slang}`);
   }
 
   const includeStartArg = config?.includeStartArg ?? config?.persistent !== true;
@@ -322,6 +335,19 @@ export function buildMpvArgs(
   if (config?.scriptOpts) args.push(`--script-opts=${config.scriptOpts}`);
 
   return args;
+}
+
+function toMpvLanguageToken(
+  value: string | undefined,
+  options: { forSubtitle: boolean },
+): string | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "original") return "orig";
+  if (options.forSubtitle && normalized === "none") return "no";
+  if (normalized === "interactive" || normalized === "fzf") return null;
+  return normalized;
 }
 
 export function collectAdditionalSubtitleTracks(

@@ -245,6 +245,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         return {
           note: `${event.kind.charAt(0).toUpperCase()}${event.kind.slice(1)} ${event.automatic ? "skipped automatically" : "skipped"}`,
         };
+      case "track-changed":
+        return {
+          note: `${event.trackType === "audio" ? "Audio" : "Subtitle"} track switched in mpv (id ${event.id})`,
+        };
       case "mpv-in-process-reconnect": {
         const phaseLabel =
           event.phase === "started"
@@ -1863,6 +1867,18 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         headers: stream.headers,
         subtitle: stream.subtitle,
         subtitleStatus,
+        audioPreference:
+          stateManager.getState().mode === "anime"
+            ? stateManager.getState().animeLanguageProfile.audio
+            : title.type === "movie"
+              ? stateManager.getState().movieLanguageProfile.audio
+              : stateManager.getState().seriesLanguageProfile.audio,
+        subtitlePreference:
+          stateManager.getState().mode === "anime"
+            ? stateManager.getState().animeLanguageProfile.subtitle
+            : title.type === "movie"
+              ? stateManager.getState().movieLanguageProfile.subtitle
+              : stateManager.getState().seriesLanguageProfile.subtitle,
         displayTitle,
         startAt,
         resumePromptAt,
@@ -1888,6 +1904,23 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "seeking" });
           } else if (event.type === "playback-started") {
             stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "playing" });
+          } else if (event.type === "track-changed") {
+            // Keep session state aligned when users switch tracks directly in mpv.
+            const currentStream = stateManager.getState().stream;
+            if (currentStream && event.trackType === "sub" && event.id === 0) {
+              stateManager.dispatch({
+                type: "SET_STREAM",
+                stream: { ...currentStream, subtitle: undefined },
+              });
+            }
+            context.container.diagnosticsStore.record({
+              category: "playback",
+              message: "Track changed from mpv",
+              context: {
+                trackType: event.trackType,
+                id: event.id,
+              },
+            });
           }
         },
         onPlayerReady: () => {

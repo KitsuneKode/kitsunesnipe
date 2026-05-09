@@ -61,6 +61,10 @@ export interface PlayerOptions {
   headers?: Record<string, string>;
   subtitle?: string;
   subtitleStatus?: string;
+  /** Preferred audio language hint for mpv track selection (for example: `orig`, `en`, `ja`, `dub`). */
+  audioPreference?: string;
+  /** Preferred subtitle language hint for mpv track selection (`none` disables autosub selection). */
+  subtitlePreference?: string;
   displayTitle: string;
   /** Automatic seek target for this launch. */
   startAt?: number;

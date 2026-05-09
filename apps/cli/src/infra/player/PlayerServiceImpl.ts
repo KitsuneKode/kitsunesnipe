@@ -193,6 +193,8 @@ export class PlayerServiceImpl implements PlayerService {
       url: stream.url,
       headers: stream.headers ?? {},
       subtitle: stream.subtitle ?? null,
+      audioPreference: options.audioPreference,
+      subtitlePreference: options.subtitlePreference,
       subtitleTracks: stream.subtitleList,
       displayTitle: options.displayTitle,
       startAt: options.startAt,
@@ -228,6 +230,8 @@ export class PlayerServiceImpl implements PlayerService {
 
     const sharedOptions = {
       displayTitle: options.displayTitle,
+      audioPreference: options.audioPreference,
+      subtitlePreference: options.subtitlePreference,
       primarySubtitle: stream.subtitle ?? null,
       subtitleTracks: stream.subtitleList,
       startAt: options.startAt,

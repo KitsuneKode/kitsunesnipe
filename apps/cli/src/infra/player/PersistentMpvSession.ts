@@ -66,6 +66,8 @@ type MpvProcess = {
 
 type PlayerCycleOptions = {
   displayTitle: string;
+  audioPreference?: string;
+  subtitlePreference?: string;
   primarySubtitle: string | null;
   subtitleTracks?: readonly SubtitleTrack[];
   startAt?: number;
@@ -366,6 +368,8 @@ export class PersistentMpvSession {
       {
         url: this.initialStream.url,
         headers: this.initialStream.headers ?? {},
+        audioPreference: this.initialOptions.audioPreference,
+        subtitlePreference: this.initialOptions.subtitlePreference,
         subtitle: this.initialOptions.primarySubtitle,
         subtitleTracks: this.initialOptions.subtitleTracks,
         displayTitle: this.initialOptions.displayTitle,
