@@ -69,8 +69,8 @@ export class VidKingProvider implements Provider {
 
     if (
       stream &&
-      request.subLang !== "none" &&
-      !hardSubSatisfiesSubtitlePreference(stream, request.subLang) &&
+      request.subtitlePreference !== "none" &&
+      !hardSubSatisfiesSubtitlePreference(stream, request.subtitlePreference) &&
       (!stream.subtitleList?.length || !stream.subtitle)
     ) {
       const wyzie = await resolveWyzie({
@@ -78,12 +78,12 @@ export class VidKingProvider implements Provider {
         type: request.title.type,
         season: request.episode?.season,
         episode: request.episode?.episode,
-        preferredLang: request.subLang,
+        preferredLang: request.subtitlePreference,
       });
 
       if (wyzie.list.length > 0) {
         const mergedSubtitleList = mergeSubtitleTracks(stream.subtitleList, wyzie.list);
-        const mergedPick = selectSubtitle(mergedSubtitleList, request.subLang);
+        const mergedPick = selectSubtitle(mergedSubtitleList, request.subtitlePreference);
         stream = {
           ...stream,
           subtitle: mergedPick?.url ?? wyzie.selected ?? stream.subtitle,
@@ -115,7 +115,7 @@ function createVidkingResolveInput(request: StreamRequest): ProviderResolveInput
     title: titleToCoreIdentity(request.title, "series"),
     episode: episodeToCoreIdentity(request.episode),
     mediaKind: request.title.type,
-    preferredSubtitleLanguage: request.subLang,
+    preferredSubtitleLanguage: request.subtitlePreference,
     intent: "play",
     allowedRuntimes: ["direct-http"],
   };
@@ -137,7 +137,9 @@ function providerResolveResultToStream(
 
   const subtitleList = result.subtitles.map(subtitleCandidateToTrack);
   const pickedSubtitle =
-    request.subLang === "none" ? null : selectSubtitle(subtitleList, request.subLang);
+    request.subtitlePreference === "none"
+      ? null
+      : selectSubtitle(subtitleList, request.subtitlePreference);
 
   return {
     url: selected.url,

@@ -182,7 +182,7 @@ function describeSourceDetail(
     describeQualities(streams),
     describeLanguages(
       "audio",
-      streams.map((candidate) => candidate.audioLanguage),
+      streams.flatMap((candidate) => candidate.audioLanguages ?? []),
     ),
     describeLanguages(
       "hardsub",
@@ -204,7 +204,7 @@ function describeStreamCandidateDetail(
   return [
     candidate.protocol,
     candidate.container,
-    candidate.audioLanguage ? `audio ${candidate.audioLanguage}` : null,
+    candidate.audioLanguages?.length ? `audio ${candidate.audioLanguages.join(",")}` : null,
     candidate.hardSubLanguage ? `hardsub ${candidate.hardSubLanguage}` : null,
     describeLanguages(
       "soft subs",

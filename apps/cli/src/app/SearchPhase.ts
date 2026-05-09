@@ -64,7 +64,7 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
           const search = await searchTitles(currentState.searchQuery, {
             mode: currentState.mode,
             providerId: currentState.provider,
-            animeLang: currentState.animeLang,
+            animeLanguageProfile: container.config.animeLanguageProfile,
             signal: context.signal,
             searchRegistry,
             providerRegistry,
@@ -117,7 +117,7 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
               const mapped = await mapAnimeDiscoveryResultToProviderNative(selected, {
                 mode: stateManager.getState().mode,
                 providerId: stateManager.getState().provider,
-                animeLang: stateManager.getState().animeLang,
+                animeLanguageProfile: container.config.animeLanguageProfile,
                 providerRegistry,
                 signal: context.signal,
               });
@@ -188,7 +188,7 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
             const search = await searchTitles(query, {
               mode: stateManager.getState().mode,
               providerId: stateManager.getState().provider,
-              animeLang: stateManager.getState().animeLang,
+              animeLanguageProfile: container.config.animeLanguageProfile,
               signal: context.signal,
               searchRegistry,
               providerRegistry,
@@ -353,7 +353,7 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
             const mapped = await mapAnimeDiscoveryResultToProviderNative(selected, {
               mode: stateManager.getState().mode,
               providerId: stateManager.getState().provider,
-              animeLang: stateManager.getState().animeLang,
+              animeLanguageProfile: container.config.animeLanguageProfile,
               providerRegistry,
               signal: context.signal,
             });
@@ -409,7 +409,7 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
         const selected = await mapAnimeDiscoveryResultToProviderNative(originalSelected, {
           mode: stateManager.getState().mode,
           providerId: stateManager.getState().provider,
-          animeLang: stateManager.getState().animeLang,
+          animeLanguageProfile: container.config.animeLanguageProfile,
           providerRegistry,
           signal: context.signal,
         });

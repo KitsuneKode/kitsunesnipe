@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, rename, rm, stat } from "node:fs/promises";
+import { mkdir, rename, rm, stat, statfs } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import type {
@@ -13,6 +13,7 @@ import type { Logger } from "@/infra/logger/Logger";
 import type { ConfigService } from "@/services/persistence/ConfigService";
 import { getKunaiPaths, type DownloadJobRecord, type DownloadJobsRepository } from "@kunai/storage";
 
+import { persistLanguageHintsFromEnqueueInput } from "./download-language-hints";
 import { resolveDownloadFeatureState } from "./DownloadFeature";
 import {
   formatPlaybackDownloadStripe,
@@ -33,13 +34,13 @@ export type DownloadEnqueueEligibility =
   | { readonly allowed: true }
   | {
       readonly allowed: false;
-      readonly code: "downloads-disabled" | "ffmpeg-missing";
+      readonly code: "downloads-disabled" | "yt-dlp-missing" | "insufficient-disk";
       readonly reason: string;
     };
 
 export class DownloadEnqueueRejectedError extends Error {
   constructor(
-    readonly code: "downloads-disabled" | "ffmpeg-missing",
+    readonly code: "downloads-disabled" | "yt-dlp-missing" | "insufficient-disk",
     readonly reason: string,
   ) {
     super(reason);
@@ -52,8 +53,8 @@ export type EnqueueDownloadInput = {
   readonly stream?: StreamInfo;
   readonly providerId: string;
   readonly mode?: ShellMode;
-  readonly subLang?: string;
-  readonly animeLang?: "sub" | "dub";
+  readonly audioPreference?: string;
+  readonly subtitlePreference?: string;
   readonly selectedSourceId?: string;
   readonly selectedStreamId?: string;
   readonly selectedQualityLabel?: string;
@@ -66,8 +67,8 @@ export type DownloadResolveIntent = {
   readonly episode?: EpisodeInfo;
   readonly providerId: string;
   readonly mode: ShellMode;
-  readonly subLang: string;
-  readonly animeLang: "sub" | "dub";
+  readonly audioPreference: string;
+  readonly subtitlePreference: string;
   readonly selectedSourceId?: string;
   readonly selectedStreamId?: string;
   readonly selectedQualityLabel?: string;
@@ -100,7 +101,7 @@ export class DownloadService {
       readonly repo: DownloadJobsRepository;
       readonly config: ConfigService;
       readonly logger: Logger;
-      readonly ffmpegAvailable: boolean;
+      readonly ytDlpAvailable: boolean;
       readonly resolveDownloadStream?: (
         intent: DownloadResolveIntent,
       ) => Promise<DownloadResolveResult | null>;
@@ -112,7 +113,7 @@ export class DownloadService {
   getEnqueueEligibility(): DownloadEnqueueEligibility {
     const feature = resolveDownloadFeatureState({
       config: this.deps.config,
-      capabilities: { ffmpeg: this.deps.ffmpegAvailable },
+      capabilities: { ytDlp: this.deps.ytDlpAvailable },
     });
     if (feature.status === "off") {
       return {
@@ -121,11 +122,11 @@ export class DownloadService {
         reason: "Downloads are disabled. Run /setup to enable offline downloads.",
       };
     }
-    if (feature.status === "missing-ffmpeg") {
+    if (feature.status === "missing-yt-dlp") {
       return {
         allowed: false,
-        code: "ffmpeg-missing",
-        reason: "ffmpeg is missing. Install ffmpeg to enable downloads.",
+        code: "yt-dlp-missing",
+        reason: "yt-dlp is missing. Install yt-dlp to enable downloads.",
       };
     }
     return { allowed: true };
@@ -142,6 +143,17 @@ export class DownloadService {
     const tempPath = `${outputPath}.tmp.${id}`;
     await mkdir(dirname(outputPath), { recursive: true });
 
+    const diskStats = await statfs(dirname(outputPath));
+    const availableGB = (diskStats.bavail * diskStats.bsize) / (1024 * 1024 * 1024);
+    if (availableGB < 2) {
+      throw new DownloadEnqueueRejectedError(
+        "insufficient-disk",
+        `Only ${availableGB.toFixed(1)}GB free on download volume. At least 2GB required.`,
+      );
+    }
+
+    const { subLang, animeLang } = persistLanguageHintsFromEnqueueInput(input);
+
     this.deps.repo.enqueue({
       id,
       titleId: input.title.id,
@@ -151,8 +163,8 @@ export class DownloadService {
       episode: input.episode?.episode,
       providerId: input.providerId,
       mode: input.mode,
-      subLang: input.subLang,
-      animeLang: input.animeLang,
+      subLang,
+      animeLang,
       selectedSourceId: input.selectedSourceId,
       selectedStreamId: input.selectedStreamId,
       selectedQualityLabel: input.selectedQualityLabel,
@@ -241,7 +253,7 @@ export class DownloadService {
     this.deps.repo.markRunning(next.id, now);
 
     try {
-      await this.executeFfmpegDownload(next);
+      await this.executeYtDlpDownload(next);
       await this.downloadSubtitleIfAvailable(next);
       await this.persistOutputFileSize(next);
       const completedAt = new Date().toISOString();
@@ -376,7 +388,7 @@ export class DownloadService {
     this.deps.repo.delete(jobId);
   }
 
-  private async executeFfmpegDownload(job: DownloadJobRecord): Promise<void> {
+  private async executeYtDlpDownload(job: DownloadJobRecord): Promise<void> {
     const resolved = await this.resolveStreamForJob(job);
     this.deps.repo.updateResolvedStream(
       job.id,
@@ -394,16 +406,23 @@ export class DownloadService {
       lastResolvedProviderId: resolved.providerId as never,
     };
 
-    const args = ["-y", "-progress", "pipe:1", "-nostats"];
-    const policy = buildDownloadStreamPolicy(job.headers);
-    args.push(...policy.ffmpegArgs);
-    args.push("-i", job.streamUrl, "-c", "copy", job.tempPath);
+    const args = ["--concurrent-fragments", "16", "--newline"];
 
-    const proc = Bun.spawn(["ffmpeg", ...args], {
+    // Add headers
+    for (const [key, value] of Object.entries(job.headers)) {
+      if (value) {
+        args.push("--add-header", `${key}: ${value}`);
+      }
+    }
+
+    args.push("-o", job.tempPath, job.streamUrl);
+
+    const proc = Bun.spawn(["yt-dlp", ...args], {
       stdin: "ignore",
       stdout: "pipe",
       stderr: "pipe",
     });
+
     const cancellation = this.cancellationRequests.get(job.id);
     this.activeProcesses.set(job.id, {
       process: proc,
@@ -414,10 +433,10 @@ export class DownloadService {
 
     const stopHeartbeat = this.startHeartbeat(job.id);
 
-    let durationMs: number | null = null;
     let stderr = "";
     let lastProgressPersistAt = 0;
     let lastPersistedPercent = 0;
+
     const persistProgress = (percent: number) => {
       const now = Date.now();
       const clamped = Math.round(Math.max(0, Math.min(99, percent)));
@@ -427,34 +446,24 @@ export class DownloadService {
       lastProgressPersistAt = now;
       lastPersistedPercent = clamped;
     };
+
     const readStdout = readLines(proc.stdout, (line) => {
-      const [rawKey, rawValue] = line.split("=", 2);
-      if (!rawKey || rawValue === undefined) return;
-      if (rawKey !== "out_time_ms" && rawKey !== "progress") return;
-      if (rawKey === "progress" && rawValue === "end") {
-        persistProgress(99);
-        return;
+      const match = line.match(/\[download\]\s+([\d.]+)%/);
+      if (match && match[1]) {
+        const percent = Number.parseFloat(match[1]);
+        if (Number.isFinite(percent)) {
+          persistProgress(percent);
+        }
       }
-      if (rawKey !== "out_time_ms") return;
-      const outTimeMicros = Number.parseInt(rawValue, 10);
-      if (!Number.isFinite(outTimeMicros) || outTimeMicros <= 0) return;
-      if (durationMs === null) return;
-      const percent = (outTimeMicros / 1000 / durationMs) * 100;
-      persistProgress(Math.min(99, Math.max(1, percent)));
+      if (line.includes("100%") || line.includes("has already been downloaded")) {
+        persistProgress(99);
+      }
     });
+
     const readStderr = readLines(proc.stderr, (line) => {
       stderr = appendBounded(stderr, line, STDERR_MAX_BYTES);
-      if (durationMs !== null) return;
-      const parsed = parseDurationMs(line);
-      if (parsed !== null) {
-        durationMs = parsed;
-        this.deps.repo.updateOfflineMetadata(
-          job.id,
-          { durationMs: parsed },
-          new Date().toISOString(),
-        );
-      }
     });
+
     try {
       const exitCode = await proc.exited;
       await Promise.all([readStdout, readStderr]);
@@ -464,7 +473,7 @@ export class DownloadService {
         !this.activeProcesses.get(job.id)?.cancelRequested &&
         !this.cancellationRequests.has(job.id)
       ) {
-        throw new Error(stderr.trim() || `ffmpeg exited with code ${exitCode}`);
+        throw new Error(stderr.trim() || `yt-dlp exited with code ${exitCode}`);
       }
 
       if (
@@ -501,6 +510,7 @@ export class DownloadService {
       throw new Error("download stream resolver unavailable");
     }
 
+    const mode = job.mode ?? (job.mediaKind === "anime" ? "anime" : "series");
     const resolved = await this.deps.resolveDownloadStream({
       title: {
         id: job.titleId,
@@ -512,9 +522,9 @@ export class DownloadService {
           ? { season: job.season, episode: job.episode }
           : undefined,
       providerId: job.providerId,
-      mode: job.mode ?? (job.mediaKind === "anime" ? "anime" : "series"),
-      subLang: job.subLang ?? "eng",
-      animeLang: job.animeLang ?? "sub",
+      mode,
+      audioPreference: mode === "anime" ? (job.animeLang === "dub" ? "dub" : "sub") : "original",
+      subtitlePreference: job.subLang ?? "eng",
       selectedSourceId: job.selectedSourceId,
       selectedStreamId: job.selectedStreamId,
       selectedQualityLabel: job.selectedQualityLabel,
@@ -758,17 +768,6 @@ function slug(value: string): string {
     .replaceAll(/^-+|-+$/g, "");
 }
 
-function parseDurationMs(line: string): number | null {
-  const match = line.match(/Duration:\s*(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/);
-  if (!match) return null;
-  const hours = Number.parseInt(match[1] ?? "0", 10);
-  const minutes = Number.parseInt(match[2] ?? "0", 10);
-  const seconds = Number.parseFloat(match[3] ?? "0");
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes) || !Number.isFinite(seconds))
-    return null;
-  return Math.round((hours * 3600 + minutes * 60 + seconds) * 1000);
-}
-
 async function readLines(
   stream: ReadableStream<Uint8Array> | null,
   onLine: (line: string) => void,
@@ -817,14 +816,20 @@ function analyzeDownloadFailure(message: string): { failureKind: string; retryab
   if (
     normalized.includes("invalid argument") ||
     normalized.includes("unrecognized option") ||
-    normalized.includes("option not found")
+    normalized.includes("option not found") ||
+    normalized.includes("no such option")
   ) {
-    return { failureKind: "ffmpeg-config", retryable: false };
+    return { failureKind: "ytdlp-config", retryable: false };
   }
-  if (normalized.includes("protocol not found")) {
+  if (normalized.includes("unsupported url") || normalized.includes("protocol not found")) {
     return { failureKind: "protocol", retryable: false };
   }
-  if (normalized.includes("server returned 403") || normalized.includes("server returned 401")) {
+  if (
+    normalized.includes("http error 403") ||
+    normalized.includes("http error 401") ||
+    normalized.includes("forbidden") ||
+    normalized.includes("unauthorized")
+  ) {
     return { failureKind: "http-auth", retryable: false };
   }
   if (normalized.includes("http error 4")) {
@@ -833,7 +838,12 @@ function analyzeDownloadFailure(message: string): { failureKind: string; retryab
   if (normalized.includes("http error 5")) {
     return { failureKind: "http-server", retryable: true };
   }
-  if (normalized.includes("timed out") || normalized.includes("connection")) {
+  if (
+    normalized.includes("timed out") ||
+    normalized.includes("connection") ||
+    normalized.includes("unable to download webpage") ||
+    normalized.includes("network is unreachable")
+  ) {
     return { failureKind: "network", retryable: true };
   }
   return { failureKind: "unknown", retryable: true };

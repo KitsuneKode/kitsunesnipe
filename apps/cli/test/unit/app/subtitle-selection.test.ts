@@ -127,7 +127,7 @@ describe("choosePlaybackSubtitle", () => {
               protocol: "hls",
               qualityLabel: "1080p",
               qualityRank: 1080,
-              audioLanguage: "ja",
+              audioLanguages: ["ja"],
               hardSubLanguage: "English",
               url: "https://cdn.example/hardsub.m3u8",
               headers: {},

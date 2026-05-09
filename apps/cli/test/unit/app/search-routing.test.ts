@@ -37,7 +37,7 @@ describe("searchTitles", () => {
     const result = await searchTitles("mob", {
       mode: "anime",
       providerId: "allanime",
-      animeLang: "sub",
+      animeLanguageProfile: { audio: "original", subtitle: "en" },
       searchRegistry: searchRegistry as any,
       providerRegistry,
       enrichAnimeMetadata: false,
@@ -93,7 +93,7 @@ describe("searchTitles", () => {
     const result = await searchTitles("dune", {
       mode: "series",
       providerId: "vidking",
-      animeLang: "sub",
+      animeLanguageProfile: { audio: "original", subtitle: "en" },
       searchRegistry: searchRegistry as any,
       providerRegistry,
     });

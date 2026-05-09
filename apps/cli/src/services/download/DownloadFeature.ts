@@ -4,7 +4,7 @@ import type { CapabilitySnapshot } from "@/ui";
 export type DownloadFeatureState = {
   readonly enabled: boolean;
   readonly usable: boolean;
-  readonly status: "off" | "ready" | "missing-ffmpeg";
+  readonly status: "off" | "ready" | "missing-yt-dlp";
   readonly detail: string;
   readonly downloadPath: string | null;
 };
@@ -14,7 +14,7 @@ export function resolveDownloadFeatureState({
   capabilities,
 }: {
   readonly config: Pick<KitsuneConfig, "downloadsEnabled" | "downloadPath">;
-  readonly capabilities?: Pick<CapabilitySnapshot, "ffmpeg"> | null;
+  readonly capabilities?: Pick<CapabilitySnapshot, "ytDlp"> | null;
 }): DownloadFeatureState {
   if (!config.downloadsEnabled) {
     return {
@@ -26,12 +26,12 @@ export function resolveDownloadFeatureState({
     };
   }
 
-  if (capabilities && !capabilities.ffmpeg) {
+  if (capabilities && !capabilities.ytDlp) {
     return {
       enabled: true,
       usable: false,
-      status: "missing-ffmpeg",
-      detail: "enabled but ffmpeg is not available",
+      status: "missing-yt-dlp",
+      detail: "enabled but yt-dlp is not available",
       downloadPath: normalizedDownloadPath(config.downloadPath),
     };
   }

@@ -42,6 +42,18 @@ local function signal(action)
 	mp.set_property("user-data/kunai-request", action)
 end
 
+mp.observe_property("audio", "number", function(name, value)
+	if value then
+		mp.set_property("user-data/kunai-track-changed", "audio:" .. value)
+	end
+end)
+
+mp.observe_property("sub", "number", function(name, value)
+	if value then
+		mp.set_property("user-data/kunai-track-changed", "sub:" .. value)
+	end
+end)
+
 local function clamp(v, lo, hi)
 	if v < lo then
 		return lo

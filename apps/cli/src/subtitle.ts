@@ -345,7 +345,13 @@ function dedupeSubtitleEntries(list: readonly SubtitleEntry[]): SubtitleEntry[] 
 }
 
 function normalizeSubtitleUrl(url: string): string {
-  return url.trim();
+  try {
+    const parsed = new URL(url.trim());
+    parsed.search = "";
+    return parsed.toString();
+  } catch {
+    return url.trim().split("?")[0] ?? url.trim();
+  }
 }
 
 function scoreSubtitleEntry(

@@ -475,6 +475,28 @@ export class PersistentMpvSession {
               return;
             }
 
+            if (name === "user-data/kunai-track-changed") {
+              const v = typeof value === "string" ? value : "";
+              if (v.startsWith("audio:")) {
+                this.currentCycleOptions().onPlaybackEvent?.({
+                  type: "track-changed",
+                  trackType: "audio",
+                  id: parseInt(v.split(":")[1] ?? "0"),
+                });
+              } else if (v.startsWith("sub:")) {
+                this.currentCycleOptions().onPlaybackEvent?.({
+                  type: "track-changed",
+                  trackType: "sub",
+                  id: parseInt(v.split(":")[1] ?? "0"),
+                });
+              }
+              void this.ipcSession?.send(
+                ["set_property", "user-data/kunai-track-changed", ""],
+                500,
+              );
+              return;
+            }
+
             if (!active) return;
             applyObservedPropertySample(
               active.telemetry,
@@ -578,6 +600,7 @@ export class PersistentMpvSession {
       // key presses inside the mpv window are routed back to the app.
       void this.ipcSession.send(["observe_property", 200, "user-data/kunai-request"], 1_000);
       void this.ipcSession.send(["observe_property", 201, "user-data/kunai-resume-choice"], 1_000);
+      void this.ipcSession.send(["observe_property", 202, "user-data/kunai-track-changed"], 1_000);
     }
     this.queueReadyWork(this.initialOptions);
   }

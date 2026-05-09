@@ -17,9 +17,8 @@ import type { CoreProviderManifest } from "@kunai/core";
 export interface StreamRequest {
   title: TitleInfo;
   episode?: EpisodeInfo;
-  subLang: string;
-  /** When set, overrides session config for this resolve (cache keys should match). */
-  animeLang?: "sub" | "dub";
+  audioPreference: string;
+  subtitlePreference: string;
 }
 
 export interface EpisodeListRequest {
@@ -51,7 +50,7 @@ export interface Provider {
   // Optional search capability for providers that expose a search API (e.g. anime).
   search?(
     query: string,
-    opts: { animeLang: "sub" | "dub" },
+    opts: { audioPreference: string; subtitlePreference: string },
     signal?: AbortSignal,
   ): Promise<import("@/domain/types").SearchResult[] | null>;
 }

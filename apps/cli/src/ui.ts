@@ -11,7 +11,6 @@ export type CapabilitySeverity = "fatal" | "degraded";
 export interface CapabilityIssue {
   readonly id:
     | "mpv-missing"
-    | "ffmpeg-missing"
     | "yt-dlp-missing"
     | "poster-rendering-unavailable"
     | "poster-rendering-degraded";
@@ -22,7 +21,8 @@ export interface CapabilityIssue {
 
 export interface CapabilitySnapshot {
   readonly mpv: boolean;
-  readonly ffmpeg: boolean;
+  /** Optional post-download probe (`ffprobe` on PATH); not required for the queue. */
+  readonly ffprobe: boolean;
   readonly ytDlp: boolean;
   readonly chafa: boolean;
   readonly magick: boolean;
@@ -43,7 +43,7 @@ function capabilityFingerprint(snapshot: CapabilitySnapshot): string {
     .map((issue) => `${issue.id}:${issue.severity}`)
     .sort()
     .join(",");
-  return `mpv:${snapshot.mpv ? "1" : "0"}|ffmpeg:${snapshot.ffmpeg ? "1" : "0"}|ytDlp:${snapshot.ytDlp ? "1" : "0"}|chafa:${snapshot.chafa ? "1" : "0"}|magick:${snapshot.magick ? "1" : "0"}|image:${snapshot.image.renderer}|terminal:${snapshot.image.terminal}|issues:${issueBits}`;
+  return `mpv:${snapshot.mpv ? "1" : "0"}|ffprobe:${snapshot.ffprobe ? "1" : "0"}|ytDlp:${snapshot.ytDlp ? "1" : "0"}|chafa:${snapshot.chafa ? "1" : "0"}|magick:${snapshot.magick ? "1" : "0"}|image:${snapshot.image.renderer}|terminal:${snapshot.image.terminal}|issues:${issueBits}`;
 }
 
 async function loadCapabilityNoticeState(): Promise<CapabilityNoticeState | null> {
@@ -68,7 +68,7 @@ async function saveCapabilityNoticeState(state: CapabilityNoticeState): Promise<
 export async function checkDeps(appVersion = "0.1.0"): Promise<CapabilitySnapshot> {
   const issues: CapabilityIssue[] = [];
   const mpv = Boolean(Bun.which("mpv"));
-  const ffmpeg = Boolean(Bun.which("ffmpeg"));
+  const ffprobe = Boolean(Bun.which("ffprobe"));
   const ytDlp = Boolean(Bun.which("yt-dlp"));
   const chafa = isChafaAvailable();
   const magick = Boolean(Bun.which("magick"));
@@ -119,7 +119,15 @@ export async function checkDeps(appVersion = "0.1.0"): Promise<CapabilitySnapsho
     });
   }
 
-  const snapshot: CapabilitySnapshot = { mpv, ffmpeg, ytDlp, chafa, magick, image, issues };
+  const snapshot: CapabilitySnapshot = {
+    mpv,
+    ffprobe,
+    ytDlp,
+    chafa,
+    magick,
+    image,
+    issues,
+  };
   const fingerprint = capabilityFingerprint(snapshot);
   const previous = await loadCapabilityNoticeState();
   const shouldShowRemediation =

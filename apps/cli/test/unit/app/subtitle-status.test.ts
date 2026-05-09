@@ -18,7 +18,7 @@ const hardsubStream: StreamInfo = {
         protocol: "hls",
         qualityLabel: "1080p",
         qualityRank: 1080,
-        audioLanguage: "ja",
+        audioLanguages: ["ja"],
         hardSubLanguage: "en",
         url: "https://cdn.example/1080.m3u8",
         headers: {},

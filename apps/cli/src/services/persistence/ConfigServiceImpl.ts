@@ -59,6 +59,18 @@ export class ConfigServiceImpl implements ConfigService {
     return this.config.animeLang;
   }
 
+  get animeLanguageProfile(): import("./ConfigService").MediaLanguageProfile {
+    return this.config.animeLanguageProfile;
+  }
+
+  get seriesLanguageProfile(): import("./ConfigService").MediaLanguageProfile {
+    return this.config.seriesLanguageProfile;
+  }
+
+  get movieLanguageProfile(): import("./ConfigService").MediaLanguageProfile {
+    return this.config.movieLanguageProfile;
+  }
+
   get animeTitlePreference(): "english" | "romaji" | "native" | "provider" {
     return this.config.animeTitlePreference;
   }

@@ -6,7 +6,11 @@ import { createInitialState, reduceState } from "@/domain/session/SessionState";
 
 describe("SessionState overlays", () => {
   test("stores clears and resets playback problem state", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     state = reduceState(state, {
       type: "SET_PLAYBACK_PROBLEM",
       problem: {
@@ -41,7 +45,11 @@ describe("SessionState overlays", () => {
   });
 
   test("keeps a shallow overlay stack and closes the top overlay first", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, {
       type: "OPEN_OVERLAY",
@@ -62,7 +70,11 @@ describe("SessionState overlays", () => {
   });
 
   test("stores picker state result and closes only the resolved picker", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, {
       type: "OPEN_PICKER",
@@ -104,7 +116,11 @@ describe("SessionState overlays", () => {
   });
 
   test("cancels picker into an inspectable result", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     state = reduceState(state, {
       type: "OPEN_PICKER",
       picker: {
@@ -120,7 +136,11 @@ describe("SessionState overlays", () => {
   });
 
   test("updates default providers without mutating the current provider directly", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, {
       type: "SET_DEFAULT_PROVIDER",
@@ -134,7 +154,11 @@ describe("SessionState overlays", () => {
   });
 
   test("resets session-only playback pauses when a new title is selected or content is cleared", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, {
       type: "SET_SESSION_AUTOPLAY_PAUSED",
@@ -176,7 +200,11 @@ describe("SessionState overlays", () => {
   });
 
   test("Esc closes command entry before it closes the overlay stack", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, {
       type: "OPEN_OVERLAY",
@@ -191,7 +219,11 @@ describe("SessionState overlays", () => {
   });
 
   test("mounted root content remains primary while overlays render inside it", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     state = reduceState(state, {
       type: "OPEN_OVERLAY",
       overlay: { type: "diagnostics" },
@@ -208,7 +240,11 @@ describe("SessionState overlays", () => {
 
 describe("SessionState responsive layout", () => {
   test("auto-collapses the companion pane on narrow terminals and restores it when width returns", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     expect(state.layout.breakpoint).toBe("wide");
     expect(state.layout.companion.visible).toBe(true);
@@ -236,7 +272,11 @@ describe("SessionState responsive layout", () => {
   });
 
   test("keeps text details before image preview as the terminal gets tighter", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, { type: "SET_IMAGE_SUPPORT", supported: true });
     expect(state.layout.details.visible).toBe(true);
@@ -256,7 +296,11 @@ describe("SessionState responsive layout", () => {
   });
 
   test("respects a user-collapsed companion pane even after the terminal becomes wide again", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, { type: "TOGGLE_COMPANION_PANE" });
     expect(state.layout.companion.visible).toBe(false);
@@ -289,7 +333,11 @@ describe("command availability", () => {
   });
 
   test("enables streams only when provider stream candidates exist", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     state = reduceState(state, {
       type: "SELECT_TITLE",
       title: {
@@ -325,7 +373,11 @@ describe("command availability", () => {
   });
 
   test("recovery is available only during active or failed playback states", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     expect(resolveCommands(state, ["recover"])[0]?.enabled).toBe(false);
 
     state = reduceState(state, {
@@ -343,7 +395,11 @@ describe("command availability", () => {
   });
 
   test("explains unavailable commands instead of hiding them", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     state = reduceState(state, { type: "SET_IMAGE_SUPPORT", supported: true });
     state = reduceState(state, {
       type: "SELECT_TITLE",
@@ -398,7 +454,11 @@ describe("command availability", () => {
 
 describe("root shell surface selection", () => {
   test("prefers a root-owned overlay over a stale mounted helper shell", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, {
       type: "OPEN_OVERLAY",
@@ -411,7 +471,11 @@ describe("root shell surface selection", () => {
   });
 
   test("treats provider picker as a root-owned overlay surface too", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, {
       type: "OPEN_OVERLAY",
@@ -429,7 +493,11 @@ describe("root shell surface selection", () => {
   });
 
   test("treats settings as a root-owned overlay surface too", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, {
       type: "OPEN_OVERLAY",
@@ -443,7 +511,11 @@ describe("root shell surface selection", () => {
   });
 
   test("treats season picker as a root-owned overlay surface too", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, {
       type: "OPEN_OVERLAY",
@@ -464,7 +536,11 @@ describe("root shell surface selection", () => {
   });
 
   test("treats subtitle picker as a root-owned overlay surface too", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, {
       type: "OPEN_OVERLAY",
@@ -481,7 +557,11 @@ describe("root shell surface selection", () => {
   });
 
   test("treats episode picker as a root-owned overlay surface too", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     state = reduceState(state, {
       type: "OPEN_OVERLAY",
@@ -499,7 +579,11 @@ describe("root shell surface selection", () => {
   });
 
   test("prefers root content over mounted helper screens when browse or playback is active", () => {
-    const state = createInitialState("vidking", "allanime");
+    const state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     expect(resolveRootShellSurface(state, { hasRootContent: true, hasMountedScreen: true })).toBe(
       "root-content",
@@ -507,7 +591,11 @@ describe("root shell surface selection", () => {
   });
 
   test("keeps playback loading as the top surface even when root content exists", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     state = reduceState(state, { type: "SET_PLAYBACK_STATUS", status: "loading" });
 
     expect(resolveRootShellSurface(state, { hasRootContent: true, hasMountedScreen: true })).toBe(
@@ -516,7 +604,11 @@ describe("root shell surface selection", () => {
   });
 
   test("prefers a picker overlay over playback while mpv keeps running", () => {
-    let state = createInitialState("vidking", "allanime");
+    let state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     state = reduceState(state, { type: "SET_PLAYBACK_STATUS", status: "playing" });
     state = reduceState(state, {
       type: "OPEN_PICKER",

@@ -44,7 +44,7 @@ export interface EpisodePickerOption {
 export interface StreamInfo {
   readonly url: string;
   readonly headers: Record<string, string>;
-  readonly audioLanguage?: string;
+  readonly audioLanguages?: string[];
   readonly hardSubLanguage?: string;
   readonly subtitle?: string;
   readonly subtitleList?: SubtitleTrack[];

@@ -55,12 +55,13 @@ test("attachProviderResolveResult adds shared trace and cache policy to an exist
     request: {
       title: { id: "demon-slayer", type: "series", name: "Demon Slayer" },
       episode: { season: 1, episode: 1 },
-      subLang: "english",
+      audioPreference: "original",
+      subtitlePreference: "english",
     },
     stream: {
       url: "https://cdn.example/master.m3u8",
       headers: {},
-      audioLanguage: "sub",
+      audioLanguages: ["sub"],
       hardSubLanguage: "en",
       timestamp: 1,
     },

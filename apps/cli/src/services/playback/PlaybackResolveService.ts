@@ -46,8 +46,8 @@ export type PlaybackResolveInput = {
   readonly episode: EpisodeInfo;
   readonly mode: ShellMode;
   readonly providerId: string;
-  readonly subLang: string;
-  readonly animeLang: "sub" | "dub";
+  readonly audioPreference: string;
+  readonly subtitlePreference: string;
   readonly signal: AbortSignal;
   readonly prefetchedStream?: StreamInfo | null;
   readonly onFeedback?: (feedback: PlaybackResolveFeedback) => void;
@@ -127,8 +127,8 @@ export class PlaybackResolveService {
                 {
                   title: input.title,
                   episode: input.episode,
-                  subLang: input.subLang,
-                  animeLang: input.animeLang,
+                  audioPreference: input.audioPreference,
+                  subtitlePreference: input.subtitlePreference,
                 },
                 attemptSignal,
               ),
@@ -185,8 +185,8 @@ export class PlaybackResolveService {
       title: input.title,
       episode: input.episode,
       mode: input.mode,
-      subLang: input.subLang,
-      animeLang: input.animeLang,
+      audioPreference: input.audioPreference,
+      subtitlePreference: input.subtitlePreference,
     });
   }
 }

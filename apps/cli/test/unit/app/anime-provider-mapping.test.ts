@@ -26,7 +26,7 @@ test("maps AniList trending anime to the active provider-native id before playba
   const mapped = await mapAnimeDiscoveryResultToProviderNative(discovery, {
     mode: "anime",
     providerId: "allanime",
-    animeLang: "sub",
+    animeLanguageProfile: { audio: "original", subtitle: "en" },
     providerRegistry: {
       get: () => ({
         metadata: {
@@ -72,7 +72,7 @@ test("leaves ordinary provider-native anime search results unchanged", async () 
   const mapped = await mapAnimeDiscoveryResultToProviderNative(providerNative, {
     mode: "anime",
     providerId: "allanime",
-    animeLang: "sub",
+    animeLanguageProfile: { audio: "original", subtitle: "en" },
     providerRegistry: {
       get: () => {
         throw new Error("provider search should not run");

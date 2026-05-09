@@ -1,5 +1,6 @@
 import { getShellViewportPolicy } from "@/app-shell/layout-policy";
 import { useLineEditor } from "@/app-shell/line-editor";
+import type { ListShellActionContext, ShellOption } from "@/app-shell/pickers/list-shell-types";
 import { addSearchQuery, getSearchHistory } from "@/app-shell/search-history";
 import { switchSessionMode } from "@/app/mode-switch";
 import { buildPlaybackEpisodePickerOptions } from "@/app/playback-episode-picker";
@@ -537,7 +538,12 @@ function AppRoot({ container }: { container: Container }) {
         state.currentEpisode.episode,
       ).padStart(2, "0")}`
     : undefined;
-  const playbackSubtitleStatus = describePlaybackSubtitleStatus(state.stream, state.subLang);
+  const playbackSubtitleStatus = describePlaybackSubtitleStatus(
+    state.stream,
+    state.mode === "anime"
+      ? state.animeLanguageProfile.subtitle
+      : state.seriesLanguageProfile.subtitle,
+  );
   const shellWidth = stdout.columns ?? 80;
   const shellHeight = stdout.rows ?? 24;
   const currentViewLabel =
@@ -552,6 +558,7 @@ function AppRoot({ container }: { container: Container }) {
     state,
     currentViewLabel,
     rootStatus,
+    downloadStatus,
   });
   const rootOverlay = getRootOwnedOverlay(state);
   const rootSurface = resolveRootShellSurface(state, {
@@ -1383,12 +1390,6 @@ export function openLoadingShell({
   };
 }
 
-type ListOption<T> = {
-  value: T;
-  label: string;
-  detail?: string;
-};
-
 type ListShellActionResult = {
   type: "action";
   action: ShellAction;
@@ -1400,15 +1401,6 @@ type ListShellSubmitResult<T> =
   | { type: "selected"; value: T }
   | { type: "cancelled" }
   | ListShellActionResult;
-
-export type ListShellActionContext = {
-  commands: readonly ResolvedAppCommand[];
-  onAction: (
-    action: ShellAction,
-  ) => Promise<"handled" | "quit" | "unhandled"> | "handled" | "quit" | "unhandled";
-  taskLabel?: string;
-  footerMode?: "detailed" | "minimal";
-};
 
 function normalizeReservedCommandInput(nextValue: string): {
   value: string;
@@ -1447,7 +1439,7 @@ function ListShell<T>({
 }: {
   title: string;
   subtitle: string;
-  options: readonly ListOption<T>[];
+  options: readonly ShellOption<T>[];
   initialFilter?: string;
   initialSelectedIndex?: number;
   actionContext?: ListShellActionContext;
@@ -2617,7 +2609,7 @@ export function openListShell<T>({
 }: {
   title: string;
   subtitle: string;
-  options: readonly ListOption<T>[];
+  options: readonly ShellOption<T>[];
   initialFilter?: string;
   initialSelectedIndex?: number;
   actionContext?: ListShellActionContext;

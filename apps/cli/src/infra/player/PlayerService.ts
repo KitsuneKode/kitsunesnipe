@@ -48,6 +48,7 @@ export type PlayerPlaybackEvent =
   | { type: "player-closing" }
   | { type: "player-closed" }
   | { type: "segment-skipped"; kind: PlaybackSkipKind; automatic: boolean }
+  | { type: "track-changed"; trackType: "audio" | "sub"; id: number }
   | {
       type: "mpv-in-process-reconnect";
       phase: "started" | "complete" | "failed";

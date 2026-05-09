@@ -115,8 +115,9 @@ export interface SessionState {
     readonly series: string;
     readonly anime: string;
   };
-  readonly subLang: string;
-  readonly animeLang: "sub" | "dub";
+  readonly animeLanguageProfile: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+  readonly seriesLanguageProfile: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+  readonly movieLanguageProfile: import("../../services/persistence/ConfigService").MediaLanguageProfile;
 
   readonly currentTitle: TitleInfo | null;
   readonly currentEpisode: EpisodeInfo | null;
@@ -153,8 +154,11 @@ export type StateTransition =
   | { type: "SET_DEFAULT_PROVIDER"; mode: ShellMode; provider: string }
   | { type: "SET_VIEW"; view: ShellView }
   | { type: "SET_PROVIDER"; provider: string }
-  | { type: "SET_SUB_LANG"; subLang: string }
-  | { type: "SET_ANIME_LANG"; animeLang: "sub" | "dub" }
+  | {
+      type: "UPDATE_LANGUAGE_PROFILE";
+      kind: "anime" | "series" | "movie";
+      profile: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+    }
   | { type: "SET_SEARCH_QUERY"; query: string }
   | { type: "SET_SEARCH_RESULTS"; results: SearchResult[] }
   | { type: "SET_SEARCH_STATE"; state: SearchStatus }
@@ -211,6 +215,11 @@ const DEFAULT_EPISODE_NAVIGATION: EpisodeNavigationState = {
 export function createInitialState(
   defaultProvider: string,
   defaultAnimeProvider: string,
+  initialProfiles: {
+    anime: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+    series: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+    movie: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+  },
 ): SessionState {
   const layoutPreferences = DEFAULT_LAYOUT_PREFERENCES;
   return {
@@ -221,8 +230,9 @@ export function createInitialState(
       series: defaultProvider,
       anime: defaultAnimeProvider,
     },
-    subLang: "en",
-    animeLang: "sub",
+    animeLanguageProfile: initialProfiles.anime,
+    seriesLanguageProfile: initialProfiles.series,
+    movieLanguageProfile: initialProfiles.movie,
     currentTitle: null,
     currentEpisode: null,
     episodeNavigation: DEFAULT_EPISODE_NAVIGATION,
@@ -278,11 +288,14 @@ export function reduceState(state: SessionState, transition: StateTransition): S
     case "SET_PROVIDER":
       return { ...state, provider: transition.provider };
 
-    case "SET_SUB_LANG":
-      return { ...state, subLang: transition.subLang };
-
-    case "SET_ANIME_LANG":
-      return { ...state, animeLang: transition.animeLang };
+    case "UPDATE_LANGUAGE_PROFILE":
+      if (transition.kind === "anime")
+        return { ...state, animeLanguageProfile: transition.profile };
+      if (transition.kind === "series")
+        return { ...state, seriesLanguageProfile: transition.profile };
+      if (transition.kind === "movie")
+        return { ...state, movieLanguageProfile: transition.profile };
+      return state;
 
     case "SET_SEARCH_QUERY":
       return {

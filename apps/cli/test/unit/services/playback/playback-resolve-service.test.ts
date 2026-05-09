@@ -83,8 +83,8 @@ function createInput(providerId: string, signal = new AbortController().signal) 
     episode: { season: 1, episode: 2 },
     mode: "series" as const,
     providerId,
-    subLang: "eng",
-    animeLang: "sub" as const,
+    audioPreference: "original",
+    subtitlePreference: "none",
     signal,
   };
 }

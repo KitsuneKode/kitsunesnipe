@@ -14,13 +14,10 @@ describe("buildDownloadStreamPolicy", () => {
     expect(policy.headers.Origin).toBe("https://origin.example");
   });
 
-  test("includes reconnect and timeout hints before -headers for ffmpeg", () => {
+  test("merges duplicate Referer keys into canonical casing", () => {
     const policy = buildDownloadStreamPolicy({ Referer: "https://x.test" });
-    const joined = policy.ffmpegArgs.join(" ");
-    expect(joined).toContain("-reconnect");
-    expect(joined).toContain("-rw_timeout");
-    expect(policy.ffmpegArgs[0]).toBe("-headers");
-    expect(String(policy.ffmpegArgs[1])).toContain("Referer:");
+    expect(policy.headers.Referer).toBe("https://x.test");
+    expect(policy.headers.referer).toBeUndefined();
   });
 
   test("omits empty header values", () => {

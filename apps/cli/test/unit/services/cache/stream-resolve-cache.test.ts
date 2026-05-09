@@ -15,8 +15,8 @@ test("buildApiStreamResolveCacheKey is stable and encodes prefs", () => {
     title,
     episode,
     mode: "anime",
-    subLang: "en",
-    animeLang: "sub",
+    audioPreference: "original",
+    subtitlePreference: "en",
   });
   const b = buildApiStreamResolveCacheKey({
     providerId: "allanime",
@@ -24,13 +24,13 @@ test("buildApiStreamResolveCacheKey is stable and encodes prefs", () => {
     title,
     episode,
     mode: "anime",
-    subLang: "en",
-    animeLang: "dub",
+    audioPreference: "original",
+    subtitlePreference: "en",
   });
   expect(a).toContain(":anime:");
-  expect(a).toContain(":sub:en");
-  expect(b).toContain(":dub:en");
-  expect(a).not.toEqual(b);
+  expect(a).toContain(":original:");
+  expect(a).toContain(":en");
+  expect(a).toBe(b);
 });
 
 test("buildApiStreamResolveCacheKey follows provider manifest key parts", () => {
@@ -40,8 +40,8 @@ test("buildApiStreamResolveCacheKey follows provider manifest key parts", () => 
     title: { id: "tmdb:1", type: "series", name: "X" },
     episode: { season: 2, episode: 7 },
     mode: "series",
-    subLang: "en",
-    animeLang: "sub",
+    audioPreference: "original",
+    subtitlePreference: "en",
   });
   expect(key).toContain("provider:vidking:series:tmdb:1:2:7:en");
 });

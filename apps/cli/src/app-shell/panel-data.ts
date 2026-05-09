@@ -21,13 +21,22 @@ function describeSubtitleState(state: SessionState): {
   label: string;
   tone: ShellPanelLine["tone"];
 } {
-  if (state.subLang === "none") {
+  if (
+    (state.mode === "anime"
+      ? state.animeLanguageProfile.subtitle
+      : state.seriesLanguageProfile.subtitle) === "none"
+  ) {
     return { label: "disabled by preference", tone: "neutral" };
   }
   if (!state.stream) {
     return { label: "not resolved yet", tone: "neutral" };
   }
-  const label = describePlaybackSubtitleStatus(state.stream, state.subLang);
+  const label = describePlaybackSubtitleStatus(
+    state.stream,
+    state.mode === "anime"
+      ? state.animeLanguageProfile.subtitle
+      : state.seriesLanguageProfile.subtitle,
+  );
   if (state.stream.subtitle) {
     return { label: "attached", tone: "success" };
   }
@@ -275,7 +284,9 @@ export function buildDiagnosticsPanelLines({
       label: "Subtitle diagnosis",
       detail: state.stream?.subtitle
         ? "A subtitle URL was attached before mpv launched."
-        : state.subLang === "none"
+        : (state.mode === "anime"
+              ? state.animeLanguageProfile.subtitle
+              : state.seriesLanguageProfile.subtitle) === "none"
           ? "Subtitle preference is set to none, so mpv launches without a subtitle file by design."
           : "For Vidking, this usually means the embed did not request a direct subtitle file or Wyzie search before the stream was captured, or the subtitle provider had no match.",
       tone: state.stream?.subtitle ? "success" : "warning",
@@ -317,7 +328,7 @@ export function buildDiagnosticsPanelLines({
           ? capabilitySnapshot.issues
               .map((issue) => `${issue.id} (${issue.severity})`)
               .join("  ·  ")
-          : `mpv ${capabilitySnapshot?.mpv ? "ready" : "missing"}  ·  ffmpeg ${capabilitySnapshot?.ffmpeg ? "ready" : "missing"}  ·  chafa ${capabilitySnapshot?.chafa ? "ready" : "missing"}  ·  magick ${capabilitySnapshot?.magick ? "ready" : "missing"}  ·  image ${capabilitySnapshot?.image.renderer ?? "unknown"} (${capabilitySnapshot?.image.terminal ?? "unknown"})`,
+          : `mpv ${capabilitySnapshot?.mpv ? "ready" : "missing"}  ·  yt-dlp ${capabilitySnapshot?.ytDlp ? "ready" : "missing"}  ·  ffprobe ${capabilitySnapshot?.ffprobe ? "ready" : "optional"}  ·  chafa ${capabilitySnapshot?.chafa ? "ready" : "missing"}  ·  magick ${capabilitySnapshot?.magick ? "ready" : "missing"}  ·  image ${capabilitySnapshot?.image.renderer ?? "unknown"} (${capabilitySnapshot?.image.terminal ?? "unknown"})`,
       tone: capabilitySnapshot?.issues.length ? "warning" : "success",
     },
     {

@@ -179,7 +179,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     repo: downloadJobs,
     config,
     logger,
-    ffmpegAvailable: options?.capabilitySnapshot?.ffmpeg ?? false,
+    ytDlpAvailable: options?.capabilitySnapshot?.ytDlp ?? false,
     ffprobeAvailable: Boolean(Bun.which("ffprobe")),
     resolveDownloadStream: async (intent) => {
       const resolver = new PlaybackResolveService({ providerRegistry, cacheStore });
@@ -189,8 +189,8 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
         episode: intent.episode ?? { season: 1, episode: 1 },
         mode: intent.mode,
         providerId: intent.providerId,
-        subLang: intent.subLang,
-        animeLang: intent.animeLang,
+        audioPreference: intent.audioPreference,
+        subtitlePreference: intent.subtitlePreference,
         signal: controller.signal,
       });
       if (!result.stream) return null;

@@ -1,6 +1,13 @@
 import { basename, dirname, join } from "node:path";
 
-import { describeEpisodeWatchPresentation } from "@/app/playback-episode-picker";
+import { openDownloadManagerShell } from "@/app-shell/download-manager-shell";
+import {
+  chooseEpisodeFromOptions,
+  chooseFromListShell,
+  chooseSeasonFromOptions,
+  type ListShellActionContext,
+  type ShellOption,
+} from "@/app-shell/pickers";
 import { describePlaybackSubtitleStatus } from "@/app/subtitle-status";
 import type { Container } from "@/container";
 import { effectiveFooterHints } from "@/container";
@@ -26,18 +33,9 @@ import {
 import { fetchEpisodes, fetchSeasons, type EpisodeInfo } from "@/tmdb";
 import { getKunaiPaths } from "@kunai/storage";
 
-import { resolveCommands, type ResolvedAppCommand } from "./commands";
+import { resolveCommands } from "./commands";
 import { openSessionPicker } from "./session-picker";
 import type { ShellAction } from "./types";
-
-type ListShellActionContext = {
-  commands: readonly ResolvedAppCommand[];
-  onAction: (
-    action: ShellAction,
-  ) => Promise<"handled" | "quit" | "unhandled"> | "handled" | "quit" | "unhandled";
-  taskLabel?: string;
-  footerMode?: "detailed" | "minimal";
-};
 
 type HistoryAction =
   | { type: "entry"; id: string; title: string }
@@ -45,7 +43,6 @@ type HistoryAction =
   | { type: "back" };
 
 type DownloadJobAction = { type: "job"; id: string } | { type: "back" };
-type DownloadJobFilter = "active" | "failed" | "completed" | "all";
 type CompletedDownloadAction =
   | "play"
   | "reveal"
@@ -53,12 +50,6 @@ type CompletedDownloadAction =
   | "delete-job"
   | "delete-artifact"
   | "back";
-
-type ShellOption<T> = {
-  value: T;
-  label: string;
-  detail?: string;
-};
 
 export type SetupWizardResult = "completed" | "cancelled" | "skipped";
 
@@ -78,22 +69,10 @@ const ANIME_AUDIO_OPTIONS = [
   { value: "dub", label: "Dub", detail: "Dubbed audio when available" },
 ] as const;
 
-async function chooseOption<T>({
-  title,
-  subtitle,
-  options,
-  actionContext,
-}: {
-  title: string;
-  subtitle: string;
-  options: readonly ShellOption<T>[];
-  actionContext?: ListShellActionContext;
-}): Promise<T | null> {
-  const { openListShell } = await import("./ink-shell");
-  return openListShell({ title, subtitle, options, actionContext });
-}
-
-function packageInstallHint(pkg: "mpv" | "ffmpeg" | "chafa" | "imagemagick"): string {
+function packageInstallHint(pkg: "mpv" | "yt-dlp" | "chafa" | "imagemagick" | "ffprobe"): string {
+  if (pkg === "ffprobe") {
+    return "Put ffprobe on your PATH via your distro, a static build, or another package manager build that ships the ffprobe binary";
+  }
   if (process.platform === "darwin") {
     return `brew install ${pkg}`;
   }
@@ -103,6 +82,7 @@ function packageInstallHint(pkg: "mpv" | "ffmpeg" | "chafa" | "imagemagick"): st
   if (process.platform === "win32") {
     if (pkg === "chafa") return "winget install hpjansson.Chafa";
     if (pkg === "imagemagick") return "winget install ImageMagick.ImageMagick";
+    if (pkg === "yt-dlp") return "winget install yt-dlp";
   }
   return `${pkg}: install via your system package manager`;
 }
@@ -123,7 +103,8 @@ export async function runSetupWizard({
   const setupStepTitle = (step: number, title: string) => `[${step}/6] ${title}`;
   const defaultDownloadPath = join(dirname(getKunaiPaths().dataDbPath), "downloads");
   const capabilitySnapshot = container.capabilitySnapshot;
-  const ffmpegAvailable = capabilitySnapshot?.ffmpeg ?? Boolean(Bun.which("ffmpeg"));
+  const ffprobeAvailable = capabilitySnapshot?.ffprobe ?? Boolean(Bun.which("ffprobe"));
+  const ytDlpAvailable = capabilitySnapshot?.ytDlp ?? Boolean(Bun.which("yt-dlp"));
   const chafaAvailable = capabilitySnapshot?.chafa ?? Boolean(Bun.which("chafa"));
   const magickAvailable = capabilitySnapshot?.magick ?? Boolean(Bun.which("magick"));
   const imageCapability = capabilitySnapshot?.image;
@@ -133,13 +114,14 @@ export async function runSetupWizard({
     : "off";
   const capabilityCard = [
     `mpv ${capabilitySnapshot?.mpv ? "ready" : "missing"}`,
-    `ffmpeg ${ffmpegAvailable ? "ready" : "missing"}`,
+    `yt-dlp ${ytDlpAvailable ? "ready" : "missing"}`,
+    `ffprobe ${ffprobeAvailable ? "ready" : "optional"} (artifact check)`,
     `posters ${postersAvailable ? posterDetail : "off"}`,
     `chafa ${chafaAvailable ? "ready" : "optional"}`,
     `magick ${magickAvailable ? "ready" : "optional"}`,
   ].join("  ·  ");
 
-  const startChoice = await chooseOption({
+  const startChoice = await chooseFromListShell({
     title: setupStepTitle(1, "Setup Wizard"),
     subtitle: `Configure downloads and offline defaults without leaving the TUI  ·  ${capabilityCard}`,
     options: [
@@ -171,7 +153,7 @@ export async function runSetupWizard({
   }
 
   while (true) {
-    const dependencyReview = await chooseOption({
+    const dependencyReview = await chooseFromListShell({
       title: setupStepTitle(2, "Dependency Guide"),
       subtitle:
         capabilitySnapshot?.mpv === false
@@ -184,11 +166,18 @@ export async function runSetupWizard({
           detail: packageInstallHint("mpv"),
         },
         {
-          value: "ffmpeg" as const,
-          label: ffmpegAvailable
-            ? "ffmpeg detected (downloads ready)"
-            : "Install ffmpeg for downloads",
-          detail: packageInstallHint("ffmpeg"),
+          value: "yt-dlp" as const,
+          label: ytDlpAvailable
+            ? "yt-dlp detected (download engine ready)"
+            : "Install yt-dlp for offline downloads",
+          detail: packageInstallHint("yt-dlp"),
+        },
+        {
+          value: "ffprobe" as const,
+          label: ffprobeAvailable
+            ? "ffprobe detected (optional download validation)"
+            : "Install ffprobe for optional post-download validation",
+          detail: packageInstallHint("ffprobe"),
         },
         {
           value: "chafa" as const,
@@ -221,7 +210,7 @@ export async function runSetupWizard({
   }
 
   while (true) {
-    const posterReview = await chooseOption({
+    const posterReview = await chooseFromListShell({
       title: setupStepTitle(3, "Poster Preview"),
       subtitle: postersAvailable
         ? `Poster previews are available via ${posterDetail}`
@@ -267,18 +256,18 @@ export async function runSetupWizard({
     }
   }
 
-  const downloadChoice = await chooseOption({
+  const downloadChoice = await chooseFromListShell({
     title: setupStepTitle(4, "Offline Downloads"),
-    subtitle: ffmpegAvailable
-      ? "ffmpeg detected — download queue can run immediately"
-      : "ffmpeg not found — playback still works; downloads stay disabled until ffmpeg is installed",
+    subtitle: ytDlpAvailable
+      ? "yt-dlp detected — download queue can run when downloads are enabled"
+      : "yt-dlp not found — enable downloads in settings and install yt-dlp to use the queue",
     options: [
       {
         value: "enable" as const,
         label: "Enable downloads",
-        detail: ffmpegAvailable
-          ? "Queue downloads from active playback and monitor status in-shell"
-          : "Save the preference now; downloads become usable after ffmpeg is available",
+        detail: ytDlpAvailable
+          ? "Queue downloads from browse or playback; manage jobs with /downloads"
+          : "Save the preference now; install yt-dlp (optional ffprobe for validation) for full checks",
       },
       {
         value: "disable" as const,
@@ -293,7 +282,7 @@ export async function runSetupWizard({
   }
 
   let downloadPath = current.downloadPath;
-  const pathChoice = await chooseOption({
+  const pathChoice = await chooseFromListShell({
     title: setupStepTitle(5, "Download Location"),
     subtitle:
       downloadChoice === "enable"
@@ -339,7 +328,7 @@ export async function runSetupWizard({
   const finalDownloadPath =
     downloadChoice === "enable" ? downloadPath || defaultDownloadPath : "disabled";
   while (true) {
-    const finalChoice = await chooseOption({
+    const finalChoice = await chooseFromListShell({
       title: setupStepTitle(6, "Setup Complete"),
       subtitle: `Downloads ${downloadChoice === "enable" ? "enabled" : "disabled"}  ·  Path ${finalDownloadPath}`,
       options: [
@@ -389,145 +378,13 @@ export async function runSetupWizard({
     context: {
       downloadsEnabled: downloadChoice === "enable",
       downloadPath: downloadChoice === "enable" ? finalDownloadPath : null,
-      ffmpegAvailable,
+      ffprobeAvailable,
+      ytDlpAvailable,
       force,
     },
   });
 
   return "completed";
-}
-
-export async function chooseSeasonFromOptions(
-  seasons: readonly number[],
-  currentSeason: number,
-  actionContext?: ListShellActionContext,
-  container?: Container,
-): Promise<number | null> {
-  if (seasons.length === 0) return null;
-  if (seasons.length === 1) return seasons[0] ?? currentSeason;
-
-  if (container) {
-    const picked = await openSessionPicker(container.stateManager, {
-      type: "season_picker",
-      currentSeason,
-      options: seasons.map((season) => ({
-        value: String(season),
-        label: season === currentSeason ? `Season ${season}  ·  current` : `Season ${season}`,
-      })),
-    });
-    return picked ? Number.parseInt(picked, 10) : null;
-  }
-
-  return chooseOption({
-    title: "Choose season",
-    subtitle: `Current season ${currentSeason}`,
-    actionContext,
-    options: seasons.map((season) => ({
-      value: season,
-      label: season === currentSeason ? `Season ${season}  ·  current` : `Season ${season}`,
-    })),
-  });
-}
-
-export async function chooseEpisodeFromOptions(
-  episodes: readonly EpisodeInfo[],
-  season: number,
-  currentEpisode: number,
-  actionContext?: ListShellActionContext,
-  container?: Container,
-  titleId?: string,
-): Promise<EpisodeInfo | null> {
-  if (episodes.length === 0) return null;
-
-  // Load per-episode watch status from history when context is available.
-  const episodeStatus = await buildEpisodeStatusMap(container, titleId, season, episodes);
-
-  let watchedSubtitle: string | null = null;
-  if (episodeStatus.size > 0) {
-    const finishedCount = [...episodeStatus.values()].filter((s) => s.tone === "success").length;
-    if (finishedCount > 0) {
-      watchedSubtitle = `${finishedCount}/${episodes.length} watched`;
-    }
-  }
-
-  if (container) {
-    const picked = await openSessionPicker(container.stateManager, {
-      type: "episode_picker",
-      season,
-      initialIndex: Math.max(
-        0,
-        episodes.findIndex((episode) => episode.number === currentEpisode),
-      ),
-      options: episodes.map((episode) => {
-        const status = episodeStatus.get(episode.number);
-        return {
-          value: String(episode.number),
-          label: `Episode ${episode.number}  ·  ${episode.name}`,
-          detail: episode.airDate || "unknown year",
-          tone: status?.tone ?? (episode.number === currentEpisode ? "info" : undefined),
-          badge: episode.number === currentEpisode ? "current" : status?.badge,
-        };
-      }),
-    });
-    if (!picked) return null;
-    return episodes.find((episode) => String(episode.number) === picked) ?? null;
-  }
-
-  return chooseOption({
-    title: "Choose episode",
-    subtitle: `Season ${season}  ·  ${watchedSubtitle ?? `Current episode ${currentEpisode}`}`,
-    actionContext,
-    options: episodes.map((episode) => ({
-      value: episode,
-      label:
-        episode.number === currentEpisode
-          ? `Episode ${episode.number}  ·  ${episode.name}  ·  current`
-          : `Episode ${episode.number}  ·  ${episode.name}`,
-      detail: episode.airDate || "unknown year",
-    })),
-  });
-}
-
-type EpisodeStatusEntry = { tone: "success" | "warning"; badge: string };
-
-async function buildEpisodeStatusMap(
-  container: Container | undefined,
-  titleId: string | undefined,
-  season: number,
-  episodes: readonly EpisodeInfo[],
-): Promise<Map<number, EpisodeStatusEntry>> {
-  const map = new Map<number, EpisodeStatusEntry>();
-  if (!container || !titleId) return map;
-
-  const allEntries = await container.historyStore.listByTitle(titleId);
-  const seasonEntries = allEntries.filter((e) => e.season === season);
-  if (seasonEntries.length === 0) return map;
-
-  // Direct status from history — take most recent entry per episode.
-  for (const entry of seasonEntries) {
-    if (!map.has(entry.episode)) {
-      if (isFinished(entry)) {
-        const presentation = describeEpisodeWatchPresentation(entry);
-        map.set(entry.episode, { tone: "success", badge: presentation.badge ?? "watched" });
-      } else if (entry.timestamp > 0) {
-        const presentation = describeEpisodeWatchPresentation(entry);
-        map.set(entry.episode, {
-          tone: "warning",
-          badge: presentation.badge ?? "resume",
-        });
-      }
-    }
-  }
-
-  // Mark episodes before the furthest-watched as implicitly finished.
-  const maxWatched = Math.max(...seasonEntries.map((e) => e.episode));
-  for (const ep of episodes) {
-    if (ep.number < maxWatched && !map.has(ep.number)) {
-      map.set(ep.number, { tone: "success", badge: "✓" });
-    }
-  }
-
-  return map;
 }
 
 function formatHistoryLabel(entry: HistoryEntry): string {
@@ -551,50 +408,6 @@ function summarizeHeaderKeys(headers: Record<string, string> | undefined): strin
 
 function describeDownloadJob(job: import("@kunai/storage").DownloadJobRecord): string {
   return formatOfflineJobListingTitle(job);
-}
-
-function detailDownloadJob(job: import("@kunai/storage").DownloadJobRecord): string {
-  const parts = [
-    `${statusDetail(job)}`,
-    `${renderProgressBar(job.progressPercent)} ${job.progressPercent}%`,
-    `attempt ${job.attempt}/${job.maxAttempts}`,
-  ];
-  if (job.nextRetryAt) parts.push(`retry ${formatRelativeRetry(job.nextRetryAt)}`);
-  if (job.errorMessage) parts.push(job.errorMessage);
-  return parts.join("  ·  ");
-}
-
-function statusDetail(job: import("@kunai/storage").DownloadJobRecord): string {
-  if (job.status === "failed" && job.failureKind) {
-    return `failed (${job.failureKind})`;
-  }
-  return job.status;
-}
-
-function formatRelativeRetry(nextRetryAt: string): string {
-  const targetMs = Date.parse(nextRetryAt);
-  if (!Number.isFinite(targetMs)) {
-    return new Date(nextRetryAt).toLocaleTimeString();
-  }
-  const deltaMs = targetMs - Date.now();
-  if (deltaMs <= 0) {
-    return "now";
-  }
-  const seconds = Math.ceil(deltaMs / 1000);
-  if (seconds < 60) return `in ${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remSeconds = seconds % 60;
-  return remSeconds > 0 ? `in ${minutes}m ${remSeconds}s` : `in ${minutes}m`;
-}
-
-function renderProgressBar(percentage: number): string {
-  const totalBlocks = 10;
-  const filledBlocks = Math.max(
-    0,
-    Math.min(totalBlocks, Math.round((percentage / 100) * totalBlocks)),
-  );
-  const emptyBlocks = totalBlocks - filledBlocks;
-  return `[${"█".repeat(filledBlocks)}${"░".repeat(emptyBlocks)}]`;
 }
 
 function statusPrefix(job: import("@kunai/storage").DownloadJobRecord): string {
@@ -633,7 +446,7 @@ async function openHistoryShell(
       { value: { type: "back" as const }, label: "Back" },
     ];
 
-    const picked = await chooseOption({
+    const picked = await chooseFromListShell({
       title: "History",
       subtitle:
         entries.length > 0
@@ -646,7 +459,7 @@ async function openHistoryShell(
     if (!picked || picked.type === "back") return;
 
     if (picked.type === "clear-all") {
-      const confirm = await chooseOption({
+      const confirm = await chooseFromListShell({
         title: "Clear all history?",
         subtitle: "This removes every saved playback position",
         actionContext,
@@ -659,7 +472,7 @@ async function openHistoryShell(
       continue;
     }
 
-    const confirm = await chooseOption({
+    const confirm = await chooseFromListShell({
       title: `Remove ${picked.title}?`,
       subtitle: "This deletes the saved position for this title",
       actionContext,
@@ -672,198 +485,148 @@ async function openHistoryShell(
   }
 }
 
+async function openCompletedDownloadsPicker(
+  container: Container,
+  actionContext?: ListShellActionContext,
+): Promise<void> {
+  while (true) {
+    const completed = container.downloadService.listCompleted(120).slice(0, 60);
+    const options: ShellOption<DownloadJobAction>[] = [
+      ...completed.map((job) => ({
+        value: { type: "job" as const, id: job.id },
+        label: `${statusPrefix(job)} ${describeDownloadJob(job)}`,
+        detail: `${job.status}  ·  ${job.outputPath}`,
+      })),
+      { value: { type: "back" as const }, label: "Back" },
+    ];
+    const picked = await chooseFromListShell({
+      title: "Completed downloads",
+      subtitle:
+        completed.length > 0
+          ? `${completed.length} job(s) · play, reveal folder, delete`
+          : "Nothing finished yet",
+      actionContext,
+      options,
+    });
+    if (!picked || picked.type === "back") return;
+    const job = container.downloadService.getJob(picked.id);
+    if (!job || job.status !== "completed") continue;
+
+    const artifactStatus = await resolveOfflineArtifactStatus(job);
+    const action = await chooseFromListShell<CompletedDownloadAction>({
+      title: describeDownloadJob(job),
+      subtitle: `${formatOfflineSecondaryLine(job, artifactStatus)}  ·  ${job.outputPath}`,
+      actionContext,
+      options: [
+        {
+          value: "play",
+          label: artifactStatus === "ready" ? "Play downloaded file" : "Play unavailable",
+          detail: artifactStatus === "ready" ? "Open local artifact in mpv" : artifactStatus,
+        },
+        { value: "reveal", label: "Reveal folder", detail: dirname(job.outputPath) },
+        {
+          value: "retry",
+          label: "Re-download",
+          detail: "Queue a fresh attempt from stored download intent",
+        },
+        {
+          value: "delete-artifact",
+          label: "Delete artifact and job",
+          detail: "Remove local media, subtitle artifact, and queue record",
+        },
+        {
+          value: "delete-job",
+          label: "Delete job only",
+          detail: "Keep files on disk but remove this queue record",
+        },
+        { value: "back", label: "Back" },
+      ],
+    });
+    if (!action || action === "back") continue;
+    if (action === "play") {
+      if (artifactStatus !== "ready") {
+        container.stateManager.dispatch({
+          type: "SET_PLAYBACK_FEEDBACK",
+          note: `Offline file unavailable: ${artifactStatus}`,
+        });
+        container.diagnosticsStore.record({
+          category: "download",
+          message: "Completed download playback blocked",
+          context: { jobId: job.id, artifactStatus, outputPath: job.outputPath },
+        });
+        continue;
+      }
+      await container.player.playLocal({
+        filePath: job.outputPath,
+        displayTitle: formatOfflineJobListingTitle(job),
+        subtitlePath: job.subtitlePath ?? null,
+        timing: parseIntroSkipTiming(job.introSkipJson),
+        attach: false,
+      });
+      continue;
+    }
+    if (action === "reveal") {
+      const reveal = await revealPathInOsFileManager(job.outputPath);
+      if (!reveal.ok) {
+        container.stateManager.dispatch({
+          type: "SET_PLAYBACK_FEEDBACK",
+          note: `Could not open folder: ${reveal.stderr ?? "system helper failed"}`,
+        });
+      }
+      continue;
+    }
+    if (action === "retry") {
+      container.downloadService.retry(job.id);
+      container.stateManager.dispatch({
+        type: "SET_PLAYBACK_FEEDBACK",
+        note: `Re-download queued: ${formatOfflineJobListingTitle(job)}`,
+      });
+      void container.downloadService.processQueue();
+      continue;
+    }
+    await container.downloadService.deleteJob(job.id, {
+      deleteArtifact: action === "delete-artifact",
+    });
+    container.stateManager.dispatch({
+      type: "SET_PLAYBACK_FEEDBACK",
+      note: action === "delete-artifact" ? "Download artifact deleted" : "Download job deleted",
+    });
+  }
+}
+
 async function openDownloadsShell(
   container: Container,
   actionContext?: ListShellActionContext,
 ): Promise<void> {
-  let filter: DownloadJobFilter = "active";
   while (true) {
-    const active = container.downloadService.listActive(100);
-    const failed = container.downloadService.listFailed(100);
-    const completed = container.downloadService.listCompleted(100).slice(0, 40);
-    const filterChoice: DownloadJobFilter | "back" | null = await chooseOption<
-      DownloadJobFilter | "back"
-    >({
-      title: "Download Jobs",
-      subtitle: `${active.length} active  ·  ${failed.length} failed  ·  ${completed.length} completed`,
+    const queuedRunning = container.downloadService.listActive(120).length;
+    const failed = container.downloadService.listFailed(120).length;
+    const completed = container.downloadService.listCompleted(120).length;
+
+    const gate = await chooseFromListShell<"live" | "completed" | "back" | null>({
+      title: "Downloads",
+      subtitle: `${queuedRunning} queued/running · ${failed} failed · ${completed} completed`,
       actionContext,
       options: [
         {
-          value: "active" as const,
-          label: "Active queue",
-          detail: "Running and queued jobs",
+          value: "live",
+          label: "Live queue & failures",
+          detail: "Progress, cancel queued/running, retry failures (Ink)",
         },
         {
-          value: "failed" as const,
-          label: "Failed jobs",
-          detail: "Retryable and terminal failures",
+          value: "completed",
+          label: "Completed downloads",
+          detail: "Play locally, open folder, re-download, delete artifacts",
         },
-        {
-          value: "completed" as const,
-          label: "Completed jobs",
-          detail: "Latest finished artifacts",
-        },
-        {
-          value: "all" as const,
-          label: "All jobs",
-          detail: "Combined queue view",
-        },
-        { value: "back" as const, label: "Back" },
+        { value: "back", label: "Back" },
       ],
     });
-    if (!filterChoice || filterChoice === "back") {
-      return;
-    }
-    filter = filterChoice;
-
-    const visibleJobs =
-      filter === "active"
-        ? active
-        : filter === "failed"
-          ? failed
-          : filter === "completed"
-            ? completed
-            : [...active, ...failed, ...completed];
-    const options: ShellOption<DownloadJobAction>[] = [
-      ...visibleJobs.map((job) => ({
-        value: { type: "job" as const, id: job.id },
-        label: `${statusPrefix(job)} ${describeDownloadJob(job)}`,
-        detail:
-          job.status === "completed"
-            ? `${job.status}  ·  ${job.outputPath}`
-            : detailDownloadJob(job),
-      })),
-      { value: { type: "back" as const }, label: "Back" },
-    ];
-    const picked = await chooseOption({
-      title: "Download Jobs",
-      subtitle:
-        options.length > 1
-          ? `${filter}  ·  ${options.length - 1} entries`
-          : `${filter}  ·  no entries yet`,
-      actionContext,
-      options,
-    });
-    if (!picked || picked.type === "back") {
-      return;
-    }
-    const job = [...active, ...failed, ...completed].find((entry) => entry.id === picked.id);
-    if (!job) continue;
-
-    if (job.status === "running" || job.status === "queued") {
-      const action = await chooseOption({
-        title: describeDownloadJob(job),
-        subtitle: detailDownloadJob(job),
-        actionContext,
-        options: [
-          { value: "cancel" as const, label: "Cancel job" },
-          { value: "back" as const, label: "Back" },
-        ],
-      });
-      if (action === "cancel") {
-        await container.downloadService.abort(job.id);
-      }
+    if (!gate || gate === "back") return;
+    if (gate === "live") {
+      await openDownloadManagerShell(container);
       continue;
     }
-
-    if (job.status === "failed" || job.status === "aborted") {
-      const action = await chooseOption({
-        title: describeDownloadJob(job),
-        subtitle: detailDownloadJob(job),
-        actionContext,
-        options: [
-          { value: "retry" as const, label: "Retry job" },
-          { value: "back" as const, label: "Back" },
-        ],
-      });
-      if (action === "retry") {
-        container.downloadService.retry(job.id);
-        void container.downloadService.processQueue();
-      }
-      continue;
-    }
-
-    if (job.status === "completed") {
-      const artifactStatus = await resolveOfflineArtifactStatus(job);
-      const action = await chooseOption<CompletedDownloadAction>({
-        title: describeDownloadJob(job),
-        subtitle: `${formatOfflineSecondaryLine(job, artifactStatus)}  ·  ${job.outputPath}`,
-        actionContext,
-        options: [
-          {
-            value: "play",
-            label: artifactStatus === "ready" ? "Play downloaded file" : "Play unavailable",
-            detail: artifactStatus === "ready" ? "Open local artifact in mpv" : artifactStatus,
-          },
-          { value: "reveal", label: "Reveal folder", detail: dirname(job.outputPath) },
-          {
-            value: "retry",
-            label: "Re-download",
-            detail: "Queue a fresh attempt from stored download intent",
-          },
-          {
-            value: "delete-artifact",
-            label: "Delete artifact and job",
-            detail: "Remove local media, subtitle artifact, and queue record",
-          },
-          {
-            value: "delete-job",
-            label: "Delete job only",
-            detail: "Keep files on disk but remove this queue record",
-          },
-          { value: "back", label: "Back" },
-        ],
-      });
-      if (!action || action === "back") continue;
-      if (action === "play") {
-        if (artifactStatus !== "ready") {
-          container.stateManager.dispatch({
-            type: "SET_PLAYBACK_FEEDBACK",
-            note: `Offline file unavailable: ${artifactStatus}`,
-          });
-          container.diagnosticsStore.record({
-            category: "download",
-            message: "Completed download playback blocked",
-            context: { jobId: job.id, artifactStatus, outputPath: job.outputPath },
-          });
-          continue;
-        }
-        await container.player.playLocal({
-          filePath: job.outputPath,
-          displayTitle: formatOfflineJobListingTitle(job),
-          subtitlePath: job.subtitlePath ?? null,
-          timing: parseIntroSkipTiming(job.introSkipJson),
-          attach: false,
-        });
-        continue;
-      }
-      if (action === "reveal") {
-        const reveal = await revealPathInOsFileManager(job.outputPath);
-        if (!reveal.ok) {
-          container.stateManager.dispatch({
-            type: "SET_PLAYBACK_FEEDBACK",
-            note: `Could not open folder: ${reveal.stderr ?? "system helper failed"}`,
-          });
-        }
-        continue;
-      }
-      if (action === "retry") {
-        container.downloadService.retry(job.id);
-        container.stateManager.dispatch({
-          type: "SET_PLAYBACK_FEEDBACK",
-          note: `Re-download queued: ${formatOfflineJobListingTitle(job)}`,
-        });
-        void container.downloadService.processQueue();
-        continue;
-      }
-      await container.downloadService.deleteJob(job.id, {
-        deleteArtifact: action === "delete-artifact",
-      });
-      container.stateManager.dispatch({
-        type: "SET_PLAYBACK_FEEDBACK",
-        note: action === "delete-artifact" ? "Download artifact deleted" : "Download job deleted",
-      });
-    }
+    await openCompletedDownloadsPicker(container, actionContext);
   }
 }
 
@@ -880,7 +643,7 @@ export async function openOfflineLibraryShell(
   while (true) {
     const completed = container.downloadService.listCompleted(120);
     if (completed.length === 0) {
-      await chooseOption({
+      await chooseFromListShell({
         title: "Offline Library",
         subtitle:
           "No completed downloads yet  ·  enqueue during playback (/ → Download current episode)",
@@ -891,7 +654,7 @@ export async function openOfflineLibraryShell(
     }
 
     const rows = await hydrateCompletedOfflineJobs(completed);
-    const picked = await chooseOption<OfflineBrowsePick>({
+    const picked = await chooseFromListShell<OfflineBrowsePick>({
       title: "Offline Library",
       subtitle: `${rows.length} completed  ·  browse and play downloaded files`,
       actionContext,
@@ -918,7 +681,7 @@ export async function openOfflineLibraryShell(
 
     while (true) {
       const artifactStatus = await resolveOfflineArtifactStatus(jobSnapshot);
-      const action = await chooseOption<OfflineJobMenuChoice>({
+      const action = await chooseFromListShell<OfflineJobMenuChoice>({
         title: formatOfflineJobListingTitle(jobSnapshot),
         subtitle: `${formatOfflineSecondaryLine(jobSnapshot, artifactStatus)}  ·  ${jobSnapshot.outputPath}`,
         actionContext,
@@ -1038,7 +801,7 @@ async function openStaticInfoShell({
   subtitle: string;
   lines: readonly { label: string; detail?: string }[];
 }): Promise<void> {
-  await chooseOption({
+  await chooseFromListShell({
     title,
     subtitle,
     options: [
@@ -1116,8 +879,21 @@ export async function applySettingsToRuntime({
     mode: "anime",
     provider: next.animeProvider,
   });
-  stateManager.dispatch({ type: "SET_SUB_LANG", subLang: next.subLang });
-  stateManager.dispatch({ type: "SET_ANIME_LANG", animeLang: next.animeLang });
+  stateManager.dispatch({
+    type: "UPDATE_LANGUAGE_PROFILE",
+    kind: "anime",
+    profile: next.animeLanguageProfile,
+  });
+  stateManager.dispatch({
+    type: "UPDATE_LANGUAGE_PROFILE",
+    kind: "series",
+    profile: next.seriesLanguageProfile,
+  });
+  stateManager.dispatch({
+    type: "UPDATE_LANGUAGE_PROFILE",
+    kind: "movie",
+    profile: next.movieLanguageProfile,
+  });
 
   const currentProvider =
     state.mode === "anime" ? state.defaultProviders.anime : state.defaultProviders.series;
@@ -1321,7 +1097,12 @@ export async function handleShellAction({
           },
           {
             label: "Subtitle state",
-            detail: describePlaybackSubtitleStatus(state.stream, state.subLang),
+            detail: describePlaybackSubtitleStatus(
+              state.stream,
+              state.mode === "anime"
+                ? state.animeLanguageProfile.subtitle
+                : state.seriesLanguageProfile.subtitle,
+            ),
           },
           {
             label: "Selected subtitle URL",
@@ -1436,7 +1217,7 @@ export async function handleShellAction({
   }
 
   if (action === "clear-cache") {
-    const confirm = await chooseOption({
+    const confirm = await chooseFromListShell({
       title: "Clear stream cache?",
       subtitle: "This will remove all cached stream URLs. Next play will require fresh scraping.",
       options: [
@@ -1452,7 +1233,7 @@ export async function handleShellAction({
   }
 
   if (action === "clear-history") {
-    const confirm = await chooseOption({
+    const confirm = await chooseFromListShell({
       title: "Clear watch history?",
       subtitle: "This will remove all saved playback positions and progress.",
       options: [
@@ -1542,6 +1323,15 @@ export async function enqueueCurrentPlaybackDownload({
       episode: state.currentEpisode,
       stream: state.stream,
       providerId: state.provider,
+      mode: state.mode,
+      audioPreference:
+        state.mode === "anime"
+          ? state.animeLanguageProfile.audio
+          : state.seriesLanguageProfile.audio,
+      subtitlePreference:
+        state.mode === "anime"
+          ? state.animeLanguageProfile.subtitle
+          : state.seriesLanguageProfile.subtitle,
       timing,
     });
     container.diagnosticsStore.record({
@@ -1670,7 +1460,7 @@ export async function openProviderPicker({
   providers: readonly import("@/domain/types").ProviderMetadata[];
   actionContext?: ListShellActionContext;
 }): Promise<string | null> {
-  return chooseOption({
+  return chooseFromListShell({
     title: "Choose provider",
     subtitle: `Current provider ${currentProvider}`,
     actionContext,
@@ -1726,7 +1516,7 @@ export async function openSubtitlePicker(
     });
   }
 
-  return chooseOption({
+  return chooseFromListShell({
     title: "Choose subtitles",
     subtitle: `${entries.length} tracks available`,
     actionContext,
@@ -1758,7 +1548,7 @@ export async function openSourcePicker(
     });
   }
 
-  return chooseOption({
+  return chooseFromListShell({
     title: "Choose source",
     subtitle: `${entries.length} sources available`,
     actionContext,
@@ -1790,7 +1580,7 @@ export async function openQualityPicker(
     });
   }
 
-  return chooseOption({
+  return chooseFromListShell({
     title: "Choose quality",
     subtitle: `${entries.length} quality options available`,
     actionContext,
@@ -1845,7 +1635,7 @@ export async function openAnimeEpisodePicker(
     });
     return picked ? Number.parseInt(picked, 10) : null;
   }
-  return chooseOption({
+  return chooseFromListShell({
     title: "Choose episode",
     subtitle: `${count} episodes available`,
     actionContext,
@@ -1883,7 +1673,7 @@ export async function openAnimeEpisodeListPicker(
     return picked ? Number.parseInt(picked, 10) : null;
   }
 
-  return chooseOption({
+  return chooseFromListShell({
     title: "Choose episode",
     subtitle: `${episodes.length} episodes available`,
     actionContext,
@@ -1918,7 +1708,7 @@ export async function openSettingsShell({
   let changed = false;
 
   while (true) {
-    const action = await chooseOption({
+    const action = await chooseFromListShell({
       title: "Settings",
       subtitle: configSummary(next),
       actionContext,
@@ -2053,7 +1843,7 @@ export async function openSettingsShell({
     }
 
     if (action === "provider") {
-      const picked = await chooseOption({
+      const picked = await chooseFromListShell({
         title: "Default provider",
         subtitle: `Current ${next.provider}`,
         actionContext,
@@ -2071,7 +1861,7 @@ export async function openSettingsShell({
     }
 
     if (action === "defaultMode") {
-      const picked = await chooseOption({
+      const picked = await chooseFromListShell({
         title: "Default startup mode",
         subtitle: `Current ${next.defaultMode}`,
         actionContext,
@@ -2096,7 +1886,7 @@ export async function openSettingsShell({
     }
 
     if (action === "animeProvider") {
-      const picked = await chooseOption({
+      const picked = await chooseFromListShell({
         title: "Anime provider",
         subtitle: `Current ${next.animeProvider}`,
         actionContext,
@@ -2115,7 +1905,7 @@ export async function openSettingsShell({
     }
 
     if (action === "subLang") {
-      const picked = await chooseOption({
+      const picked = await chooseFromListShell({
         title: "Subtitle preference",
         subtitle: `Current ${next.subLang}`,
         actionContext,
@@ -2132,7 +1922,7 @@ export async function openSettingsShell({
     }
 
     if (action === "animeLang") {
-      const picked = await chooseOption({
+      const picked = await chooseFromListShell({
         title: "Anime audio",
         subtitle: `Current ${next.animeLang}`,
         actionContext,
@@ -2168,7 +1958,7 @@ export async function openSettingsShell({
     }
 
     if (action === "quitNearEndBehavior") {
-      const picked = await chooseOption({
+      const picked = await chooseFromListShell({
         title: "Quit near end",
         subtitle: `Current ${next.quitNearEndBehavior}`,
         actionContext,
@@ -2193,7 +1983,7 @@ export async function openSettingsShell({
     }
 
     if (action === "quitNearEndThresholdMode") {
-      const picked = await chooseOption({
+      const picked = await chooseFromListShell({
         title: "Near-end detection",
         subtitle: `Current ${next.quitNearEndThresholdMode}`,
         actionContext,
@@ -2250,7 +2040,7 @@ export async function openSettingsShell({
     }
 
     if (action === "footerHints") {
-      const picked = await chooseOption({
+      const picked = await chooseFromListShell({
         title: "Footer hint density",
         subtitle: `Current ${next.footerHints}`,
         actionContext,
@@ -2281,7 +2071,7 @@ export async function openSettingsShell({
     }
 
     if (action === "presenceProvider") {
-      const picked = await chooseOption({
+      const picked = await chooseFromListShell({
         title: "Presence integration",
         subtitle: `Current ${next.presenceProvider}`,
         actionContext,
@@ -2306,7 +2096,7 @@ export async function openSettingsShell({
     }
 
     if (action === "presencePrivacy") {
-      const picked = await chooseOption({
+      const picked = await chooseFromListShell({
         title: "Presence privacy",
         subtitle: `Current ${next.presencePrivacy}`,
         actionContext,

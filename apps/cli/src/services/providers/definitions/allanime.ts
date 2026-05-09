@@ -51,12 +51,15 @@ export class AllMangaCompatProvider implements Provider {
       request.episode?.season ?? 1,
       request.episode?.episode ?? 1,
       {
-        animeLang: request.animeLang ?? this.deps.config.animeLang,
+        animeLang:
+          request.audioPreference === "ja" || request.audioPreference === "original"
+            ? "sub"
+            : "dub",
       },
     );
 
     if (!result) return null;
-    const animeLang = request.animeLang ?? this.deps.config.animeLang;
+    const audioPreference = request.audioPreference;
 
     return attachProviderResolveResult({
       manifest: allanimeManifest,
@@ -66,8 +69,9 @@ export class AllMangaCompatProvider implements Provider {
       stream: {
         url: result.url,
         headers: result.headers,
-        audioLanguage: animeLang,
-        hardSubLanguage: animeLang === "sub" ? "en" : undefined,
+        audioLanguages: [audioPreference],
+        hardSubLanguage:
+          audioPreference === "ja" || audioPreference === "original" ? "en" : undefined,
         subtitle: result.subtitle ?? undefined,
         subtitleList: result.subtitleList.map(
           (url): SubtitleTrack => ({ url, sourceName: "allmanga" }),
@@ -88,16 +92,23 @@ export class AllMangaCompatProvider implements Provider {
       referer: "https://allmanga.to",
       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
       showId: request.title.id,
-      mode: this.deps.config.animeLang,
+      mode:
+        this.deps.config.animeLanguageProfile.audio === "ja" ||
+        this.deps.config.animeLanguageProfile.audio === "original"
+          ? "sub"
+          : "dub",
     });
   }
 
   async search(
     query: string,
-    opts: { animeLang: "sub" | "dub" },
+    opts: { audioPreference: string; subtitlePreference: string },
     _signal?: AbortSignal,
   ): Promise<import("@/domain/types").SearchResult[] | null> {
-    const results = await this.apiProvider.search(query, opts);
+    const results = await this.apiProvider.search(query, {
+      animeLang:
+        opts.audioPreference === "ja" || opts.audioPreference === "original" ? "sub" : "dub",
+    });
     if (!results) return null;
 
     return results.map((r) => ({

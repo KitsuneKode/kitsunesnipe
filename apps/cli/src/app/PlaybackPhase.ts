@@ -260,6 +260,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         };
       }
     }
+    return {};
   }
 
   async execute(title: TitleInfo, context: PhaseContext): Promise<PhaseResult<PlaybackOutcome>> {
@@ -530,7 +531,6 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
           }
 
           if (!consumedPrefetch) {
-            const subLang = stateManager.getState().subLang;
             const playbackResolver = new PlaybackResolveService({
               providerRegistry,
               cacheStore,
@@ -540,8 +540,14 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               episode: currentEpisode,
               mode: stateManager.getState().mode,
               providerId: currentProvider.metadata.id,
-              subLang,
-              animeLang: config.animeLang,
+              audioPreference:
+                stateManager.getState().mode === "anime"
+                  ? config.animeLanguageProfile.audio
+                  : config.seriesLanguageProfile.audio,
+              subtitlePreference:
+                stateManager.getState().mode === "anime"
+                  ? config.animeLanguageProfile.subtitle
+                  : config.seriesLanguageProfile.subtitle,
               signal: resolveController.signal,
               onFeedback: (feedback) => this.updatePlaybackFeedback(context, feedback),
               onEvent: (event) => {
@@ -732,16 +738,28 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               title,
               episode: nextEp,
               mode: stateManager.getState().mode,
-              subLang: stateManager.getState().subLang,
-              animeLang: config.animeLang,
+              audioPreference:
+                stateManager.getState().mode === "anime"
+                  ? config.animeLanguageProfile.audio
+                  : config.seriesLanguageProfile.audio,
+              subtitlePreference:
+                stateManager.getState().mode === "anime"
+                  ? config.animeLanguageProfile.subtitle
+                  : config.seriesLanguageProfile.subtitle,
             });
             void prefetchProvider
               .resolveStream(
                 {
                   title,
                   episode: nextEp,
-                  subLang: stateManager.getState().subLang,
-                  animeLang: config.animeLang,
+                  audioPreference:
+                    stateManager.getState().mode === "anime"
+                      ? config.animeLanguageProfile.audio
+                      : config.seriesLanguageProfile.audio,
+                  subtitlePreference:
+                    stateManager.getState().mode === "anime"
+                      ? config.animeLanguageProfile.subtitle
+                      : config.seriesLanguageProfile.subtitle,
                 },
                 AbortSignal.timeout(30_000),
               )
@@ -871,8 +889,14 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               title,
               episode: currentEpisode,
               mode: stateManager.getState().mode,
-              subLang: stateManager.getState().subLang,
-              animeLang: config.animeLang,
+              audioPreference:
+                stateManager.getState().mode === "anime"
+                  ? config.animeLanguageProfile.audio
+                  : config.seriesLanguageProfile.audio,
+              subtitlePreference:
+                stateManager.getState().mode === "anime"
+                  ? config.animeLanguageProfile.subtitle
+                  : config.seriesLanguageProfile.subtitle,
             });
             try {
               await cacheStore.delete(refreshCacheKey);
@@ -1369,7 +1393,9 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 provider: resolvedProviderId,
                 subtitleStatus: describeSubtitleStatus(
                   preparedStream,
-                  stateManager.getState().subLang,
+                  stateManager.getState().mode === "anime"
+                    ? stateManager.getState().animeLanguageProfile.subtitle
+                    : stateManager.getState().seriesLanguageProfile.subtitle,
                 ),
                 autoplayPaused: autoplaySessionPaused,
                 showMemory: config.showMemory,
@@ -1731,7 +1757,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     context: PhaseContext,
   ): Promise<StreamInfo> {
     const { stateManager, logger } = context.container;
-    const subLang = stateManager.getState().subLang;
+    const subLang =
+      stateManager.getState().mode === "anime"
+        ? stateManager.getState().animeLanguageProfile.subtitle
+        : stateManager.getState().seriesLanguageProfile.subtitle;
     const subtitleDecision = await choosePlaybackSubtitle({
       stream,
       subLang,
@@ -1803,7 +1832,12 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
         : `${title.name} - S${String(episode.season).padStart(2, "0")}E${String(
             episode.episode,
           ).padStart(2, "0")}`;
-    const subtitleStatus = describeSubtitleStatus(stream, stateManager.getState().subLang);
+    const subtitleStatus = describeSubtitleStatus(
+      stream,
+      stateManager.getState().mode === "anime"
+        ? stateManager.getState().animeLanguageProfile.subtitle
+        : stateManager.getState().seriesLanguageProfile.subtitle,
+    );
 
     try {
       this.updatePlaybackFeedback(context, {
@@ -1883,7 +1917,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
     context: PhaseContext;
   }): void {
     const { stateManager, diagnosticsStore, logger } = context.container;
-    const requestedSubLang = stateManager.getState().subLang;
+    const requestedSubLang =
+      stateManager.getState().mode === "anime"
+        ? stateManager.getState().animeLanguageProfile.subtitle
+        : stateManager.getState().seriesLanguageProfile.subtitle;
     if (
       requestedSubLang === "none" ||
       stream.subtitle ||

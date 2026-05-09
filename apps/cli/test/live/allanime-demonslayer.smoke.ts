@@ -17,7 +17,7 @@ const query = process.argv[2] ?? "Kimetsu no Yaiba";
 const search = await searchTitles(query, {
   mode: "anime",
   providerId: config.animeProvider,
-  animeLang: config.animeLang,
+  animeLanguageProfile: config.animeLanguageProfile,
   searchRegistry,
   providerRegistry,
 }).catch((error) => {
@@ -82,7 +82,8 @@ const stream = await provider
   .resolveStream({
     title,
     episode: { season: 1, episode: 1 },
-    subLang: config.subLang,
+    audioPreference: config.animeLanguageProfile.audio,
+    subtitlePreference: config.animeLanguageProfile.subtitle,
   })
   .catch((error) => {
     resolveError = error;

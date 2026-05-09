@@ -88,7 +88,7 @@ export function attachProviderResolveResult({
     providerId: manifest.id,
     title,
     episode,
-    subtitleLanguage: request.subLang,
+    subtitleLanguage: request.subtitlePreference,
   });
 
   return {

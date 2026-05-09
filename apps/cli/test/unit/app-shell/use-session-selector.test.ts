@@ -6,7 +6,11 @@ import type { SessionState, StateTransition } from "@/domain/session/SessionStat
 import type { SessionStateManager } from "@/domain/session/SessionStateManager";
 
 class TestSessionStateManager implements SessionStateManager {
-  private state = createInitialState("vidking", "allanime");
+  private state = createInitialState("vidking", "allanime", {
+    anime: { audio: "original", subtitle: "en" },
+    series: { audio: "original", subtitle: "none" },
+    movie: { audio: "original", subtitle: "en" },
+  });
   private listeners = new Set<
     (state: SessionState, transition: StateTransition, prevState: SessionState) => void
   >();
@@ -33,7 +37,11 @@ class TestSessionStateManager implements SessionStateManager {
   }
 
   initialize(defaultProvider: string, defaultAnimeProvider: string): void {
-    this.state = createInitialState(defaultProvider, defaultAnimeProvider);
+    this.state = createInitialState(defaultProvider, defaultAnimeProvider, {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
   }
 }
 

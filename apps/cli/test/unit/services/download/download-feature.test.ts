@@ -3,11 +3,11 @@ import { describe, expect, test } from "bun:test";
 import { resolveDownloadFeatureState } from "@/services/download/DownloadFeature";
 
 describe("download feature gate", () => {
-  test("stays off by default without requiring ffmpeg", () => {
+  test("stays off by default without requiring yt-dlp", () => {
     expect(
       resolveDownloadFeatureState({
         config: { downloadsEnabled: false, downloadPath: "" },
-        capabilities: { ffmpeg: false },
+        capabilities: { ytDlp: false },
       }),
     ).toEqual({
       enabled: false,
@@ -18,26 +18,26 @@ describe("download feature gate", () => {
     });
   });
 
-  test("reports missing ffmpeg only after downloads are enabled", () => {
+  test("reports missing yt-dlp only after downloads are enabled", () => {
     expect(
       resolveDownloadFeatureState({
         config: { downloadsEnabled: true, downloadPath: "~/Videos/Kunai" },
-        capabilities: { ffmpeg: false },
+        capabilities: { ytDlp: false },
       }),
     ).toEqual({
       enabled: true,
       usable: false,
-      status: "missing-ffmpeg",
-      detail: "enabled but ffmpeg is not available",
+      status: "missing-yt-dlp",
+      detail: "enabled but yt-dlp is not available",
       downloadPath: "~/Videos/Kunai",
     });
   });
 
-  test("marks enabled downloads ready when ffmpeg exists", () => {
+  test("marks enabled downloads ready when yt-dlp exists", () => {
     expect(
       resolveDownloadFeatureState({
         config: { downloadsEnabled: true, downloadPath: "" },
-        capabilities: { ffmpeg: true },
+        capabilities: { ytDlp: true },
       }).status,
     ).toBe("ready");
   });

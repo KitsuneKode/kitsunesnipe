@@ -1,29 +1,10 @@
 export type DownloadStreamPolicy = {
   readonly headers: Record<string, string>;
-  readonly ffmpegArgs: readonly string[];
 };
 
+/** Normalizes playback-style headers for subtitle fetches and any future download helpers. */
 export function buildDownloadStreamPolicy(headers: Record<string, string>): DownloadStreamPolicy {
-  const normalized = normalizeHeaders(headers);
-  const args: string[] = [
-    "-reconnect",
-    "1",
-    "-reconnect_streamed",
-    "1",
-    "-reconnect_on_network_error",
-    "1",
-    "-reconnect_delay_max",
-    "10",
-    "-rw_timeout",
-    "15000000",
-  ];
-  const headerLines = Object.entries(normalized)
-    .map(([key, value]) => `${key}: ${value}`)
-    .join("\r\n");
-  if (headerLines.length > 0) {
-    args.unshift("-headers", `${headerLines}\r\n`);
-  }
-  return { headers: normalized, ffmpegArgs: args };
+  return { headers: normalizeHeaders(headers) };
 }
 
 function normalizeHeaders(headers: Record<string, string>): Record<string, string> {

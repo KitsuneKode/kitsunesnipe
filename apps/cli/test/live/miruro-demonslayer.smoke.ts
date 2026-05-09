@@ -35,8 +35,8 @@ const stream = await provider
   .resolveStream({
     title,
     episode: { season: 1, episode },
-    subLang: container.config.subLang,
-    animeLang: container.config.animeLang,
+    audioPreference: container.config.animeLanguageProfile.audio,
+    subtitlePreference: container.config.animeLanguageProfile.subtitle,
   })
   .catch((error) => {
     resolveError = error;

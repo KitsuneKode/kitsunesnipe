@@ -5,7 +5,11 @@ import { createInitialState } from "@/domain/session/SessionState";
 
 describe("recommendation command", () => {
   test("exposes trending as an explicit browse command", () => {
-    const state = createInitialState("vidking", "allanime");
+    const state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
 
     expect(parseCommand("/trending")?.id).toBe("trending");
     expect(parseCommand("/recommendation")?.id).toBe("recommendation");

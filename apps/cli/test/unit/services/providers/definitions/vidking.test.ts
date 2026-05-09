@@ -40,6 +40,9 @@ function createProviderDeps(): ProviderDeps {
       animeProvider: "allanime",
       subLang: "en",
       animeLang: "sub",
+      animeLanguageProfile: { audio: "original", subtitle: "en" },
+      seriesLanguageProfile: { audio: "original", subtitle: "none" },
+      movieLanguageProfile: { audio: "original", subtitle: "en" },
       animeTitlePreference: "english",
       headless: true,
       showMemory: false,
@@ -86,7 +89,8 @@ test("vidking fails fast when the direct resolver has no playable stream", async
   await expect(
     provider.resolveStream({
       title: { id: "438631", type: "movie", name: "Dune" },
-      subLang: "english",
+      audioPreference: "original",
+      subtitlePreference: "english",
     }),
   ).rejects.toThrow("VidKing returned no direct resolve result");
 });
@@ -117,8 +121,9 @@ test("vidking resolves through the direct decode path", async () => {
 
   const stream = await provider.resolveStream({
     title: { id: "1668", type: "series", name: "Friends", year: "1994" },
-    episode: { season: 1, episode: 3 },
-    subLang: "en",
+    episode: { season: 1, episode: 1 },
+    audioPreference: "original",
+    subtitlePreference: "en",
   });
 
   expect(stream?.subtitleSource).toBe("provider");

@@ -32,7 +32,7 @@ describe("DownloadService", () => {
     const service = buildService({
       repo,
       downloadsEnabled: false,
-      ffmpegAvailable: true,
+      ytDlpAvailable: true,
       downloadPath: tempDir,
     });
 
@@ -50,16 +50,17 @@ describe("DownloadService", () => {
     const service = buildService({
       repo,
       downloadsEnabled: true,
-      ffmpegAvailable: true,
+      ytDlpAvailable: true,
       downloadPath: tempDir,
     });
     spawnSpy.mockImplementation((command: string[]) => {
-      const outputPath = command[command.length - 1];
+      const oIndex = command.indexOf("-o");
+      const outputPath = oIndex >= 0 ? command[oIndex + 1] : command[command.length - 1];
       if (typeof outputPath === "string") {
         writeFileSync(outputPath, "video-bytes");
       }
       return {
-        stdout: streamOf("progress=continue\nout_time_ms=1000000\nprogress=end\n"),
+        stdout: streamOf("[download]  50.0% of 1.2GiB\n[download] 100% of 1.2GiB\n"),
         stderr: streamOf("Duration: 00:00:10.00\n"),
         exited: Promise.resolve(0),
       } as never;
@@ -85,7 +86,7 @@ describe("DownloadService", () => {
     const service = buildService({
       repo,
       downloadsEnabled: true,
-      ffmpegAvailable: true,
+      ytDlpAvailable: true,
       downloadPath: tempDir,
       resolveDownloadStream: async (intent) => {
         resolvedUrls.push(`${intent.providerId}:${intent.title.id}:${intent.episode?.episode}`);
@@ -102,10 +103,11 @@ describe("DownloadService", () => {
     });
     spawnSpy.mockImplementation((command: string[]) => {
       expect(command.join(" ")).toContain("https://fresh.example/master.m3u8");
-      const outputPath = command[command.length - 1];
+      const oIndex = command.indexOf("-o");
+      const outputPath = oIndex >= 0 ? command[oIndex + 1] : command[command.length - 1];
       if (typeof outputPath === "string") writeFileSync(outputPath, "video-bytes");
       return {
-        stdout: streamOf("progress=end\n"),
+        stdout: streamOf("[download] 100% of 1.2GiB\n"),
         stderr: streamOf("Duration: 00:00:10.00\n"),
         exited: Promise.resolve(0),
       } as never;
@@ -116,8 +118,8 @@ describe("DownloadService", () => {
       episode: { season: 1, episode: 3, name: "Episode 3" },
       providerId: "vidking",
       mode: "series",
-      subLang: "eng",
-      animeLang: "sub",
+      audioPreference: "original",
+      subtitlePreference: "eng",
     });
     await service.processQueue();
 
@@ -133,15 +135,16 @@ describe("DownloadService", () => {
     const service = buildService({
       repo,
       downloadsEnabled: true,
-      ffmpegAvailable: true,
+      ytDlpAvailable: true,
       downloadPath: tempDir,
       abortGraceMs: 1,
     });
     spawnSpy.mockImplementation((command: string[]) => {
-      const outputPath = command[command.length - 1];
+      const oIndex = command.indexOf("-o");
+      const outputPath = oIndex >= 0 ? command[oIndex + 1] : command[command.length - 1];
       if (typeof outputPath === "string") writeFileSync(outputPath, "");
       return {
-        stdout: streamOf("progress=end\n"),
+        stdout: streamOf("[download] 100% of 1.2GiB\n"),
         stderr: streamOf("Duration: 00:00:10.00\n"),
         exited: Promise.resolve(0),
       } as never;
@@ -166,7 +169,7 @@ describe("DownloadService", () => {
     const service = buildService({
       repo,
       downloadsEnabled: true,
-      ffmpegAvailable: true,
+      ytDlpAvailable: true,
       downloadPath: join(tempDir, "default"),
     });
 
@@ -186,7 +189,7 @@ describe("DownloadService", () => {
     const service = buildService({
       repo,
       downloadsEnabled: true,
-      ffmpegAvailable: true,
+      ytDlpAvailable: true,
       downloadPath: tempDir,
     });
     spawnSpy.mockImplementation(
@@ -216,7 +219,7 @@ describe("DownloadService", () => {
     const service = buildService({
       repo,
       downloadsEnabled: true,
-      ffmpegAvailable: true,
+      ytDlpAvailable: true,
       downloadPath: tempDir,
     });
 
@@ -258,7 +261,7 @@ describe("DownloadService", () => {
     const service = buildService({
       repo,
       downloadsEnabled: true,
-      ffmpegAvailable: true,
+      ytDlpAvailable: true,
       downloadPath: tempDir,
       abortGraceMs: 1,
     });
@@ -301,14 +304,14 @@ describe("DownloadService", () => {
     const service = buildService({
       repo,
       downloadsEnabled: true,
-      ffmpegAvailable: true,
+      ytDlpAvailable: true,
       downloadPath: tempDir,
     });
     spawnSpy.mockImplementation(
       () =>
         ({
           stdout: streamOf(""),
-          stderr: streamOf("ffmpeg: invalid argument\n"),
+          stderr: streamOf("yt-dlp: invalid argument\n"),
           exited: Promise.resolve(1),
         }) as never,
     );
@@ -323,7 +326,7 @@ describe("DownloadService", () => {
 
     const reloaded = repo.get(job.id);
     expect(reloaded?.status).toBe("failed");
-    expect(reloaded?.failureKind).toBe("ffmpeg-config");
+    expect(reloaded?.failureKind).toBe("ytdlp-config");
     expect(reloaded?.retryCount).toBe(1);
   });
 });
@@ -331,14 +334,13 @@ describe("DownloadService", () => {
 function buildService({
   repo,
   downloadsEnabled,
-  ffmpegAvailable,
   downloadPath,
   resolveDownloadStream,
   abortGraceMs,
 }: {
   repo: DownloadJobsRepository;
   downloadsEnabled: boolean;
-  ffmpegAvailable: boolean;
+  ytDlpAvailable: boolean;
   downloadPath: string;
   resolveDownloadStream?: ConstructorParameters<typeof DownloadService>[0]["resolveDownloadStream"];
   abortGraceMs?: number;
@@ -349,7 +351,7 @@ function buildService({
       downloadsEnabled,
       downloadPath,
     } as ConfigService,
-    ffmpegAvailable,
+    ytDlpAvailable: true,
     logger: {
       debug() {},
       info() {},

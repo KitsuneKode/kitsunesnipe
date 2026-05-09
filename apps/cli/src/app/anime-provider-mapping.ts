@@ -4,7 +4,7 @@ import type { ProviderRegistry } from "@/services/providers/ProviderRegistry";
 export type AnimeProviderMappingContext = {
   readonly mode: ShellMode;
   readonly providerId: string;
-  readonly animeLang: "sub" | "dub";
+  readonly animeLanguageProfile: import("@/services/persistence/ConfigService").MediaLanguageProfile;
   readonly providerRegistry: ProviderRegistry;
   readonly signal?: AbortSignal;
 };
@@ -22,7 +22,14 @@ export async function mapAnimeDiscoveryResultToProviderNative(
 
   for (const query of providerSearchQueries(result)) {
     const providerResults = await provider
-      .search(query, { animeLang: context.animeLang }, context.signal)
+      .search(
+        query,
+        {
+          audioPreference: context.animeLanguageProfile.audio,
+          subtitlePreference: context.animeLanguageProfile.subtitle,
+        },
+        context.signal,
+      )
       .catch(() => null);
     const match = chooseProviderSearchMatch(result, providerResults ?? []);
     if (match) return mergeAniListDiscoveryWithProviderResult(result, match);

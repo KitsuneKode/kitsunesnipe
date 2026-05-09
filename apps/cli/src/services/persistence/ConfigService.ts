@@ -13,12 +13,22 @@ export type PresenceProvider = "off" | "discord";
 export type PresencePrivacy = "full" | "private";
 export type DiscoverMode = "auto" | "unified" | "anime-only" | "series-only";
 
+export interface MediaLanguageProfile {
+  audio: string;
+  subtitle: string;
+}
+
 export interface KitsuneConfig {
   defaultMode: "series" | "anime";
   provider: string;
   animeProvider: string;
+  /** @deprecated use animeLanguageProfile/seriesLanguageProfile/movieLanguageProfile */
   subLang: string;
+  /** @deprecated use animeLanguageProfile/seriesLanguageProfile/movieLanguageProfile */
   animeLang: "sub" | "dub";
+  animeLanguageProfile: MediaLanguageProfile;
+  seriesLanguageProfile: MediaLanguageProfile;
+  movieLanguageProfile: MediaLanguageProfile;
   animeTitlePreference: "english" | "romaji" | "native" | "provider";
   headless: boolean;
   showMemory: boolean;

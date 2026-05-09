@@ -33,8 +33,19 @@ function subtitleBadge(state: SessionState): RootStatusBadge | null {
     state.playbackStatus === "buffering" ||
     state.playbackStatus === "stalled" ||
     state.playbackStatus === "seeking";
-  if (state.stream || state.subLang === "none" || isActivePlayback) {
-    const status = describePlaybackSubtitleStatus(state.stream, state.subLang);
+  if (
+    state.stream ||
+    (state.mode === "anime"
+      ? state.animeLanguageProfile.subtitle
+      : state.seriesLanguageProfile.subtitle) === "none" ||
+    isActivePlayback
+  ) {
+    const status = describePlaybackSubtitleStatus(
+      state.stream,
+      state.mode === "anime"
+        ? state.animeLanguageProfile.subtitle
+        : state.seriesLanguageProfile.subtitle,
+    );
     return {
       label: compactPlaybackSubtitleStatus(status),
       tone: playbackSubtitleStatusTone(status),
@@ -54,10 +65,12 @@ export function buildRootStatusSummary({
   state,
   currentViewLabel,
   rootStatus,
+  downloadStatus,
 }: {
   state: SessionState;
   currentViewLabel: string;
   rootStatus: string;
+  downloadStatus?: string | null;
 }): RootStatusSummary {
   const episode = formatEpisode(state);
   const subtitle = subtitleBadge(state);
@@ -96,6 +109,9 @@ export function buildRootStatusSummary({
   }
   if (state.stopAfterCurrent) {
     badges.push({ label: "stop after current", tone: "warning" });
+  }
+  if (downloadStatus) {
+    badges.push({ label: `[↓] ${downloadStatus}`, tone: "info" });
   }
 
   return {

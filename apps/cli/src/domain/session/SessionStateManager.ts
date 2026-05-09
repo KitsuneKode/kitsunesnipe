@@ -17,7 +17,15 @@ export interface SessionStateManager {
   getState(): SessionState;
   dispatch(transition: StateTransition): void;
   subscribe(listener: StateListener): () => void;
-  initialize(defaultProvider: string, defaultAnimeProvider: string): void;
+  initialize(
+    defaultProvider: string,
+    defaultAnimeProvider: string,
+    initialProfiles: {
+      anime: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+      series: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+      movie: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+    },
+  ): void;
 }
 
 export interface SessionStateManagerDeps {
@@ -25,13 +33,25 @@ export interface SessionStateManagerDeps {
 }
 
 export class SessionStateManagerImpl implements SessionStateManager {
-  private state: SessionState = createInitialState("vidking", "allanime");
+  private state: SessionState = createInitialState("vidking", "allanime", {
+    anime: { audio: "original", subtitle: "en" },
+    series: { audio: "original", subtitle: "none" },
+    movie: { audio: "original", subtitle: "en" },
+  });
   private listeners = new Set<StateListener>();
 
   constructor(private deps: SessionStateManagerDeps) {}
 
-  initialize(defaultProvider: string, defaultAnimeProvider: string): void {
-    this.state = createInitialState(defaultProvider, defaultAnimeProvider);
+  initialize(
+    defaultProvider: string,
+    defaultAnimeProvider: string,
+    initialProfiles: {
+      anime: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+      series: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+      movie: import("../../services/persistence/ConfigService").MediaLanguageProfile;
+    },
+  ): void {
+    this.state = createInitialState(defaultProvider, defaultAnimeProvider, initialProfiles);
     this.deps.logger.info("Session state initialized", {
       defaultProvider,
       defaultAnimeProvider,

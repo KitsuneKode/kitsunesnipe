@@ -22,10 +22,13 @@ describe("panel-data", () => {
     const lines = buildAboutPanelLines({
       config: {
         defaultMode: "anime",
-        provider: "vidking",
+        provider: "braflix",
         animeProvider: "allanime",
         subLang: "en",
         animeLang: "sub",
+        animeLanguageProfile: { audio: "original", subtitle: "en" },
+        seriesLanguageProfile: { audio: "original", subtitle: "none" },
+        movieLanguageProfile: { audio: "original", subtitle: "en" },
         animeTitlePreference: "english",
         headless: true,
         showMemory: false,
@@ -55,7 +58,11 @@ describe("panel-data", () => {
         downloadPath: "",
         downloadOnboardingDismissed: false,
       },
-      state: createInitialState("vidking", "allanime"),
+      state: createInitialState("vidking", "allanime", {
+        anime: { audio: "original", subtitle: "en" },
+        series: { audio: "original", subtitle: "none" },
+        movie: { audio: "original", subtitle: "en" },
+      }),
     });
 
     expect(lines.find((line) => line.label === "Default startup mode")?.detail).toContain("anime");
@@ -63,7 +70,11 @@ describe("panel-data", () => {
   });
 
   test("buildDiagnosticsPanelLines surfaces missing subtitles clearly", () => {
-    const state = createInitialState("vidking", "allanime");
+    const state = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "en" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     const lines = buildDiagnosticsPanelLines({
       state,
       recentEvents: [],
@@ -89,7 +100,11 @@ describe("panel-data", () => {
 
   test("buildDiagnosticsPanelLines surfaces the latest playback problem", () => {
     const state = {
-      ...createInitialState("vidking", "allanime"),
+      ...createInitialState("vidking", "allanime", {
+        anime: { audio: "original", subtitle: "en" },
+        series: { audio: "original", subtitle: "none" },
+        movie: { audio: "original", subtitle: "en" },
+      }),
       playbackProblem: {
         stage: "mpv",
         severity: "recoverable",
@@ -112,7 +127,11 @@ describe("panel-data", () => {
 
   test("buildDiagnosticsPanelLines surfaces direct provider trace summary", () => {
     const state = {
-      ...createInitialState("vidking", "allanime"),
+      ...createInitialState("vidking", "allanime", {
+        anime: { audio: "original", subtitle: "en" },
+        series: { audio: "original", subtitle: "none" },
+        movie: { audio: "original", subtitle: "en" },
+      }),
       provider: "rivestream",
     } as const;
     const lines = buildDiagnosticsPanelLines({

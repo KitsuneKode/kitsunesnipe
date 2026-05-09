@@ -53,11 +53,8 @@ export class DirectModuleProvider implements Provider {
         title: titleToCoreIdentity(request.title, this.options.mode),
         episode: episodeToCoreIdentity(request.episode),
         mediaKind: this.options.mode === "anime" ? "anime" : request.title.type,
-        preferredAudioLanguage:
-          this.options.mode === "anime"
-            ? (request.animeLang ?? this.deps.config.animeLang)
-            : undefined,
-        preferredSubtitleLanguage: request.subLang,
+        preferredAudioLanguage: this.options.mode === "anime" ? request.audioPreference : undefined,
+        preferredSubtitleLanguage: request.subtitlePreference,
         intent: "play",
         allowedRuntimes: ["direct-http"],
       },
@@ -89,7 +86,9 @@ export function providerResolveResultToStream(
 
   const subtitleList = result.subtitles.map(subtitleCandidateToTrack);
   const pickedSubtitle =
-    request.subLang === "none" ? null : selectSubtitle(subtitleList, request.subLang);
+    request.subtitlePreference === "none"
+      ? null
+      : selectSubtitle(subtitleList, request.subtitlePreference);
 
   return {
     url: selected.url,

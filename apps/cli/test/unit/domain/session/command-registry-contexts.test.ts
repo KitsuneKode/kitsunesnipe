@@ -41,7 +41,11 @@ describe("command registry contexts", () => {
 
   test("resolves context commands through the same availability policy", () => {
     const state = {
-      ...createInitialState("vidking", "allanime"),
+      ...createInitialState("vidking", "allanime", {
+        anime: { audio: "original", subtitle: "en" },
+        series: { audio: "original", subtitle: "none" },
+        movie: { audio: "original", subtitle: "en" },
+      }),
       currentTitle: { id: "tv:1", name: "Demo", type: "series" as const },
       currentEpisode: { season: 1, episode: 2 },
       playbackStatus: "playing" as const,

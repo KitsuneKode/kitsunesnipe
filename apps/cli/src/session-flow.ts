@@ -1,8 +1,7 @@
 import { openListShell } from "@/app-shell/ink-shell";
+import { chooseEpisodeFromOptions, chooseSeasonFromOptions } from "@/app-shell/pickers";
 import {
   buildPickerActionContext,
-  chooseEpisodeFromOptions,
-  chooseSeasonFromOptions,
   openAnimeEpisodePicker,
   openAnimeEpisodeListPicker,
 } from "@/app-shell/workflows";

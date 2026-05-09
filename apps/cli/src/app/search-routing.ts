@@ -6,7 +6,7 @@ import { enrichAnimeSearchResultsWithAniList } from "./anime-metadata";
 export type SearchRoutingContext = {
   mode: ShellMode;
   providerId: string;
-  animeLang: "sub" | "dub";
+  animeLanguageProfile: import("../services/persistence/ConfigService").MediaLanguageProfile;
   signal?: AbortSignal;
   searchRegistry: Pick<SearchRegistry, "getDefault" | "getForProvider">;
   providerRegistry: ProviderRegistry;
@@ -30,7 +30,8 @@ export async function searchTitles(
     const results = await provider.search(
       query,
       {
-        animeLang: context.animeLang,
+        audioPreference: context.animeLanguageProfile.audio,
+        subtitlePreference: context.animeLanguageProfile.subtitle,
       },
       context.signal,
     );

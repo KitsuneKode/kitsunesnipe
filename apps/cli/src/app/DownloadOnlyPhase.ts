@@ -1,5 +1,7 @@
+import { pickEpisodesToDownload } from "@/app/download-episode-checklist";
 import type { Phase, PhaseContext, PhaseResult } from "@/app/Phase";
 import type { EpisodeInfo, EpisodePickerOption, TitleInfo } from "@/domain/types";
+import { DownloadEnqueueRejectedError } from "@/services/download/DownloadService";
 import { chooseStartingEpisode } from "@/session-flow";
 
 export type DownloadOnlyInput = {
@@ -23,16 +25,6 @@ export class DownloadOnlyPhase implements Phase<DownloadOnlyInput, "queued" | "b
       ? await provider?.listEpisodes?.({ title: input.title }, context.signal).catch(() => null)
       : undefined;
 
-    const episode = await selectDownloadEpisode({
-      title: input.title,
-      isAnime,
-      animeEpisodes: animeEpisodes ?? undefined,
-      container,
-    });
-    if (!episode) {
-      return { status: "success", value: "back" };
-    }
-
     const eligibility = container.downloadService.getEnqueueEligibility();
     if (!eligibility.allowed) {
       container.diagnosticsStore.record({
@@ -47,36 +39,95 @@ export class DownloadOnlyPhase implements Phase<DownloadOnlyInput, "queued" | "b
       return { status: "success", value: "back" };
     }
 
-    const job = await container.downloadService.enqueue({
+    let episodes = await pickEpisodesToDownload({
       title: input.title,
-      episode,
-      providerId: state.provider,
-      mode: state.mode,
-      subLang: state.subLang,
-      animeLang: state.animeLang,
-      outputDirectory: input.outputDirectory,
+      isAnime,
+      animeEpisodes: animeEpisodes ?? undefined,
+      container,
     });
+
+    if (!episodes) {
+      const single = await pickSingleDownloadEpisodeFallback({
+        title: input.title,
+        isAnime,
+        animeEpisodes: animeEpisodes ?? undefined,
+        container,
+      });
+      if (!single) {
+        return { status: "success", value: "back" };
+      }
+      episodes = [single];
+    }
+
+    const audioPreference =
+      state.mode === "anime" ? state.animeLanguageProfile.audio : state.seriesLanguageProfile.audio;
+    const subtitlePreference =
+      state.mode === "anime"
+        ? state.animeLanguageProfile.subtitle
+        : state.seriesLanguageProfile.subtitle;
+
+    let queuedCount = 0;
+    let lastJobId: string | undefined;
+    try {
+      for (const episode of episodes) {
+        const job = await container.downloadService.enqueue({
+          title: input.title,
+          episode,
+          providerId: state.provider,
+          mode: state.mode,
+          audioPreference,
+          subtitlePreference,
+          outputDirectory: input.outputDirectory,
+        });
+        lastJobId = job.id;
+        queuedCount += 1;
+      }
+    } catch (error) {
+      const message =
+        error instanceof DownloadEnqueueRejectedError
+          ? error.reason
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      container.diagnosticsStore.record({
+        category: "download",
+        message: "Download-only batch enqueue stopped",
+        context: { queuedCount, error: message, titleId: input.title.id },
+      });
+      container.stateManager.dispatch({
+        type: "SET_PLAYBACK_FEEDBACK",
+        note:
+          queuedCount > 0
+            ? `Queued ${queuedCount} download(s), then stopped: ${message}`
+            : `Download failed: ${message}`,
+      });
+      void container.downloadService.processQueue();
+      return { status: "success", value: queuedCount > 0 ? "queued" : "back" };
+    }
+
     container.diagnosticsStore.record({
       category: "download",
-      message: "Download-only job queued",
+      message: "Download-only job(s) queued",
       context: {
-        jobId: job.id,
-        titleId: job.titleId,
-        season: job.season,
-        episode: job.episode,
-        outputPath: job.outputPath,
+        jobId: lastJobId,
+        count: queuedCount,
+        titleId: input.title.id,
+        titleName: input.title.name,
       },
     });
     container.stateManager.dispatch({
       type: "SET_PLAYBACK_FEEDBACK",
-      note: `Download queued: ${job.titleName}`,
+      note:
+        queuedCount === 1
+          ? `Download queued: ${input.title.name}`
+          : `Downloads queued: ${queuedCount} episodes · ${input.title.name}`,
     });
     void container.downloadService.processQueue();
     return { status: "success", value: "queued" };
   }
 }
 
-async function selectDownloadEpisode({
+async function pickSingleDownloadEpisodeFallback({
   title,
   isAnime,
   animeEpisodes,

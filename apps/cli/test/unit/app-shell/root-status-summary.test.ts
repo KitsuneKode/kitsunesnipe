@@ -5,7 +5,11 @@ import { createInitialState } from "@/domain/session/SessionState";
 
 describe("buildRootStatusSummary", () => {
   test("summarizes active playback with title, episode, subtitles, and chain state", () => {
-    const base = createInitialState("vidking", "hianime");
+    const base = createInitialState("vidking", "hianime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     const summary = buildRootStatusSummary({
       state: {
         ...base,
@@ -48,7 +52,11 @@ describe("buildRootStatusSummary", () => {
   });
 
   test("uses hardsub inventory in the root playback subtitle badge", () => {
-    const base = createInitialState("vidking", "allanime");
+    const base = createInitialState("vidking", "allanime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     const summary = buildRootStatusSummary({
       state: {
         ...base,
@@ -80,7 +88,7 @@ describe("buildRootStatusSummary", () => {
                 protocol: "hls",
                 qualityLabel: "1080p",
                 qualityRank: 1080,
-                audioLanguage: "ja",
+                audioLanguages: ["ja"],
                 hardSubLanguage: "en",
                 url: "https://example.com/master.m3u8",
                 headers: {},
@@ -116,7 +124,11 @@ describe("buildRootStatusSummary", () => {
   });
 
   test("keeps idle search state compact when no title is selected", () => {
-    const base = createInitialState("vidking", "hianime");
+    const base = createInitialState("vidking", "hianime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     const summary = buildRootStatusSummary({
       state: {
         ...base,
@@ -127,12 +139,21 @@ describe("buildRootStatusSummary", () => {
     });
 
     expect(summary.header.label).toBe("searching");
-    expect(summary.header.tone).toBe("neutral");
-    expect(summary.badges.map((badge) => badge.label)).toEqual(["series", "vidking", "search"]);
+    expect(summary.header.tone).toBe("warning");
+    expect(summary.badges.map((badge) => badge.label)).toEqual([
+      "series",
+      "vidking",
+      "search",
+      "subs off",
+    ]);
   });
 
   test("surfaces playback problem state as a compact badge", () => {
-    const base = createInitialState("vidking", "hianime");
+    const base = createInitialState("vidking", "hianime", {
+      anime: { audio: "original", subtitle: "en" },
+      series: { audio: "original", subtitle: "none" },
+      movie: { audio: "original", subtitle: "en" },
+    });
     const summary = buildRootStatusSummary({
       state: {
         ...base,
