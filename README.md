@@ -21,7 +21,8 @@ Kunai lets you browse in a fullscreen TUI, resolve provider streams, and hand pl
 
 ### Optional (recommended)
 
-- `ffmpeg` for downloads/offline queue
+- `yt-dlp` for the offline download queue (required on `PATH` when downloads are enabled in `/setup`)
+- `ffprobe` on your `PATH` if you want optional validation of completed downloads after `yt-dlp` finishes (not the downloader)
 - `chafa` for poster previews (Sixel/ANSI fallback in non-Kitty terminals)
 - ImageMagick (`magick`) for broader Kitty poster compatibility (non-PNG)
 - Kitty/Ghostty for native Kitty poster previews
@@ -52,20 +53,20 @@ Details, code map, and how to test: [.docs/poster-image-rendering.md](.docs/post
 
 ```bash
 # Linux (Arch)
-sudo pacman -S mpv ffmpeg chafa imagemagick
+sudo pacman -S mpv yt-dlp chafa imagemagick
 
 # Linux (Debian/Ubuntu)
-sudo apt install mpv ffmpeg chafa imagemagick
+sudo apt install mpv yt-dlp chafa imagemagick
 
 # macOS (Homebrew)
-brew install mpv ffmpeg chafa imagemagick
+brew install mpv yt-dlp chafa imagemagick
 ```
 
 Windows options:
 
-- `winget` (recommended): install `mpv`, `ffmpeg`, `chafa` (`winget install hpjansson.Chafa`), and ImageMagick (`winget install ImageMagick.ImageMagick`)
-- Chocolatey: `choco install mpv ffmpeg chafa imagemagick`
-- Scoop: `scoop install mpv ffmpeg chafa imagemagick`
+- `winget` (recommended): install `mpv`, `yt-dlp`, `chafa` (`winget install hpjansson.Chafa`), and ImageMagick (`winget install ImageMagick.ImageMagick`); add `ffprobe` separately if you want post-download validation
+- Chocolatey: `choco install mpv yt-dlp chafa imagemagick`
+- Scoop: `scoop install mpv yt-dlp chafa imagemagick`
 
 ## Install And Run
 
@@ -157,7 +158,7 @@ kunai
 - Run with `--debug` for verbose traces
 - Use `/ export-diagnostics` to generate a redacted local JSON snapshot
 - Use `/ report-issue` to open issue triage guidance
-- Open Diagnostics/About panels to confirm startup capabilities (`mpv`, `ffmpeg`, `chafa`, image renderer)
+- Open Diagnostics/About panels to confirm startup capabilities (`mpv`, `yt-dlp`, `ffprobe`, `chafa`, image renderer)
 
 ## Provider Caveats
 
@@ -184,7 +185,7 @@ apps/cli/src/infra/*      -> player/ipc/filesystem/runtime mechanics
 - Typecheck, lint, tests, package checks, and release dry-run are green
 - Canonical runtime is `apps/cli/src/main.ts` with deterministic shell flow
 - Watch history, diagnostics, provider fallback, and discover/recommendation are integrated
-- Optional capability guardrails now cover `mpv`, `ffmpeg`, `chafa`, and image renderer/terminal support
+- Optional capability guardrails cover `mpv`, `yt-dlp`, `ffprobe`, `chafa`, and image renderer/terminal support
 
 ### Remaining improvements (non-blocking)
 

@@ -7,7 +7,8 @@ Kunai is a terminal-first media tool that resolves provider streams and launches
 ## Requirements
 
 - `mpv` on your `PATH` (required)
-- `ffmpeg` for download/offline queue support (optional)
+- `yt-dlp` on your `PATH` when offline downloads are enabled (optional feature)
+- `ffprobe` for optional verification of finished downloads only—not the downloader
 - `chafa` for poster previews (Sixel/ANSI fallback in non-Kitty terminals)
 - Kitty/Ghostty terminal for native Kitty poster previews (optional)
 - ImageMagick (`magick`) for Kitty/Ghostty non-PNG poster conversion (optional)
@@ -19,20 +20,20 @@ Install core tools:
 
 ```bash
 # Linux (Arch)
-sudo pacman -S mpv ffmpeg chafa imagemagick
+sudo pacman -S mpv yt-dlp chafa imagemagick
 
 # Linux (Debian/Ubuntu)
-sudo apt install mpv ffmpeg chafa imagemagick
+sudo apt install mpv yt-dlp chafa imagemagick
 
 # macOS (Homebrew)
-brew install mpv ffmpeg chafa imagemagick
+brew install mpv yt-dlp chafa imagemagick
 ```
 
 Windows options:
 
-- `winget` (recommended): install `mpv`, `ffmpeg`, `chafa` (`winget install hpjansson.Chafa`), and ImageMagick (`winget install ImageMagick.ImageMagick`)
-- Chocolatey: `choco install mpv ffmpeg chafa imagemagick`
-- Scoop: `scoop install mpv ffmpeg chafa imagemagick`
+- `winget` (recommended): install `mpv`, `yt-dlp`, `chafa` (`winget install hpjansson.Chafa`), and ImageMagick (`winget install ImageMagick.ImageMagick`); add `ffprobe` separately if you want post-download validation
+- Chocolatey: `choco install mpv yt-dlp chafa imagemagick`
+- Scoop: `scoop install mpv yt-dlp chafa imagemagick`
 
 ## Install
 

@@ -15,7 +15,7 @@ Add local downloads, an offline library, and a first-run/setup flow without slow
 - No corrupt file should look complete.
 - Download state must persist in SQLite.
 - UI renders state; services own process/file mechanics.
-- `ffmpeg` is optional for playback and required only for downloads.
+- `yt-dlp` is required for downloads when the feature is enabled; `ffprobe` is optional (artifact validation only).
 
 ## Slice 1: Capability And Config
 
@@ -25,10 +25,10 @@ Add local downloads, an offline library, and a first-run/setup flow without slow
   - `downloadPath`
   - `downloadOnboardingDismissed` (or rename to `suppressOfflinePrompt` if we standardize later)
 - Add a pure `FeatureGate` service for `downloads` and `autoSkip`.
-- Extend dependency checks to detect `ffmpeg` without blocking playback.
+- Extend dependency checks to detect `yt-dlp` (and optionally `ffprobe`) without blocking playback.
 - Add unit tests for config normalization and feature-gate decisions.
 
-Current progress: download config fields (`onboardingVersion` included), non-blocking `ffmpeg` capability detection, pure download feature gate, persisted `download_jobs` table/repository (with runtime lifecycle and intent fields), retry/reconcile-capable `DownloadService`, `/downloads` job management panel, CLI `--setup`, `--download`, and validated `--offline` listing are implemented.
+Current progress: download config fields (`onboardingVersion` included), non-blocking `yt-dlp` / optional `ffprobe` capability snapshot, pure download feature gate, persisted `download_jobs` table/repository (with runtime lifecycle and intent fields), retry/reconcile-capable `DownloadService`, `/downloads` job management panel, CLI `--setup`, `--download`, and validated `--offline` listing are implemented.
 
 ## Slice 2: Download Persistence
 
@@ -41,12 +41,12 @@ Current progress: `download_jobs` now includes runtime lifecycle columns (`attem
 ## Slice 3: Download Service
 
 - Add `DownloadService` with bounded concurrency.
-- Spawn `ffmpeg` with stream headers and `-progress pipe:1`.
+- Spawn **`yt-dlp`** with headers, newline progress output, and concurrent fragments for HLS.
 - Write to `.tmp.*` and rename only on clean exit.
 - Implement abort cleanup, retry backoff, and restart reconciliation.
 - Add process/output parser tests with fake subprocess ports.
 
-Current progress: in-process worker now owns active ffmpeg process handles, supports real cancellation with SIGTERM-to-SIGKILL escalation, pauses active jobs on app shutdown without spending retry budget, parses ffmpeg progress output, schedules bounded retry backoff, re-resolves stale stream URLs before processing, validates completed artifacts, and reconciles stale running jobs on startup. Dedicated unit tests cover gate reject, success, retry scheduling, artifact validation, stream re-resolve, destination override, pause, and cancellation behavior.
+Current progress: in-process worker now owns active **yt-dlp** process handles, supports real cancellation with SIGTERM-to-SIGKILL escalation, pauses active jobs on app shutdown without spending retry budget, parses yt-dlp newline progress, schedules bounded retry backoff, re-resolves stale stream URLs before processing, optionally validates completed artifacts via **ffprobe**, and reconciles stale running jobs on startup. Dedicated unit tests cover gate reject, success, retry scheduling, artifact validation, stream re-resolve, destination override, pause, and cancellation behavior.
 
 ## Slice 4: Shell Integration
 

@@ -21,8 +21,8 @@ The feature must not make startup slower or more fragile.
 | Layer             | Responsibility                                                           |
 | ----------------- | ------------------------------------------------------------------------ |
 | Onboarding wizard | First-run dependency checks, opt-in features, setup rerun                |
-| Feature gate      | Pure capability checks such as downloads enabled and ffmpeg available    |
-| Download service  | Queue, ffmpeg process lifecycle, progress, retries, SQLite state         |
+| Feature gate      | Pure capability checks such as downloads enabled and `yt-dlp` available  |
+| Download service  | Queue, yt-dlp process lifecycle, progress, retries, SQLite state         |
 | Offline library   | Browse and play completed local files from stored download metadata      |
 | Notification rail | Small queued status messages for downloads, updates, and offline prompts |
 
@@ -30,15 +30,15 @@ Layering rule: UI asks services for capability/state; services do not render UI.
 
 ## Desired Download Behavior
 
-- `ffmpeg` is optional but required for downloads.
+- Downloads use **`yt-dlp`**; **`ffprobe`** on `PATH` is optional for validating completed artifacts.
 - Downloads are opt-in and blocked at enqueue time when feature gates are not usable.
 - HLS size is reported honestly as unknown when content length cannot be known.
 - Temporary files use a `.tmp.*` suffix and are renamed only after a clean exit.
-- Abort terminates active ffmpeg processes, deletes temporary files, and persists an aborted job state.
+- Abort terminates active download processes (`yt-dlp`), deletes temporary files, and persists an aborted job state.
 - App shutdown pauses active downloads, cleans temporary workers, and leaves jobs retryable.
 - Failed jobs retry with bounded backoff and then surface as failed when retry limits are exhausted.
 - Quit with active downloads asks whether to keep, wait, or cancel; Ctrl+C and signals use the same cleanup path.
-- Progress is parsed from ffmpeg progress output and persisted for shell diagnostics/UI.
+- Progress is parsed from yt-dlp newline output and persisted for shell diagnostics/UI.
 - Download-only mode resolves a playable stream without launching mpv.
 
 ## Desired Offline Behavior

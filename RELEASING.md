@@ -46,14 +46,14 @@ This repo uses Changesets + Turborepo for versioning, changelogs, and release no
 
 Use this structure in changeset summaries/changelog notes:
 
-- Linux: distro/package-manager notes, shell requirements, mpv/ffmpeg/terminal caveats.
+- Linux: distro/package-manager notes, shell requirements, mpv / yt-dlp / optional ffprobe / terminal caveats.
 - macOS: Homebrew/manual install notes, permissions/signing caveats.
 - Windows: WSL/native support status, path/shell caveats.
 - Shared: behavior changes, migration steps, known limitations.
 
 Dependency truth-sync before publish:
 
-- Root README, npm README, and quickstart must agree on required runtime (`mpv`) and optional runtime (`ffmpeg`, terminal image stack).
+- Root README, npm README, and quickstart must agree on required runtime (`mpv`) and optional runtime (`yt-dlp`, optional `ffprobe`, terminal image stack).
 - If dependency guidance changes, include platform install snippets for Linux/macOS and Windows package-manager options.
 - Confirm default download path docs match runtime storage paths.
 

@@ -9,7 +9,8 @@ Use this doc for setup, local execution, and common environment issues. Architec
 - Kitty/Ghostty for native Kitty poster previews
 - `chafa` for poster previews in Windows Terminal/WezTerm/other terminals
 - ImageMagick (`magick`) if you want Kitty/Ghostty non-PNG poster conversion
-- `ffmpeg` if you want downloads/offline queue
+- `yt-dlp` if you want downloads/offline queue (must be on `PATH` when downloads are enabled)
+- `ffprobe` optional—used only for quick validation of finished files, not downloading
 
 Deeper reference for terminal graphics, env overrides, and testing: [.docs/poster-image-rendering.md](poster-image-rendering.md).
 
@@ -17,20 +18,20 @@ Install runtime tools:
 
 ```sh
 # Linux (Arch)
-sudo pacman -S mpv ffmpeg chafa imagemagick
+sudo pacman -S mpv yt-dlp chafa imagemagick
 
 # Linux (Debian/Ubuntu)
-sudo apt install mpv ffmpeg chafa imagemagick
+sudo apt install mpv yt-dlp chafa imagemagick
 
 # macOS (Homebrew)
-brew install mpv ffmpeg chafa imagemagick
+brew install mpv yt-dlp chafa imagemagick
 ```
 
 Windows options:
 
-- `winget` (recommended): install `mpv`, `ffmpeg`, `chafa` (`winget install hpjansson.Chafa`), and ImageMagick (`winget install ImageMagick.ImageMagick`)
-- Chocolatey: `choco install mpv ffmpeg chafa imagemagick`
-- Scoop: `scoop install mpv ffmpeg chafa imagemagick`
+- `winget` (recommended): install `mpv`, `yt-dlp`, `chafa` (`winget install hpjansson.Chafa`), and ImageMagick (`winget install ImageMagick.ImageMagick`); add `ffprobe` separately if you want post-download validation
+- Chocolatey: `choco install mpv yt-dlp chafa imagemagick`
+- Scoop: `scoop install mpv yt-dlp chafa imagemagick`
 
 Kunai is Bun-first in beta. A Node/npm-only source checkout is not supported because the CLI uses Bun runtime APIs directly. Packaged binaries are the preferred future path for users who should not need to install Bun manually.
 
@@ -116,7 +117,7 @@ Try a different provider from the shell picker, use provider fallback, or change
 
 **Downloads are enabled but jobs do not start**
 
-Install `ffmpeg`, rerun `kunai --setup`, and confirm downloads are enabled.
+Install `yt-dlp` on your `PATH`, rerun `/setup` if needed, and confirm downloads are enabled. Optional: add `ffprobe` to your `PATH` for post-download validation.
 
 **Subtitles are missing or not selectable**
 
