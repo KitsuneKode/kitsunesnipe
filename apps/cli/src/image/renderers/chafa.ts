@@ -1,9 +1,10 @@
 import { debugImage } from "../debug";
 import type { ImageRenderOptions } from "../types";
 
+type ChafaSpawnOptions = { readonly stdout: "pipe"; readonly stderr: "pipe" };
+
 const runtime = {
-  spawn: (command: string[], options?: Bun.SpawnOptions.OptionsObject<any, "pipe", "pipe">) =>
-    Bun.spawn(command, options as Bun.SpawnOptions.OptionsObject<any, "pipe", "pipe">),
+  spawn: (command: string[], options: ChafaSpawnOptions) => Bun.spawn(command, options),
 };
 
 async function runChafa(args: string[]): Promise<void> {

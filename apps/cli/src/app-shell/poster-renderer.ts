@@ -4,11 +4,14 @@ import { debugImage } from "@/image/debug";
 
 import type { PosterResult } from "./poster-types";
 
+type SymbolsSpawnOptions =
+  | { readonly stdout: "pipe"; readonly stderr: "pipe" }
+  | { readonly stdin: Uint8Array; readonly stdout: "pipe"; readonly stderr: "pipe" };
+
 const runtime = {
   detectImageCapability,
   which: (command: string): string | null => Bun.which(command),
-  spawn: (command: string[], options?: Bun.SpawnOptions.OptionsObject<any, "pipe", "pipe">) =>
-    Bun.spawn(command, options as Bun.SpawnOptions.OptionsObject<any, "pipe", "pipe">),
+  spawn: (command: string[], options: SymbolsSpawnOptions) => Bun.spawn(command, options),
 };
 
 let nextId = 1;

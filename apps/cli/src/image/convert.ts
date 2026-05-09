@@ -6,10 +6,12 @@ import { debugImage } from "./debug";
 import { isPngBytes } from "./png";
 
 const MAGICK_CMD = "magick";
+
+type MagickSpawnOptions = { readonly stdout: "pipe"; readonly stderr: "pipe" };
+
 const runtime = {
   which: (command: string): string | null => Bun.which(command),
-  spawn: (command: string[], options?: Bun.SpawnOptions.OptionsObject<any, "pipe", "pipe">) =>
-    Bun.spawn(command, options as Bun.SpawnOptions.OptionsObject<any, "pipe", "pipe">),
+  spawn: (command: string[], options: MagickSpawnOptions) => Bun.spawn(command, options),
 };
 
 async function collectStream(stream: ReadableStream | null): Promise<Uint8Array> {
