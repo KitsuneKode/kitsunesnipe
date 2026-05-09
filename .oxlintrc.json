@@ -6,17 +6,7 @@
     "browser": true,
     "es2026": true
   },
-  "plugins": [
-    "eslint",
-    "typescript",
-    "import",
-    "unicorn",
-    "promise",
-    "node",
-    "react",
-    "react-hooks",
-    "jsx-a11y"
-  ],
+  "plugins": ["eslint", "typescript", "import", "unicorn", "promise", "node", "react", "jsx-a11y"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn",
@@ -50,12 +40,7 @@
   },
   "overrides": [
     {
-      "files": [
-        "**/*.test.ts",
-        "**/*.spec.ts",
-        "**/*.test.tsx",
-        "**/*.spec.tsx"
-      ],
+      "files": ["**/*.test.ts", "**/*.spec.ts", "**/*.test.tsx", "**/*.spec.tsx"],
       "env": {
         "vitest": true
       },
