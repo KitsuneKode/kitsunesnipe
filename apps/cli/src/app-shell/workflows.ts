@@ -55,7 +55,7 @@ export type SetupWizardResult = "completed" | "cancelled" | "skipped";
 
 const SUBTITLE_OPTIONS = [
   { value: "en", label: "English" },
-  { value: "fzf", label: "Pick interactively" },
+  { value: "interactive", label: "Pick interactively" },
   { value: "none", label: "None" },
   { value: "ar", label: "Arabic" },
   { value: "fr", label: "French" },
@@ -64,9 +64,11 @@ const SUBTITLE_OPTIONS = [
   { value: "ja", label: "Japanese" },
 ] as const;
 
-const ANIME_AUDIO_OPTIONS = [
-  { value: "sub", label: "Sub", detail: "Original audio with subtitles" },
-  { value: "dub", label: "Dub", detail: "Dubbed audio when available" },
+const AUDIO_OPTIONS = [
+  { value: "original", label: "Original", detail: "Prefer original/native audio" },
+  { value: "en", label: "English", detail: "Prefer English audio when available" },
+  { value: "ja", label: "Japanese", detail: "Prefer Japanese audio when available" },
+  { value: "dub", label: "Dub", detail: "Prefer dubbed audio when available" },
 ] as const;
 
 function packageInstallHint(pkg: "mpv" | "yt-dlp" | "chafa" | "imagemagick" | "ffprobe"): string {
@@ -1729,14 +1731,34 @@ export async function openSettingsShell({
           detail: "Default anime source",
         },
         {
-          value: "subLang" as const,
-          label: `Subtitles  ·  ${next.subLang}`,
-          detail: "Preferred subtitle behavior",
+          value: "animeAudio" as const,
+          label: `Anime audio  ·  ${next.animeLanguageProfile.audio}`,
+          detail: "Preferred anime audio track language",
         },
         {
-          value: "animeLang" as const,
-          label: `Anime audio  ·  ${next.animeLang}`,
-          detail: "Sub or dub preference",
+          value: "animeSubtitle" as const,
+          label: `Anime subtitles  ·  ${next.animeLanguageProfile.subtitle}`,
+          detail: "Preferred anime subtitle behavior",
+        },
+        {
+          value: "seriesAudio" as const,
+          label: `Series audio  ·  ${next.seriesLanguageProfile.audio}`,
+          detail: "Preferred series audio track language",
+        },
+        {
+          value: "seriesSubtitle" as const,
+          label: `Series subtitles  ·  ${next.seriesLanguageProfile.subtitle}`,
+          detail: "Preferred series subtitle behavior",
+        },
+        {
+          value: "movieAudio" as const,
+          label: `Movie audio  ·  ${next.movieLanguageProfile.audio}`,
+          detail: "Preferred movie audio track language",
+        },
+        {
+          value: "movieSubtitle" as const,
+          label: `Movie subtitles  ·  ${next.movieLanguageProfile.subtitle}`,
+          detail: "Preferred movie subtitle behavior",
         },
         {
           value: "showMemory" as const,
@@ -1904,36 +1926,124 @@ export async function openSettingsShell({
       continue;
     }
 
-    if (action === "subLang") {
+    if (action === "animeAudio") {
       const picked = await chooseFromListShell({
-        title: "Subtitle preference",
-        subtitle: `Current ${next.subLang}`,
+        title: "Anime audio",
+        subtitle: `Current ${next.animeLanguageProfile.audio}`,
         actionContext,
-        options: SUBTITLE_OPTIONS.map((option) => ({
+        options: AUDIO_OPTIONS.map((option) => ({
           value: option.value,
-          label: option.value === next.subLang ? `${option.label}  ·  current` : option.label,
+          label:
+            option.value === next.animeLanguageProfile.audio
+              ? `${option.label}  ·  current`
+              : option.label,
+          detail: option.detail,
         })),
       });
-      if (picked && picked !== next.subLang) {
-        next.subLang = picked;
+      if (picked && picked !== next.animeLanguageProfile.audio) {
+        next.animeLanguageProfile = { ...next.animeLanguageProfile, audio: picked };
         changed = true;
       }
       continue;
     }
 
-    if (action === "animeLang") {
+    if (action === "animeSubtitle") {
       const picked = await chooseFromListShell({
-        title: "Anime audio",
-        subtitle: `Current ${next.animeLang}`,
+        title: "Anime subtitles",
+        subtitle: `Current ${next.animeLanguageProfile.subtitle}`,
         actionContext,
-        options: ANIME_AUDIO_OPTIONS.map((option) => ({
+        options: SUBTITLE_OPTIONS.map((option) => ({
           value: option.value,
-          label: option.value === next.animeLang ? `${option.label}  ·  current` : option.label,
+          label:
+            option.value === next.animeLanguageProfile.subtitle
+              ? `${option.label}  ·  current`
+              : option.label,
+        })),
+      });
+      if (picked && picked !== next.animeLanguageProfile.subtitle) {
+        next.animeLanguageProfile = { ...next.animeLanguageProfile, subtitle: picked };
+        changed = true;
+      }
+      continue;
+    }
+
+    if (action === "seriesAudio") {
+      const picked = await chooseFromListShell({
+        title: "Series audio",
+        subtitle: `Current ${next.seriesLanguageProfile.audio}`,
+        actionContext,
+        options: AUDIO_OPTIONS.map((option) => ({
+          value: option.value,
+          label:
+            option.value === next.seriesLanguageProfile.audio
+              ? `${option.label}  ·  current`
+              : option.label,
           detail: option.detail,
         })),
       });
-      if (picked && picked !== next.animeLang) {
-        next.animeLang = picked;
+      if (picked && picked !== next.seriesLanguageProfile.audio) {
+        next.seriesLanguageProfile = { ...next.seriesLanguageProfile, audio: picked };
+        changed = true;
+      }
+      continue;
+    }
+
+    if (action === "seriesSubtitle") {
+      const picked = await chooseFromListShell({
+        title: "Series subtitles",
+        subtitle: `Current ${next.seriesLanguageProfile.subtitle}`,
+        actionContext,
+        options: SUBTITLE_OPTIONS.map((option) => ({
+          value: option.value,
+          label:
+            option.value === next.seriesLanguageProfile.subtitle
+              ? `${option.label}  ·  current`
+              : option.label,
+        })),
+      });
+      if (picked && picked !== next.seriesLanguageProfile.subtitle) {
+        next.seriesLanguageProfile = { ...next.seriesLanguageProfile, subtitle: picked };
+        changed = true;
+      }
+      continue;
+    }
+
+    if (action === "movieAudio") {
+      const picked = await chooseFromListShell({
+        title: "Movie audio",
+        subtitle: `Current ${next.movieLanguageProfile.audio}`,
+        actionContext,
+        options: AUDIO_OPTIONS.map((option) => ({
+          value: option.value,
+          label:
+            option.value === next.movieLanguageProfile.audio
+              ? `${option.label}  ·  current`
+              : option.label,
+          detail: option.detail,
+        })),
+      });
+      if (picked && picked !== next.movieLanguageProfile.audio) {
+        next.movieLanguageProfile = { ...next.movieLanguageProfile, audio: picked };
+        changed = true;
+      }
+      continue;
+    }
+
+    if (action === "movieSubtitle") {
+      const picked = await chooseFromListShell({
+        title: "Movie subtitles",
+        subtitle: `Current ${next.movieLanguageProfile.subtitle}`,
+        actionContext,
+        options: SUBTITLE_OPTIONS.map((option) => ({
+          value: option.value,
+          label:
+            option.value === next.movieLanguageProfile.subtitle
+              ? `${option.label}  ·  current`
+              : option.label,
+        })),
+      });
+      if (picked && picked !== next.movieLanguageProfile.subtitle) {
+        next.movieLanguageProfile = { ...next.movieLanguageProfile, subtitle: picked };
         changed = true;
       }
       continue;

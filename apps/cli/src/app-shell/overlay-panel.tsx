@@ -69,8 +69,12 @@ type SettingsAction =
   | "defaultMode"
   | "provider"
   | "animeProvider"
-  | "subLang"
-  | "animeLang"
+  | "animeAudio"
+  | "animeSubtitle"
+  | "seriesAudio"
+  | "seriesSubtitle"
+  | "movieAudio"
+  | "movieSubtitle"
   | "animeTitlePreference"
   | "showMemory"
   | "autoNext"
@@ -94,7 +98,7 @@ export type SettingsChoiceValue = SettingsAction;
 
 const SUBTITLE_SETTINGS_OPTIONS: readonly ShellPickerOption<string>[] = [
   { value: "en", label: "English" },
-  { value: "fzf", label: "Pick interactively" },
+  { value: "interactive", label: "Pick interactively" },
   { value: "none", label: "None" },
   { value: "ar", label: "Arabic" },
   { value: "fr", label: "French" },
@@ -103,9 +107,11 @@ const SUBTITLE_SETTINGS_OPTIONS: readonly ShellPickerOption<string>[] = [
   { value: "ja", label: "Japanese" },
 ];
 
-const ANIME_AUDIO_SETTINGS_OPTIONS: readonly ShellPickerOption<"sub" | "dub">[] = [
-  { value: "sub", label: "Sub", detail: "Original audio with subtitles" },
-  { value: "dub", label: "Dub", detail: "Dubbed audio when available" },
+const AUDIO_SETTINGS_OPTIONS: readonly ShellPickerOption<string>[] = [
+  { value: "original", label: "Original", detail: "Prefer original/native audio" },
+  { value: "en", label: "English", detail: "Prefer English audio when available" },
+  { value: "ja", label: "Japanese", detail: "Prefer Japanese audio when available" },
+  { value: "dub", label: "Dub", detail: "Prefer dubbed audio when available" },
 ];
 
 const ANIME_TITLE_SETTINGS_OPTIONS: readonly ShellPickerOption<
@@ -244,14 +250,34 @@ export function buildSettingsOptions(
       detail: "Default anime source",
     },
     {
-      value: "subLang",
-      label: `Subtitles  ·  ${config.subLang}`,
-      detail: "Preferred subtitle behavior",
+      value: "animeAudio",
+      label: `Anime audio  ·  ${config.animeLanguageProfile.audio}`,
+      detail: "Preferred anime audio track language",
     },
     {
-      value: "animeLang",
-      label: `Anime audio  ·  ${config.animeLang}`,
-      detail: "Sub or dub preference",
+      value: "animeSubtitle",
+      label: `Anime subtitles  ·  ${config.animeLanguageProfile.subtitle}`,
+      detail: "Preferred anime subtitle behavior",
+    },
+    {
+      value: "seriesAudio",
+      label: `Series audio  ·  ${config.seriesLanguageProfile.audio}`,
+      detail: "Preferred series audio track language",
+    },
+    {
+      value: "seriesSubtitle",
+      label: `Series subtitles  ·  ${config.seriesLanguageProfile.subtitle}`,
+      detail: "Preferred series subtitle behavior",
+    },
+    {
+      value: "movieAudio",
+      label: `Movie audio  ·  ${config.movieLanguageProfile.audio}`,
+      detail: "Preferred movie audio track language",
+    },
+    {
+      value: "movieSubtitle",
+      label: `Movie subtitles  ·  ${config.movieLanguageProfile.subtitle}`,
+      detail: "Preferred movie subtitle behavior",
     },
     {
       value: "animeTitlePreference",
@@ -409,20 +435,66 @@ export function buildSettingsChoiceOverlay({
           ? `${option.label.replace(/  ·  current$/, "")}  ·  current`
           : option.label.replace(/  ·  current$/, ""),
     }));
-  } else if (setting === "subLang") {
-    title = "Subtitle preference";
-    subtitle = `Current ${config.subLang}`;
+  } else if (setting === "animeAudio") {
+    title = "Anime audio";
+    subtitle = `Current ${config.animeLanguageProfile.audio}`;
+    options = AUDIO_SETTINGS_OPTIONS.map((option) => ({
+      ...option,
+      label:
+        option.value === config.animeLanguageProfile.audio
+          ? `${option.label}  ·  current`
+          : option.label,
+    }));
+  } else if (setting === "animeSubtitle") {
+    title = "Anime subtitles";
+    subtitle = `Current ${config.animeLanguageProfile.subtitle}`;
     options = SUBTITLE_SETTINGS_OPTIONS.map((option) => ({
       ...option,
-      label: option.value === config.subLang ? `${option.label}  ·  current` : option.label,
+      label:
+        option.value === config.animeLanguageProfile.subtitle
+          ? `${option.label}  ·  current`
+          : option.label,
     }));
-  } else if (setting === "animeLang") {
-    title = "Anime audio";
-    subtitle = `Current ${config.animeLang}`;
-    options = ANIME_AUDIO_SETTINGS_OPTIONS.map((option) => ({
+  } else if (setting === "seriesAudio") {
+    title = "Series audio";
+    subtitle = `Current ${config.seriesLanguageProfile.audio}`;
+    options = AUDIO_SETTINGS_OPTIONS.map((option) => ({
       ...option,
-      label: option.value === config.animeLang ? `${option.label}  ·  current` : option.label,
-    })) as readonly ShellPickerOption<string>[];
+      label:
+        option.value === config.seriesLanguageProfile.audio
+          ? `${option.label}  ·  current`
+          : option.label,
+    }));
+  } else if (setting === "seriesSubtitle") {
+    title = "Series subtitles";
+    subtitle = `Current ${config.seriesLanguageProfile.subtitle}`;
+    options = SUBTITLE_SETTINGS_OPTIONS.map((option) => ({
+      ...option,
+      label:
+        option.value === config.seriesLanguageProfile.subtitle
+          ? `${option.label}  ·  current`
+          : option.label,
+    }));
+  } else if (setting === "movieAudio") {
+    title = "Movie audio";
+    subtitle = `Current ${config.movieLanguageProfile.audio}`;
+    options = AUDIO_SETTINGS_OPTIONS.map((option) => ({
+      ...option,
+      label:
+        option.value === config.movieLanguageProfile.audio
+          ? `${option.label}  ·  current`
+          : option.label,
+    }));
+  } else if (setting === "movieSubtitle") {
+    title = "Movie subtitles";
+    subtitle = `Current ${config.movieLanguageProfile.subtitle}`;
+    options = SUBTITLE_SETTINGS_OPTIONS.map((option) => ({
+      ...option,
+      label:
+        option.value === config.movieLanguageProfile.subtitle
+          ? `${option.label}  ·  current`
+          : option.label,
+    }));
   } else if (setting === "animeTitlePreference") {
     title = "Anime title names";
     subtitle = `Current ${config.animeTitlePreference}`;

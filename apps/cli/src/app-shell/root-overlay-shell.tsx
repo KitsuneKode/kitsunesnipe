@@ -379,10 +379,36 @@ export function RootOverlayShell({
             next.provider = picked.value;
           } else if (settingsChoice === "animeProvider") {
             next.animeProvider = picked.value;
-          } else if (settingsChoice === "subLang") {
-            next.subLang = picked.value;
-          } else if (settingsChoice === "animeLang") {
-            next.animeLang = picked.value as "sub" | "dub";
+          } else if (settingsChoice === "animeAudio") {
+            next.animeLanguageProfile = {
+              ...next.animeLanguageProfile,
+              audio: picked.value,
+            };
+          } else if (settingsChoice === "animeSubtitle") {
+            next.animeLanguageProfile = {
+              ...next.animeLanguageProfile,
+              subtitle: picked.value,
+            };
+          } else if (settingsChoice === "seriesAudio") {
+            next.seriesLanguageProfile = {
+              ...next.seriesLanguageProfile,
+              audio: picked.value,
+            };
+          } else if (settingsChoice === "seriesSubtitle") {
+            next.seriesLanguageProfile = {
+              ...next.seriesLanguageProfile,
+              subtitle: picked.value,
+            };
+          } else if (settingsChoice === "movieAudio") {
+            next.movieLanguageProfile = {
+              ...next.movieLanguageProfile,
+              audio: picked.value,
+            };
+          } else if (settingsChoice === "movieSubtitle") {
+            next.movieLanguageProfile = {
+              ...next.movieLanguageProfile,
+              subtitle: picked.value,
+            };
           } else if (settingsChoice === "animeTitlePreference") {
             next.animeTitlePreference = picked.value as typeof next.animeTitlePreference;
           } else if (settingsChoice === "footerHints") {
