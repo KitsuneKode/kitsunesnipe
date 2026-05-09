@@ -12,42 +12,45 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
-  packages: write
   id-token: write
 
 env:
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
 
 jobs:
   release:
     name: Version PR / Publish
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Update npm
+        run: npm install -g npm@latest
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Verify workspace before release
+      - name: Verify
         run: bun run ci
 
-      # Ensures apps/cli/dist exists before pack; avoids npm "No bin file at dist/kunai.js"
-      # warnings if publish tooling validates package.json before prepack completes.
-      - name: Build packages for publish
+      - name: Build
         run: bun run build
+
+      - name: Package check
+        run: bun run pkg:check
 
       - name: Create release PR or publish
         uses: changesets/action@v1
@@ -58,4 +61,3 @@ jobs:
           commit: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true
