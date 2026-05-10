@@ -5,6 +5,7 @@
 import type {
   ConfigService,
   KitsuneConfig,
+  AutoDownloadMode,
   QuitNearEndBehavior,
   QuitNearEndThresholdMode,
   PresencePrivacy,
@@ -168,6 +169,18 @@ export class ConfigServiceImpl implements ConfigService {
 
   get downloadsEnabled(): boolean {
     return this.config.downloadsEnabled;
+  }
+
+  get autoDownload(): AutoDownloadMode {
+    return this.config.autoDownload;
+  }
+
+  get autoCleanupWatched(): boolean {
+    return this.config.autoCleanupWatched;
+  }
+
+  get autoCleanupGraceDays(): number {
+    return this.config.autoCleanupGraceDays;
   }
 
   get onboardingVersion(): number {

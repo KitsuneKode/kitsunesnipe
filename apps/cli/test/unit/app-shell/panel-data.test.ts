@@ -14,8 +14,8 @@ describe("panel-data", () => {
   test("buildHelpPanelLines returns stable guidance", () => {
     const lines = buildHelpPanelLines();
     expect(lines.length).toBeGreaterThan(4);
-    expect(lines.some((line) => line.label === "Commands")).toBe(true);
-    expect(lines.some((line) => line.detail?.includes("Ctrl+W"))).toBe(true);
+    expect(lines.some((line) => line.label === "─── Panels")).toBe(true);
+    expect(lines.some((line) => line.label === "Ctrl+W")).toBe(true);
   });
 
   test("buildAboutPanelLines includes default mode summary", () => {
@@ -54,6 +54,9 @@ describe("panel-data", () => {
         presencePrivacy: "full",
         presenceDiscordClientId: "",
         downloadsEnabled: false,
+        autoDownload: "off",
+        autoCleanupWatched: false,
+        autoCleanupGraceDays: 7,
         onboardingVersion: 0,
         downloadPath: "",
         downloadOnboardingDismissed: false,
@@ -88,14 +91,12 @@ describe("panel-data", () => {
       },
     });
 
-    expect(lines.find((line) => line.label === "Selected subtitle URL")?.detail).toBe(
-      "not resolved yet",
-    );
-    expect(lines.find((line) => line.label === "Subtitle diagnosis")?.tone).toBe("warning");
-    expect(lines.find((line) => line.label === "Presence")?.detail).toContain(
+    expect(lines.find((line) => line.label === "State")?.detail).toBe("not resolved yet");
+    expect(lines.find((line) => line.label === "Evidence")?.tone).toBe("warning");
+    expect(lines.find((line) => line.label === "Status")?.detail).toContain(
       "missing Discord application client id",
     );
-    expect(lines.find((line) => line.label === "Presence")?.tone).toBe("warning");
+    expect(lines.find((line) => line.label === "Status")?.tone).toBe("warning");
   });
 
   test("buildDiagnosticsPanelLines surfaces the latest playback problem", () => {

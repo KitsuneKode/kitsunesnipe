@@ -20,10 +20,10 @@ export function getShellViewportPolicy(
   const compact = forceCompact || columns < 110 || rows < 34;
   const ultraCompact = forceCompact || columns < 92 || rows < 28;
   const wideBrowse = !forceCompact && kind === "browse" && columns >= 164 && rows >= 30;
+  const minColumns = 80;
+  const minRows = 20;
 
   if (kind === "picker") {
-    const minColumns = 84;
-    const minRows = 24;
     return {
       compact,
       ultraCompact,
@@ -36,8 +36,6 @@ export function getShellViewportPolicy(
   }
 
   if (kind === "browse") {
-    const minColumns = 92;
-    const minRows = 24;
     return {
       compact,
       ultraCompact,
@@ -49,8 +47,6 @@ export function getShellViewportPolicy(
     };
   }
 
-  const minColumns = 84;
-  const minRows = 22;
   return {
     compact,
     ultraCompact,

@@ -217,12 +217,12 @@ export async function chooseStartingEpisode(opts: SelectionOpts): Promise<Episod
         ? [
             {
               value: "resume" as const,
-              label: `Resume S${history.season}E${history.episode}`,
+              label: `▶ Resume S${history.season}E${history.episode}`,
               detail: `Continue from ${resumeAt}`,
             },
             {
               value: "restart" as const,
-              label: `Restart S${history.season}E${history.episode}`,
+              label: `↻ Restart S${history.season}E${history.episode}`,
               detail: "Start the current episode from the beginning",
             },
           ]
@@ -230,15 +230,15 @@ export async function chooseStartingEpisode(opts: SelectionOpts): Promise<Episod
       {
         value: "next" as const,
         label: nextEpisode
-          ? `Next episode  S${nextEpisode.season}E${nextEpisode.episode}`
-          : "Next episode unavailable",
+          ? `⏭ Next episode  S${nextEpisode.season}E${nextEpisode.episode}`
+          : "⏭ Next episode unavailable",
         detail: nextEpisode
           ? "Advance to the next released episode"
           : "No later released episode is available yet",
       },
       {
         value: "pick" as const,
-        label: opts.isAnime ? "Pick episode…" : "Pick season & episode…",
+        label: opts.isAnime ? "☰ Pick episode…" : "☰ Pick season & episode…",
         detail: "Choose manually from metadata",
       },
     ],

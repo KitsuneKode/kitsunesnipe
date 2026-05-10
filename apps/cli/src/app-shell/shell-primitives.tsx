@@ -231,7 +231,7 @@ export function ResizeBlocker({
     >
       <Text color={palette.red}>{message}</Text>
       <Text color={palette.muted}>
-        {`Current: ${cols}×${rows}  ·  Needs: ${minColumns}×${minRows}`}
+        {`Terminal is ${cols}×${rows}  ·  Needs ${minColumns}×${minRows}`}
       </Text>
       <Text color={palette.gray}>Zoom out or resize the terminal window.</Text>
     </Box>

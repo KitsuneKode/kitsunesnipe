@@ -111,12 +111,7 @@ function renderPhaseRail(active: LoadingShellState["operation"]): readonly {
   label: string;
   tone: "neutral" | "info" | "success";
 }[] {
-  const order: readonly LoadingShellState["operation"][] = [
-    "searching",
-    "scraping",
-    "resolving",
-    "playing",
-  ];
+  const order: readonly LoadingShellState["operation"][] = ["resolving", "playing"];
   const activeIndex = order.indexOf(active);
 
   return order.map((phase, index) => ({
@@ -311,8 +306,6 @@ export function LoadingShell({
     : "warning";
 
   const operationLabels: Record<LoadingShellState["operation"], string> = {
-    searching: "Searching",
-    scraping: "Scraping",
     resolving: "Resolving stream",
     playing: "Now playing",
     loading: "Loading playback",
@@ -526,7 +519,7 @@ export function LoadingShell({
           ) : null}
         </Box>
 
-        {state.trace && (
+        {!isPlaying && state.trace && (
           <Box marginTop={1}>
             <Text color={palette.gray} dimColor>
               {state.trace}

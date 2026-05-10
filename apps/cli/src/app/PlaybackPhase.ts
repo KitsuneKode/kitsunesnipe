@@ -290,6 +290,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       autoNextEnabled: config.autoNext,
     });
     let preferredStreamSelection = emptyStreamSelectionIntent();
+    let autoDownloadSeasonQueued = false;
 
     try {
       // Episode selection (for series)
@@ -849,6 +850,82 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                 endReason: result.endReason,
               },
             });
+          }
+
+          if (title.type === "series" && config.autoDownload !== "off") {
+            const enqueueAutoDownload = async (targetEpisode: EpisodeInfo) => {
+              if (
+                container.downloadService.hasJobForEpisode({
+                  titleId: title.id,
+                  season: targetEpisode.season,
+                  episode: targetEpisode.episode,
+                })
+              ) {
+                return false;
+              }
+              await container.downloadService.enqueue({
+                title,
+                episode: targetEpisode,
+                providerId: resolvedProviderId,
+                mode: stateManager.getState().mode,
+                audioPreference:
+                  stateManager.getState().mode === "anime"
+                    ? config.animeLanguageProfile.audio
+                    : config.seriesLanguageProfile.audio,
+                subtitlePreference:
+                  stateManager.getState().mode === "anime"
+                    ? config.animeLanguageProfile.subtitle
+                    : config.seriesLanguageProfile.subtitle,
+              });
+              return true;
+            };
+
+            try {
+              if (config.autoDownload === "next" && episodeAvailability.nextEpisode) {
+                if (await enqueueAutoDownload(episodeAvailability.nextEpisode)) {
+                  this.updatePlaybackFeedback(context, {
+                    note: "⬇ Next episode auto-queued for offline",
+                  });
+                  void container.downloadService.processQueue();
+                }
+              } else if (config.autoDownload === "season" && !autoDownloadSeasonQueued) {
+                autoDownloadSeasonQueued = true;
+                const episodes = await fetchEpisodes(title.id, currentEpisode.season);
+                const remaining = (episodes ?? [])
+                  .map((candidate) => ({
+                    season: currentEpisode.season,
+                    episode: candidate.number,
+                    name: candidate.name,
+                    airDate: candidate.airDate,
+                    overview: candidate.overview,
+                  }))
+                  .filter((candidate) => candidate.episode > currentEpisode.episode);
+                let queuedCount = 0;
+                for (const targetEpisode of remaining) {
+                  if (await enqueueAutoDownload(targetEpisode)) {
+                    queuedCount += 1;
+                  }
+                }
+                if (queuedCount > 0) {
+                  this.updatePlaybackFeedback(context, {
+                    note: `⬇ Season ${currentEpisode.season} auto-queued (${queuedCount} episodes)`,
+                  });
+                  void container.downloadService.processQueue();
+                }
+              }
+            } catch (error) {
+              diagnosticsStore.record({
+                category: "download",
+                message: "Auto-download queue failed",
+                context: {
+                  titleId: title.id,
+                  season: currentEpisode.season,
+                  episode: currentEpisode.episode,
+                  mode: config.autoDownload,
+                  error: String(error),
+                },
+              });
+            }
           }
 
           const playbackControlAction = playerControl.consumeLastAction();

@@ -4,11 +4,11 @@ import { getShellViewportPolicy } from "@/app-shell/layout-policy";
 
 describe("getShellViewportPolicy", () => {
   test("marks picker viewports below minimum size as too small", () => {
-    const policy = getShellViewportPolicy("picker", 80, 22);
+    const policy = getShellViewportPolicy("picker", 79, 19);
 
     expect(policy.tooSmall).toBe(true);
-    expect(policy.minColumns).toBe(84);
-    expect(policy.minRows).toBe(24);
+    expect(policy.minColumns).toBe(80);
+    expect(policy.minRows).toBe(20);
   });
 
   test("enables wide browse layout only on sufficiently large terminals", () => {

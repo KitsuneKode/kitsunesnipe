@@ -303,6 +303,32 @@ describe("DownloadService", () => {
     expect(existsSync(customDir)).toBe(true);
   });
 
+  test("uses media-server friendly output hierarchy", async () => {
+    const service = buildService({
+      repo,
+      downloadsEnabled: true,
+      ytDlpAvailable: true,
+      downloadPath: tempDir,
+    });
+
+    const episodeJob = await service.enqueue({
+      title: { id: "tmdb:1396", type: "series", name: "Breaking Bad", year: "2008" },
+      episode: { season: 4, episode: 12, name: "End Times" },
+      stream: { url: "https://example.com/master.m3u8", headers: {}, timestamp: 0 },
+      providerId: "vidking",
+    });
+    const movieJob = await service.enqueue({
+      title: { id: "tmdb:438631", type: "movie", name: "Dune", year: "2021-09-15" },
+      stream: { url: "https://example.com/movie.m3u8", headers: {}, timestamp: 0 },
+      providerId: "vidking",
+    });
+
+    expect(episodeJob.outputPath).toBe(
+      join(tempDir, "Breaking Bad (2008)", "Season 04", "Breaking Bad - S04E12.mp4"),
+    );
+    expect(movieJob.outputPath).toBe(join(tempDir, "Dune (2021)", "Dune (2021).mp4"));
+  });
+
   test("schedules retry for transient failures", async () => {
     const service = buildService({
       repo,

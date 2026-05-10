@@ -236,6 +236,19 @@ export class DownloadService {
     return this.listActive(1).length > 0;
   }
 
+  hasJobForEpisode(input: {
+    readonly titleId: string;
+    readonly season?: number;
+    readonly episode?: number;
+  }): boolean {
+    const matches = (job: DownloadJobRecord) =>
+      job.titleId === input.titleId &&
+      (input.season === undefined || job.season === input.season) &&
+      (input.episode === undefined || job.episode === input.episode) &&
+      (job.status === "queued" || job.status === "running" || job.status === "completed");
+    return this.listActive(500).some(matches) || this.listCompleted(500).some(matches);
+  }
+
   retry(jobId: string): void {
     this.deps.repo.requeue(jobId, new Date().toISOString());
   }
@@ -772,21 +785,40 @@ export class DownloadService {
       configuredBase.length > 0
         ? configuredBase
         : join(dirname(getKunaiPaths().dataDbPath), "downloads");
-    const titleSlug = slug(input.title.name);
-    const suffix =
-      input.episode && input.title.type !== "movie"
-        ? `-s${String(input.episode.season).padStart(2, "0")}e${String(input.episode.episode).padStart(2, "0")}`
-        : "";
-    return join(baseDir, `${titleSlug}${suffix}${DOWNLOAD_FILE_EXT}`);
+    const titleName = sanitizePathPart(input.title.name) || "Untitled";
+    const yearSuffix = normalizeYear(input.title.year);
+
+    if (input.title.type === "movie" || !input.episode) {
+      const movieFolder = yearSuffix ? `${titleName} (${yearSuffix})` : titleName;
+      const movieFile = yearSuffix
+        ? `${titleName} (${yearSuffix})${DOWNLOAD_FILE_EXT}`
+        : `${titleName}${DOWNLOAD_FILE_EXT}`;
+      return join(baseDir, movieFolder, movieFile);
+    }
+
+    const season = Math.max(1, Math.trunc(input.episode.season));
+    const episode = Math.max(1, Math.trunc(input.episode.episode));
+    const seriesFolder = yearSuffix ? `${titleName} (${yearSuffix})` : titleName;
+    const seasonFolder = `Season ${String(season).padStart(2, "0")}`;
+    const episodeFile = `${titleName} - S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}${DOWNLOAD_FILE_EXT}`;
+    return join(baseDir, seriesFolder, seasonFolder, episodeFile);
   }
 }
 
-function slug(value: string): string {
+function sanitizePathPart(value: string): string {
   return value
     .trim()
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/g, "-")
-    .replaceAll(/^-+|-+$/g, "");
+    .replaceAll(/[<>:"/\\|?*]+/g, " ")
+    .split("")
+    .filter((char) => char.charCodeAt(0) >= 32)
+    .join("")
+    .replaceAll(/\s+/g, " ")
+    .replaceAll(/[. ]+$/g, "");
+}
+
+function normalizeYear(value: string | undefined): string | null {
+  const match = value?.match(/\b(19|20)\d{2}\b/);
+  return match?.[0] ?? null;
 }
 
 async function readLines(

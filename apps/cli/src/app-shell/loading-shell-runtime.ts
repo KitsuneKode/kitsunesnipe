@@ -45,7 +45,7 @@ export function getProviderResolveWaitPresentation(input: {
   readonly latestIssue?: string | null;
 }): ProviderResolveWaitPresentation {
   const fallbackHint = input.fallbackAvailable ? "f fallback · " : "";
-  if (input.elapsedSeconds >= 30) {
+  if (input.elapsedSeconds >= 20) {
     return {
       message: "Provider/CDN may be degraded. Try fallback or open diagnostics.",
       tone: "warning",

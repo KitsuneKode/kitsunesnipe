@@ -2,6 +2,7 @@ import { useLineEditor } from "@/app-shell/line-editor";
 import type { Container } from "@/container";
 import type { SessionState } from "@/domain/session/SessionState";
 import type {
+  AutoDownloadMode,
   KitsuneConfig,
   QuitNearEndBehavior,
   QuitNearEndThresholdMode,
@@ -375,6 +376,9 @@ export function RootOverlayShell({
           }
           return;
         }
+        if (picked.value.startsWith("section:")) {
+          return;
+        }
         if (settingsChoice) {
           const next = { ...settingsDraft };
           if (settingsChoice === "defaultMode") {
@@ -417,6 +421,8 @@ export function RootOverlayShell({
             next.animeTitlePreference = picked.value as typeof next.animeTitlePreference;
           } else if (settingsChoice === "footerHints") {
             next.footerHints = picked.value as "detailed" | "minimal";
+          } else if (settingsChoice === "autoDownload") {
+            next.autoDownload = picked.value as AutoDownloadMode;
           } else if (settingsChoice === "presenceProvider") {
             next.presenceProvider = picked.value as typeof next.presenceProvider;
           } else if (settingsChoice === "presencePrivacy") {
@@ -452,6 +458,14 @@ export function RootOverlayShell({
         }
         if (picked.value === "autoNext") {
           setSettingsDraft({ ...settingsDraft, autoNext: !settingsDraft.autoNext });
+          setSettingsError(null);
+          return;
+        }
+        if (picked.value === "autoCleanupWatched") {
+          setSettingsDraft({
+            ...settingsDraft,
+            autoCleanupWatched: !settingsDraft.autoCleanupWatched,
+          });
           setSettingsError(null);
           return;
         }

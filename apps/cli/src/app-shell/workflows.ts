@@ -669,7 +669,7 @@ export async function openOfflineLibraryShell(
           },
           {
             value: "recheck",
-            label: "Refresh artifact status",
+            label: "Check file",
             detail: artifactStatus !== "ready" ? "Recommended" : undefined,
           },
           { value: "back", label: "Back" },
@@ -949,13 +949,16 @@ export async function handleShellAction({
   }
 
   if (action === "library") {
-    await withOverlay({ type: "history" }, () =>
-      openOfflineLibraryShell(
-        container,
-        buildPickerActionContext({ container, taskLabel: "Offline library" }),
-        { attachPlaybackStdioToMpv: false },
-      ),
-    );
+    stateManager.dispatch({ type: "OPEN_OVERLAY", overlay: { type: "downloads" } });
+    await new Promise<void>((resolve) => {
+      const unsubscribe = stateManager.subscribe((state) => {
+        const top = state.activeModals.at(-1);
+        if (!top || top.type !== "downloads") {
+          unsubscribe();
+          resolve();
+        }
+      });
+    });
     return "handled";
   }
 
@@ -1200,7 +1203,7 @@ export async function handleShellAction({
   if (action === "clear-cache") {
     const confirm = await chooseFromListShell({
       title: "Clear stream cache?",
-      subtitle: "This will remove all cached stream URLs. Next play will require fresh scraping.",
+      subtitle: "This will remove all cached stream URLs. Next play will require fresh resolving.",
       options: [
         { value: true, label: "Yes, clear cache" },
         { value: false, label: "Cancel" },

@@ -1,4 +1,5 @@
 import type {
+  AutoDownloadMode,
   KitsuneConfig,
   QuitNearEndBehavior,
   QuitNearEndThresholdMode,
@@ -66,6 +67,7 @@ export type BrowseOverlay =
     };
 
 type SettingsAction =
+  | `section:${string}`
   | "defaultMode"
   | "provider"
   | "animeProvider"
@@ -78,6 +80,8 @@ type SettingsAction =
   | "animeTitlePreference"
   | "showMemory"
   | "autoNext"
+  | "autoDownload"
+  | "autoCleanupWatched"
   | "resumeStartChoicePrompt"
   | "quitNearEndBehavior"
   | "quitNearEndThresholdMode"
@@ -193,6 +197,20 @@ const PRESENCE_PRIVACY_OPTIONS: readonly ShellPickerOption<KitsuneConfig["presen
   },
 ];
 
+const AUTO_DOWNLOAD_OPTIONS: readonly ShellPickerOption<AutoDownloadMode>[] = [
+  { value: "off", label: "Off", detail: "Never queue future episodes automatically" },
+  {
+    value: "next",
+    label: "Next episode",
+    detail: "Queue the next available episode after playback",
+  },
+  {
+    value: "season",
+    label: "Rest of season",
+    detail: "Queue remaining unwatched episodes in the current season",
+  },
+];
+
 export function buildSettingsSummary(config: KitsuneConfig): string {
   return `${config.defaultMode} default  ·  series ${config.provider}  ·  anime ${config.animeProvider}  ·  presence ${config.presenceProvider}`;
 }
@@ -234,60 +252,81 @@ export function buildSettingsOptions(
       : "ready to connect. Connect now to verify local Discord IPC.");
 
   return [
+    { value: "section:general", label: "General", detail: "Startup and shell chrome" },
     {
       value: "defaultMode",
-      label: `Default startup mode  ·  ${config.defaultMode}`,
+      label: `▸ Default startup mode  ·  ${config.defaultMode}`,
       detail: "Series or anime when the app launches",
     },
     {
+      value: "footerHints",
+      label: `▸ Footer hints  ·  ${config.footerHints}`,
+      detail: "Detailed keeps two lines, minimal keeps only the task line",
+    },
+    { value: "section:providers", label: "Providers", detail: "Default stream sources" },
+    {
       value: "provider",
-      label: `Default provider  ·  ${config.provider}`,
+      label: `▸ Default provider  ·  ${config.provider}`,
       detail: "Movies and series provider",
     },
     {
       value: "animeProvider",
-      label: `Anime provider  ·  ${config.animeProvider}`,
+      label: `▸ Anime provider  ·  ${config.animeProvider}`,
       detail: "Default anime source",
     },
+    { value: "section:language", label: "Language", detail: "Audio and subtitle preferences" },
     {
       value: "animeAudio",
-      label: `Anime audio  ·  ${config.animeLanguageProfile.audio}`,
+      label: `▸ Anime audio  ·  ${config.animeLanguageProfile.audio}`,
       detail: "Preferred anime audio track language",
     },
     {
       value: "animeSubtitle",
-      label: `Anime subtitles  ·  ${config.animeLanguageProfile.subtitle}`,
+      label: `▸ Anime subtitles  ·  ${config.animeLanguageProfile.subtitle}`,
       detail: "Preferred anime subtitle behavior",
     },
     {
       value: "seriesAudio",
-      label: `Series audio  ·  ${config.seriesLanguageProfile.audio}`,
+      label: `▸ Series audio  ·  ${config.seriesLanguageProfile.audio}`,
       detail: "Preferred series audio track language",
     },
     {
       value: "seriesSubtitle",
-      label: `Series subtitles  ·  ${config.seriesLanguageProfile.subtitle}`,
+      label: `▸ Series subtitles  ·  ${config.seriesLanguageProfile.subtitle}`,
       detail: "Preferred series subtitle behavior",
     },
     {
       value: "movieAudio",
-      label: `Movie audio  ·  ${config.movieLanguageProfile.audio}`,
+      label: `▸ Movie audio  ·  ${config.movieLanguageProfile.audio}`,
       detail: "Preferred movie audio track language",
     },
     {
       value: "movieSubtitle",
-      label: `Movie subtitles  ·  ${config.movieLanguageProfile.subtitle}`,
+      label: `▸ Movie subtitles  ·  ${config.movieLanguageProfile.subtitle}`,
       detail: "Preferred movie subtitle behavior",
     },
     {
       value: "animeTitlePreference",
-      label: `Anime title names  ·  ${config.animeTitlePreference}`,
+      label: `▸ Anime title names  ·  ${config.animeTitlePreference}`,
       detail: "Choose English, Romaji, native, or provider titles in anime search",
     },
+    { value: "section:playback", label: "Playback", detail: "Autoplay, resume, skips, downloads" },
     {
       value: "showMemory",
       label: `Memory panel  ·  ${config.showMemory ? "opens on playback" : "on demand"}`,
       detail: "Press m during playback for fresh app, mpv, total, heap, and swap usage",
+    },
+    {
+      value: "autoDownload",
+      label: `▸ Auto-download  ·  ${config.autoDownload}`,
+      detail: "Queue future episodes for offline viewing after playback",
+    },
+    {
+      value: "autoCleanupWatched",
+      label: `▸ Auto-cleanup  ·  ${
+        config.autoCleanupWatched ? `on (${config.autoCleanupGraceDays} day grace)` : "off"
+      }`,
+      detail: "Remove watched completed downloads on startup after the grace period",
     },
     {
       value: "autoNext",
@@ -325,19 +364,15 @@ export function buildSettingsOptions(
       label: `Skip credits  ·  ${config.skipCredits ? "on" : "off"}`,
       detail: "Auto-skip credits segments when IntroDB or AniSkip timing exists",
     },
-    {
-      value: "footerHints",
-      label: `Footer hints  ·  ${config.footerHints}`,
-      detail: "Detailed keeps two lines, minimal keeps only the task line",
-    },
+    { value: "section:presence", label: "Presence", detail: "Discord status integration" },
     {
       value: "presenceProvider",
-      label: `Presence  ·  ${config.presenceProvider}`,
+      label: `▸ Presence  ·  ${config.presenceProvider}`,
       detail: "Optional local social presence integration. Off by default.",
     },
     {
       value: "presencePrivacy",
-      label: `Presence privacy  ·  ${config.presencePrivacy}`,
+      label: `▸ Presence privacy  ·  ${config.presencePrivacy}`,
       detail: "Controls how much title detail presence integrations may expose",
     },
     {
@@ -353,7 +388,7 @@ export function buildSettingsOptions(
     },
     {
       value: "presenceDiscordClientId",
-      label: `Discord client ID  ·  ${describeDiscordClientId(config)}`,
+      label: `▸ Discord client ID  ·  ${describeDiscordClientId(config)}`,
       detail: "Type a Discord application client id, or use KUNAI_DISCORD_CLIENT_ID",
     },
     {
@@ -361,6 +396,7 @@ export function buildSettingsOptions(
       label: presenceConnectionLabel,
       detail: presenceConnectionDetail,
     },
+    { value: "section:storage", label: "Storage", detail: "Cache and local history" },
     {
       value: "clearCache",
       label: "Clear stream cache",
@@ -509,6 +545,13 @@ export function buildSettingsChoiceOverlay({
     options = FOOTER_HINT_OPTIONS.map((option) => ({
       ...option,
       label: option.value === config.footerHints ? `${option.label}  ·  current` : option.label,
+    })) as readonly ShellPickerOption<string>[];
+  } else if (setting === "autoDownload") {
+    title = "Auto-download";
+    subtitle = `Current ${config.autoDownload}`;
+    options = AUTO_DOWNLOAD_OPTIONS.map((option) => ({
+      ...option,
+      label: option.value === config.autoDownload ? `${option.label}  ·  current` : option.label,
     })) as readonly ShellPickerOption<string>[];
   } else if (setting === "presenceProvider") {
     title = "Presence integration";

@@ -12,6 +12,7 @@ export type PresenceProvider = "off" | "discord";
 
 export type PresencePrivacy = "full" | "private";
 export type DiscoverMode = "auto" | "unified" | "anime-only" | "series-only";
+export type AutoDownloadMode = "off" | "next" | "season";
 
 export interface MediaLanguageProfile {
   audio: string;
@@ -82,6 +83,12 @@ export interface KitsuneConfig {
   presenceDiscordClientId: string;
   /** Optional offline download feature gate. Default off until the user opts in. */
   downloadsEnabled: boolean;
+  /** Queue future episodes automatically after playback. Default off. */
+  autoDownload: AutoDownloadMode;
+  /** Delete completed watched downloads after the configured grace period. Default false. */
+  autoCleanupWatched: boolean;
+  /** Days to keep watched downloads before startup cleanup may remove them. */
+  autoCleanupGraceDays: number;
   /** Setup wizard completion marker for future migrations. */
   onboardingVersion: number;
   /** Directory for offline downloads. Empty string = use Kunai app data defaults when implemented. */

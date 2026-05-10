@@ -25,6 +25,7 @@ export function DownloadManagerContent({
   const { stdout } = useStdout();
   const [activeJobs, setActiveJobs] = useState<readonly DownloadJobRecord[]>([]);
   const [queuedJobs, setQueuedJobs] = useState<readonly DownloadJobRecord[]>([]);
+  const [completedJobs, setCompletedJobs] = useState<readonly DownloadJobRecord[]>([]);
   const [failedJobs, setFailedJobs] = useState<readonly DownloadJobRecord[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -32,6 +33,7 @@ export function DownloadManagerContent({
     const update = () => {
       setActiveJobs(container.downloadService.listActive(50).filter((j) => j.status === "running"));
       setQueuedJobs(container.downloadService.listActive(50).filter((j) => j.status === "queued"));
+      setCompletedJobs(container.downloadService.listCompleted(5));
       setFailedJobs(container.downloadService.listFailed(10));
     };
     update();
@@ -39,7 +41,7 @@ export function DownloadManagerContent({
     return () => clearInterval(interval);
   }, [container]);
 
-  const allJobs = [...activeJobs, ...queuedJobs, ...failedJobs];
+  const allJobs = [...activeJobs, ...queuedJobs, ...completedJobs, ...failedJobs];
 
   useEffect(() => {
     if (selectedIndex >= allJobs.length) {
@@ -97,9 +99,10 @@ export function DownloadManagerContent({
       job.status === "running" && typeof job.progressPercent === "number"
         ? Math.max(0, Math.min(totalBlocks, Math.round((job.progressPercent / 100) * totalBlocks)))
         : 0;
-    const progressStr =
+    const percent = Math.max(0, Math.min(100, Math.round(job.progressPercent ?? 0)));
+    const progressCore =
       job.status === "running" && typeof job.progressPercent === "number"
-        ? `${"█".repeat(filled)}${"░".repeat(totalBlocks - filled)} ${job.progressPercent}%`
+        ? `[${"█".repeat(filled)}${"░".repeat(totalBlocks - filled)}] ${percent}%`
         : job.status === "queued"
           ? "⏳ queued"
           : job.status === "completed"
@@ -107,6 +110,19 @@ export function DownloadManagerContent({
             : job.status === "failed"
               ? "✗ failed"
               : "— aborted";
+    const progressMeta =
+      job.status === "running"
+        ? [
+            job.fileSize ? `${formatBytes(job.fileSize)}` : null,
+            job.attempt > 0 ? `try ${job.attempt}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : job.status === "completed" && job.completedAt
+          ? new Date(job.completedAt).toLocaleDateString()
+          : job.status === "failed"
+            ? truncateLine(job.errorMessage ?? "Failed", 28)
+            : job.status;
     const nameStr = `${job.titleName}${job.episode ? ` S${String(job.season ?? 1).padStart(2, "0")}E${String(job.episode).padStart(2, "0")}` : ""}`;
     const statusColor =
       job.status === "running"
@@ -126,17 +142,33 @@ export function DownloadManagerContent({
             {truncateLine(nameStr, shellWidth > 80 ? 38 : 23)}
           </Text>
         </Box>
-        <Box width={22}>
-          <Text color={statusColor}>{progressStr}</Text>
+        <Box width={28}>
+          <Text color={statusColor}>{progressCore}</Text>
         </Box>
         <Box flexGrow={1}>
           <Text color={palette.muted} dimColor>
-            {job.status === "failed" ? truncateLine(job.errorMessage ?? "Failed", 30) : job.status}
+            {progressMeta}
           </Text>
         </Box>
       </Box>
     );
   };
+
+  const renderSection = (
+    title: string,
+    jobs: readonly DownloadJobRecord[],
+    offset: number,
+    color: string,
+  ) =>
+    jobs.length > 0 ? (
+      <Box flexDirection="column" marginBottom={1}>
+        <Text color={color}>
+          {"─── "}
+          {title.toUpperCase()} ({jobs.length})
+        </Text>
+        {jobs.map((j, i) => renderJob(j, offset + i))}
+      </Box>
+    ) : null;
 
   return (
     <Box flexDirection="column" flexGrow={1}>
@@ -149,40 +181,34 @@ export function DownloadManagerContent({
         />
       ) : (
         <Box flexDirection="column">
-          {activeJobs.length > 0 && (
-            <Box flexDirection="column" marginBottom={1}>
-              <Text color={palette.info}>
-                {"─── "}▶ Active ({activeJobs.length})
-              </Text>
-              {activeJobs.map((j, i) => renderJob(j, i))}
-            </Box>
+          {renderSection("▶ Active", activeJobs, 0, palette.info)}
+          {renderSection("⏳ Queued", queuedJobs, activeJobs.length, palette.info)}
+          {renderSection(
+            "✓ Completed",
+            completedJobs,
+            activeJobs.length + queuedJobs.length,
+            palette.green,
           )}
-
-          {queuedJobs.length > 0 && (
-            <Box flexDirection="column" marginBottom={1}>
-              <Text color={palette.info}>
-                {"─── "}⏳ Queued ({queuedJobs.length})
-              </Text>
-              {queuedJobs.map((j, i) => renderJob(j, activeJobs.length + i))}
-            </Box>
-          )}
-
-          {failedJobs.length > 0 && (
-            <Box flexDirection="column" marginBottom={1}>
-              <Text color={palette.red}>
-                {"─── "}✗ Failed ({failedJobs.length})
-              </Text>
-              {failedJobs.map((j, i) => renderJob(j, activeJobs.length + queuedJobs.length + i))}
-            </Box>
+          {renderSection(
+            "✗ Failed",
+            failedJobs,
+            activeJobs.length + queuedJobs.length + completedJobs.length,
+            palette.red,
           )}
         </Box>
       )}
-
-      <Box marginTop={1}>
-        <Text color={palette.gray} dimColor>
-          ✕ cancel/remove · ↻ retry · ↑↓ navigate · Esc close
-        </Text>
-      </Box>
     </Box>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KiB", "MiB", "GiB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
 }

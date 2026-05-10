@@ -199,6 +199,39 @@ async function maybeRunDownloadMode(
   return true;
 }
 
+async function maybeRunAutoCleanupDownloads(
+  container: Awaited<ReturnType<typeof createContainer>>,
+): Promise<void> {
+  const { config, downloadService, historyStore, logger } = container;
+  if (!config.autoCleanupWatched) return;
+
+  const graceDays = Math.max(0, config.autoCleanupGraceDays);
+  const cutoff = Date.now() - graceDays * 24 * 60 * 60 * 1000;
+  for (const job of downloadService.listCompleted(500)) {
+    const historyEntries = await historyStore.listByTitle(job.titleId).catch(() => []);
+    const watched = historyEntries.find((entry) => {
+      if (!entry.completed) return false;
+      if (job.mediaKind !== entry.type) return false;
+      if (job.mediaKind !== "movie") {
+        if (entry.season !== (job.season ?? 1)) return false;
+        if (entry.episode !== (job.episode ?? 1)) return false;
+      }
+      const watchedAt = Date.parse(entry.watchedAt);
+      return Number.isFinite(watchedAt) && watchedAt <= cutoff;
+    });
+    if (!watched) continue;
+
+    await downloadService.deleteJob(job.id, { deleteArtifact: true });
+    logger.info("Auto-cleaned watched download", {
+      jobId: job.id,
+      titleId: job.titleId,
+      outputPath: job.outputPath,
+      watchedAt: watched.watchedAt,
+      graceDays,
+    });
+  }
+}
+
 export async function runCli(argv = process.argv.slice(2)): Promise<void> {
   process.title = "kunai";
 
@@ -217,6 +250,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
   });
   globalContainer = container;
   const { logger, config, stateManager, cacheStore } = container;
+  await maybeRunAutoCleanupDownloads(container);
 
   // Initialize session state with CLI overrides
   stateManager.initialize(config.provider, config.animeProvider, {

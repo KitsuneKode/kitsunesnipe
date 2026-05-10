@@ -399,15 +399,10 @@ function AppRoot({ container }: { container: Container }) {
     readonly tone: ShellStatusTone;
   } | null>(null);
 
-  // Global Ctrl+C / Ctrl+D handler. Ink normalizes control characters to their
+  // Global Ctrl+C handler. Ink normalizes control characters to their
   // letter name with key.ctrl=true, so we check both forms for safety.
   useInput((input, key) => {
-    if (
-      (input === "c" && key.ctrl) ||
-      (input === "d" && key.ctrl) ||
-      input === "\x03" ||
-      input === "\x04"
-    ) {
+    if ((input === "c" && key.ctrl) || input === "\x03") {
       stdinManager.cleanup();
       requestHardExit(0);
     }
@@ -2148,6 +2143,13 @@ function BrowseShell<T>({
       return;
     }
 
+    if ((input === "d" && key.ctrl) || input === "\x04") {
+      if (selectedOption && options.length > 0 && !queryDirty && searchState === "ready") {
+        onResolve("download");
+      }
+      return;
+    }
+
     if (key.tab) {
       onResolve("toggle-mode");
       return;
@@ -2435,6 +2437,9 @@ function BrowseShell<T>({
           { key: "/", label: "commands", action: "command-mode" },
           ...(onLoadDiscovery
             ? [{ key: "ctrl+t", label: "trending", action: "trending" as const }]
+            : []),
+          ...(options.length > 0 && !queryDirty
+            ? [{ key: "^D", label: "download", action: "download" as const }]
             : []),
           { key: "esc", label: "clear/back", action: "quit" },
         ]}

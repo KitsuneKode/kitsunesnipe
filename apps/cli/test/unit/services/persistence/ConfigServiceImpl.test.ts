@@ -67,17 +67,26 @@ describe("ConfigServiceImpl", () => {
     expect(service.downloadsEnabled).toBe(false);
     expect(service.downloadPath).toBe("");
     expect(service.downloadOnboardingDismissed).toBe(false);
+    expect(service.autoDownload).toBe("off");
+    expect(service.autoCleanupWatched).toBe(false);
+    expect(service.autoCleanupGraceDays).toBe(7);
 
     await service.update({
       downloadsEnabled: true,
       downloadPath: "~/Videos/Kunai",
       downloadOnboardingDismissed: true,
+      autoDownload: "next",
+      autoCleanupWatched: true,
+      autoCleanupGraceDays: 3,
     });
     await service.save();
 
     expect((await store.load()).downloadsEnabled).toBe(true);
     expect((await store.load()).downloadPath).toBe("~/Videos/Kunai");
     expect((await store.load()).downloadOnboardingDismissed).toBe(true);
+    expect((await store.load()).autoDownload).toBe("next");
+    expect((await store.load()).autoCleanupWatched).toBe(true);
+    expect((await store.load()).autoCleanupGraceDays).toBe(3);
   });
 
   test("normalizes legacy subtitle defaults back to english on load", async () => {
