@@ -1,4 +1,3 @@
-import { playbackSubtitleStatusTone } from "@/app/subtitle-status";
 import { Box, Text, useInput, useStdout } from "ink";
 import React from "react";
 
@@ -10,7 +9,7 @@ import {
 } from "./loading-shell-runtime";
 import { getRuntimeMemoryLine } from "./runtime-memory";
 import { ShellFrame } from "./shell-frame";
-import { Badge, DetailLine } from "./shell-primitives";
+import { Badge, LocalSection } from "./shell-primitives";
 import { palette } from "./shell-theme";
 import type { FooterAction, LoadingShellState, ShellPanelLine } from "./types";
 
@@ -165,7 +164,6 @@ export function LoadingShell({
     memoryPanelVisible,
     runtimeHealthVisible: memoryPanelVisible || state.operation !== "playing",
   });
-  const spinner = useSpinner(timerPolicy.animate);
   const elapsed = useElapsed(timerPolicy.trackElapsed);
   const pulse = usePulse(1400, timerPolicy.animate);
   const memoryLine = useRuntimeMemoryLine(timerPolicy.memoryRefreshMs);
@@ -297,13 +295,7 @@ export function LoadingShell({
   });
 
   const isPlaying = state.operation === "playing";
-  const leadIcon = isPlaying ? "▶" : spinner;
-  const accentColor = isPlaying ? palette.green : pulse ? palette.teal : "white";
-  const separatorWidth = Math.min(52, Math.max(24, (stdout.columns ?? 80) - 22));
   const infoWidth = Math.min(76, Math.max(40, (stdout.columns ?? 80) - 12));
-  const subtitleTone = state.subtitleStatus
-    ? playbackSubtitleStatusTone(state.subtitleStatus)
-    : "warning";
 
   const operationLabels: Record<LoadingShellState["operation"], string> = {
     resolving: "Resolving stream",
@@ -343,14 +335,14 @@ export function LoadingShell({
           },
           {
             key: "a",
-            label: "autoplay",
+            label: state.autoplayPaused ? "☐ autoplay" : "☑ autoplay",
             action: "toggle-autoplay",
             disabled: !onToggleAutoplay,
             reason: "Autoplay is unavailable for this title.",
           },
           {
             key: "u",
-            label: state.autoskipPaused ? "autoskip paused" : "autoskip",
+            label: state.autoskipPaused ? "☐ autoskip" : "☑ autoskip",
             action: "toggle-autoskip",
             disabled: !onToggleAutoskip,
             reason: "Autoskip is unavailable for this playback.",
@@ -446,81 +438,60 @@ export function LoadingShell({
       onResolve={(action) => state.onCommandAction?.(action)}
     >
       <Box flexDirection="column" width={infoWidth} justifyContent="center" flexGrow={1}>
-        <Box>
-          <Badge
-            label={operationLabels[state.operation].toLowerCase()}
-            tone={isPlaying ? "success" : "info"}
-          />
-          {state.details ? <Badge label={state.details.toLowerCase()} tone="neutral" /> : null}
-          {state.subtitleStatus ? <Badge label={state.subtitleStatus} tone={subtitleTone} /> : null}
-        </Box>
-        <Box marginTop={1}>
-          <Text color={accentColor}>{leadIcon} </Text>
-          <Text bold color="white">
-            {state.title}
-          </Text>
-        </Box>
-        {state.subtitle && (
-          <Box marginLeft={2}>
-            <Text color={palette.muted}>{state.subtitle}</Text>
+        {!isPlaying && (
+          <Box flexWrap="wrap" marginBottom={1}>
+            {phaseRail.map((phase) => (
+              <Badge key={phase.label} label={phase.label} tone={phase.tone} />
+            ))}
           </Box>
         )}
 
-        <Box marginY={1}>
-          <Text color={palette.muted} dimColor>
-            {"─".repeat(separatorWidth)}
-          </Text>
-        </Box>
-
-        <Box flexWrap="wrap">
-          {phaseRail.map((phase) => (
-            <Badge key={phase.label} label={phase.label} tone={phase.tone} />
-          ))}
-        </Box>
-
-        <Box>
-          <Text color={accentColor}>{operationLabels[state.operation]}</Text>
-          <Text color={palette.gray} dimColor>
-            {"  "}
-            {isPlaying ? "Kunai is supervising playback" : "Gathering stream data"}
-          </Text>
-        </Box>
-
-        <Box marginTop={1} flexDirection="column">
-          {state.subtitleStatus ? (
-            <DetailLine label="Subtitle state" value={state.subtitleStatus} tone={subtitleTone} />
+        <LocalSection title="Status" tone={isPlaying ? "success" : "neutral"} marginTop={0}>
+          {state.details && !isPlaying ? (
+            <Text color="white">Provider: {state.details}</Text>
           ) : null}
           {state.downloadStatus ? (
-            <DetailLine label="Download" value={state.downloadStatus} tone="info" />
+            <Text color={palette.info}>Download: {state.downloadStatus}</Text>
           ) : null}
-          <DetailLine
-            label="Status"
-            value={
-              isPlaying
-                ? "mpv is active; shell controls and subtitle switching remain available"
+          {state.subtitleStatus ? (
+            <Text color={palette.gray}>Subtitles: {state.subtitleStatus}</Text>
+          ) : null}
+
+          <Box marginTop={1}>
+            <Text color="white">
+              {isPlaying
+                ? "MPV is active. Shell controls and subtitle switching remain available."
                 : state.cancellable
-                  ? "Resolving provider data, timing, and player startup; Esc cancels cleanly"
-                  : "Resolving provider data, stream headers, and playback context"
-            }
-            tone={isPlaying ? "success" : "info"}
-          />
-          {shouldShowLoadingElapsed(state.operation, elapsed) ? (
-            <DetailLine label="Elapsed" value={formatElapsed(elapsed)} />
+                  ? "Resolving provider data, timing, and player startup. Esc cancels."
+                  : "Resolving provider data, stream headers, and playback context."}
+            </Text>
+          </Box>
+
+          {shouldShowLoadingElapsed(state.operation, elapsed) || memoryLine || runtimeHealthLine ? (
+            <Box marginTop={1} flexDirection="column">
+              {shouldShowLoadingElapsed(state.operation, elapsed) ? (
+                <Text color={palette.gray}>Elapsed: {formatElapsed(elapsed)}</Text>
+              ) : null}
+              {memoryPanelVisible && memoryLine ? (
+                <Text color={palette.gray}>Memory: {memoryLine}</Text>
+              ) : null}
+              {runtimeHealthLine ? (
+                <Text
+                  color={
+                    !runtimeHealthLine.tone || runtimeHealthLine.tone === "neutral"
+                      ? palette.gray
+                      : palette[runtimeHealthLine.tone as keyof typeof palette]
+                  }
+                >
+                  {runtimeHealthLine.label}: {runtimeHealthLine.detail}
+                </Text>
+              ) : null}
+            </Box>
           ) : null}
-          {memoryPanelVisible && memoryLine ? (
-            <DetailLine label="Memory" value={memoryLine} />
-          ) : null}
-          {runtimeHealthLine ? (
-            <DetailLine
-              label={runtimeHealthLine.label}
-              value={runtimeHealthLine.detail ?? ""}
-              tone={runtimeHealthLine.tone === "neutral" ? undefined : runtimeHealthLine.tone}
-            />
-          ) : null}
-        </Box>
+        </LocalSection>
 
         {!isPlaying && state.trace && (
-          <Box marginTop={1}>
+          <Box marginTop={2}>
             <Text color={palette.gray} dimColor>
               {state.trace}
             </Text>
@@ -528,7 +499,7 @@ export function LoadingShell({
         )}
 
         {state.progress !== undefined ? (
-          <Box marginTop={1}>
+          <Box marginTop={2}>
             <Box
               width={Math.min(40, (stdout.columns ?? 80) - 4)}
               borderStyle="round"
@@ -544,28 +515,13 @@ export function LoadingShell({
           </Box>
         ) : (
           !isPlaying && (
-            <Box marginTop={1}>
+            <Box marginTop={2}>
               <Text color={pulse ? palette.info : palette.gray} dimColor>
                 {pulse ? waitPresentation.message : "Waiting on provider response..."}
               </Text>
             </Box>
           )
         )}
-
-        {!isPlaying && state.stopHint ? (
-          <Box marginTop={1}>
-            <Text color={palette.gray} dimColor>
-              {state.stopHint}
-            </Text>
-          </Box>
-        ) : null}
-        {!isPlaying && state.controlHint ? (
-          <Box>
-            <Text color={palette.gray} dimColor>
-              {state.controlHint}
-            </Text>
-          </Box>
-        ) : null}
       </Box>
     </ShellFrame>
   );

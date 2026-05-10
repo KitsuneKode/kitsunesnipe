@@ -97,6 +97,7 @@ export type LoadingShellState = {
   cancellable?: boolean;
   fallbackAvailable?: boolean;
   autoskipPaused?: boolean;
+  autoplayPaused?: boolean;
   fallbackProviderName?: string;
   latestIssue?: string | null;
   stopHint?: string;

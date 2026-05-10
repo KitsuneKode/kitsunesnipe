@@ -680,6 +680,7 @@ function AppRoot({ container }: { container: Container }) {
                   fallbackProviderName:
                     fallbackProvider?.metadata.name ?? fallbackProvider?.metadata.id,
                   autoskipPaused: state.autoskipSessionPaused,
+                  autoplayPaused: state.autoplaySessionPaused,
                   latestIssue: state.playbackNote,
                   stopHint:
                     state.playbackStatus === "playing" ||
