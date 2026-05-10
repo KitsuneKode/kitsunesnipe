@@ -74,9 +74,30 @@ export function DownloadManagerContent({
       });
       return;
     }
-    if (input === "r") {
+    if (input === "r" || key.return) {
       const job = allJobs[selectedIndex];
-      if (job && (job.status === "failed" || job.status === "aborted")) {
+      if (!job) return;
+
+      if (key.return && job.status === "completed") {
+        void (async () => {
+          const { parseIntroSkipTiming } = await import("@/services/offline/offline-library");
+          await container.player.playLocal({
+            filePath: job.outputPath,
+            displayTitle: `${job.titleName}${job.episode ? ` S${String(job.season ?? 1).padStart(2, "0")}E${String(job.episode).padStart(2, "0")}` : ""}`,
+            subtitlePath: job.subtitlePath ?? null,
+            timing: parseIntroSkipTiming(job.introSkipJson),
+            attach: false,
+          });
+          container.diagnosticsStore.record({
+            category: "playback",
+            message: "Offline playback started from unified manager",
+            context: { jobId: job.id, path: job.outputPath },
+          });
+        })();
+        return;
+      }
+
+      if (job.status === "failed" || job.status === "aborted") {
         container.downloadService.retry(job.id);
         void container.downloadService.processQueue();
       }
