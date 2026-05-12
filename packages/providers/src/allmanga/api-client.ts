@@ -25,6 +25,7 @@ export type AllMangaEpisodeOption = {
   readonly index: number;
   readonly label: string;
   readonly detail?: string;
+  readonly totalEpisodeCount?: number;
 };
 
 export type StreamLink = {
@@ -203,17 +204,11 @@ export type ShowCatalogInfo = {
   readonly thumbnail?: string;
 };
 
-const availableEpisodesDetailCache = new Map<
-  string,
-  { readonly expiresAt: number; readonly detail: Record<string, unknown[]> }
->();
-
-function availableEpisodesDetailCacheKey(apiUrl: string, showId: string): string {
-  return `${apiUrl}\n${showId}`;
-}
-
 /** Cache extended show metadata per showId. TTL same 45s as episode detail. */
 const showCatalogCache = new TTLCache<string, ShowCatalogInfo>(AVAILABLE_EPISODES_DETAIL_TTL_MS);
+
+/** Cache source resolve results per show+episode+mode. TTL 5 minutes. */
+const sourceCache = new TTLCache<string, StreamLink[]>(300_000);
 
 export async function loadAvailableEpisodesDetail(
   apiUrl: string,
@@ -247,12 +242,26 @@ export async function loadShowCatalogInfo(
     }
   }`;
 
-  let data = (await gqlPost(apiUrl, referer, ua, query, { id: showId })) as {
-    data: { show: ShowCatalogInfo & { episodeCount?: string | number | null; malId?: string | number | null; aniListId?: string | number | null; availableEpisodes?: Record<string, unknown> } };
-  } | null | undefined;
+  let data = (await gqlPost(apiUrl, referer, ua, query, { id: showId })) as
+    | {
+        data: {
+          show: {
+            availableEpisodesDetail: Record<string, unknown[]>;
+            episodeCount?: string | number | null;
+            malId?: string | number | null;
+            aniListId?: string | number | null;
+            thumbnail?: string;
+            availableEpisodes?: Record<string, unknown>;
+          };
+        };
+      }
+    | null
+    | undefined;
 
   if (!data?.data?.show?.availableEpisodesDetail) {
-    data = (await gqlPost(apiUrl, "https://youtu-chan.com", ua, query, { id: showId })) as typeof data;
+    data = (await gqlPost(apiUrl, "https://youtu-chan.com", ua, query, {
+      id: showId,
+    })) as typeof data;
   }
 
   const show = data?.data?.show;
@@ -421,13 +430,14 @@ export async function fetchAllMangaEpisodeCatalog(opts: {
   readonly mode: "sub" | "dub";
 }): Promise<AllMangaEpisodeOption[]> {
   const { apiUrl, referer, ua, showId, mode } = opts;
-  const detail = await loadAvailableEpisodesDetail(apiUrl, referer, ua, showId);
-  const episodeStrings = (detail[mode] ?? []) as string[];
+  const info = await loadShowCatalogInfo(apiUrl, referer, ua, showId);
+  const episodeStrings = (info.detail[mode] ?? []) as string[];
 
   return [...episodeStrings].sort(compareEpisodeStrings).map((episodeString, index) => ({
     index: index + 1,
     label: `Episode ${episodeString}`,
     detail: `Source episode ${episodeString}`,
+    totalEpisodeCount: info.episodeCount,
   }));
 }
 
