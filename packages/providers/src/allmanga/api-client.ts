@@ -202,10 +202,20 @@ export async function loadAvailableEpisodesDetail(
     return hit.detail;
   }
   const listQuery = `query($id:String!){show(_id:$id){availableEpisodesDetail}}`;
-  const listData = (await gqlPost(apiUrl, referer, ua, listQuery, { id: showId })) as {
-    data: { show: { availableEpisodesDetail: Record<string, unknown[]> } };
-  };
-  const detail = listData.data.show.availableEpisodesDetail;
+
+  // Try primary referer first, fall back to youtu-chan.com
+  let listData = (await gqlPost(apiUrl, referer, ua, listQuery, { id: showId })) as
+    | { data: { show: { availableEpisodesDetail: Record<string, unknown[]> } } }
+    | null
+    | undefined;
+
+  if (!listData?.data?.show?.availableEpisodesDetail) {
+    listData = (await gqlPost(apiUrl, "https://youtu-chan.com", ua, listQuery, { id: showId })) as {
+      data: { show: { availableEpisodesDetail: Record<string, unknown[]> } };
+    } | null;
+  }
+
+  const detail = listData?.data?.show?.availableEpisodesDetail ?? {};
   availableEpisodesDetailCache.set(key, {
     expiresAt: now + AVAILABLE_EPISODES_DETAIL_TTL_MS,
     detail,
@@ -219,16 +229,19 @@ export async function gqlPost(
   ua: string,
   query: string,
   vars: Record<string, unknown>,
-): Promise<unknown> {
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Referer: referer, "User-Agent": ua },
-    body: JSON.stringify({ query, variables: vars }),
-  });
-  if (!response.ok) {
-    throw new Error(`API ${response.status}: ${apiUrl}`);
+): Promise<unknown | null> {
+  try {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      signal: AbortSignal.timeout(20_000),
+      headers: { "Content-Type": "application/json", Referer: referer, "User-Agent": ua },
+      body: JSON.stringify({ query, variables: vars }),
+    });
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
   }
-  return response.json();
 }
 
 export async function gqlRaw(
@@ -237,16 +250,19 @@ export async function gqlRaw(
   ua: string,
   query: string,
   vars: Record<string, unknown>,
-): Promise<string> {
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Referer: referer, "User-Agent": ua },
-    body: JSON.stringify({ query, variables: vars }),
-  });
-  if (!response.ok) {
-    throw new Error(`API ${response.status}: ${apiUrl}`);
+): Promise<string | null> {
+  try {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      signal: AbortSignal.timeout(20_000),
+      headers: { "Content-Type": "application/json", Referer: referer, "User-Agent": ua },
+      body: JSON.stringify({ query, variables: vars }),
+    });
+    if (!response.ok) return null;
+    return response.text();
+  } catch {
+    return null;
   }
-  return response.text();
 }
 
 export async function resolveEpisodeSources(opts: {
@@ -386,9 +402,10 @@ export async function searchAllManga(
         edges: Array<{ _id: string; name: string; availableEpisodes: Record<string, unknown> }>;
       };
     };
-  };
+  } | null;
 
-  return data.data.shows.edges.map((edge): AllMangaSearchResult => {
+  const edges = data?.data?.shows?.edges ?? [];
+  return edges.map((edge): AllMangaSearchResult => {
     const epRaw = edge.availableEpisodes[animeLang];
     const epCount = typeof epRaw === "number" ? epRaw : undefined;
     const availableAudioModes = (["sub", "dub"] as const).filter((mode) => {
