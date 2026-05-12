@@ -1,5 +1,0 @@
-version = 1
-default_profile = "kunai"
-
-[profiles.kunai]
-command = "bun run start"

@@ -6,6 +6,13 @@
 // =============================================================================
 
 import { initLogger } from "@/logger";
+import { createProviderEngine, type ProviderEngine } from "@kunai/core";
+import {
+  allmangaProviderModule,
+  miruroProviderModule,
+  rivestreamProviderModule,
+  vidkingProviderModule,
+} from "@kunai/providers";
 import {
   DownloadJobsRepository,
   getKunaiPaths,
@@ -50,13 +57,6 @@ import { PlaybackResolveService } from "./services/playback/PlaybackResolveServi
 import { SourceInventoryService } from "./services/playback/SourceInventoryService";
 import type { PresenceService } from "./services/presence/PresenceService";
 import { PresenceServiceImpl } from "./services/presence/PresenceServiceImpl";
-import { createProviderEngine, type ProviderEngine } from "@kunai/core";
-import {
-  allmangaProviderModule,
-  miruroProviderModule,
-  rivestreamProviderModule,
-  vidkingProviderModule,
-} from "@kunai/providers";
 import type { ProviderRegistry } from "./services/providers/ProviderRegistry";
 import { createProviderRegistry } from "./services/providers/ProviderRegistry";
 import type { RecommendationService } from "./services/recommendations/RecommendationService";

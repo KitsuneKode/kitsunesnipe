@@ -15,6 +15,7 @@ import type {
   ProviderFailure,
   SubtitleCandidate,
 } from "@kunai/types";
+
 import { createExhaustedResult, emitTraceEvent } from "./shared/resolve-helpers";
 
 // =====================================================================
@@ -254,5 +255,3 @@ export const templateProviderModule: CoreProviderModule = {
     }
   },
 };
-
-

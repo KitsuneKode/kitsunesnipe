@@ -17,8 +17,7 @@ export function streamRequestToResolveInput(
     title: titleToCoreIdentity(request.title, mode),
     episode: episodeToCoreIdentity(request.episode),
     mediaKind: mode === "anime" ? "anime" : request.title.type,
-    preferredAudioLanguage:
-      mode === "anime" ? request.audioPreference : undefined,
+    preferredAudioLanguage: mode === "anime" ? request.audioPreference : undefined,
     preferredSubtitleLanguage: request.subtitlePreference,
     qualityPreference: undefined,
     intent,
@@ -26,10 +25,7 @@ export function streamRequestToResolveInput(
   };
 }
 
-export function titleToCoreIdentity(
-  title: TitleInfo,
-  mode: ShellMode,
-): TitleIdentity {
+export function titleToCoreIdentity(title: TitleInfo, mode: ShellMode): TitleIdentity {
   const kind = mode === "anime" ? "anime" : title.type;
 
   return {

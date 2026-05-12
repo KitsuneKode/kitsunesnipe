@@ -29,6 +29,7 @@ sec-fetch-site: same-site
 ```
 
 Returns an encrypted payload that is decrypted in two stages:
+
 1. Patched WASM binary (`module1_patched.wasm`) with TMDB ID as key → base64
 2. `crypto-js` AES decrypt with empty string key → JSON
 
@@ -45,6 +46,7 @@ Referer: https://www.vidking.net/
 ```
 
 Extracts HLS URL from HTML via regex:
+
 - `"hls","url":"..."` → stream URL
 - `"subtitles":[{"src":"..."}]` → subtitle URL
 
@@ -53,12 +55,14 @@ Used when the API path returns empty or errors for all servers.
 ## Decryption
 
 ### WASM Decrypt
+
 - Binary: `assets/module1_patched.wasm` (263 KB)
 - Loads via `@assemblyscript/loader`
 - `wasm.decrypt(payloadPointer, tmdbId)` → base64 string
 - The WASM `tmdbId` argument is the integer TMDB ID; the Hashids library seen in browser traffic is a decoy/trap.
 
 ### AES Decrypt
+
 - `crypto-js` AES decrypt with **empty string key** (`""`)
 - Input: base64 from WASM step
 - Output: JSON with `sources[]` and `subtitles[]`

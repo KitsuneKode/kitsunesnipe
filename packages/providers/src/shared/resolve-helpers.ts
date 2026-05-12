@@ -1,7 +1,4 @@
-import {
-  createResolveTrace,
-  createTraceStep,
-} from "@kunai/core";
+import { createResolveTrace, createTraceStep } from "@kunai/core";
 import type {
   CachePolicy,
   ProviderFailure,
@@ -43,13 +40,11 @@ export function createExhaustedResult(
 
   const failures = evidence.failures?.length ? evidence.failures : [providerFailure];
   const events = [...(evidence.events ?? []), event];
-  const cachePolicy =
-    evidence.cachePolicy ??
-    {
-      ttlClass: "stream-manifest" as const,
-      scope: "local" as const,
-      keyParts: [providerId, "exhausted"],
-    };
+  const cachePolicy = evidence.cachePolicy ?? {
+    ttlClass: "stream-manifest" as const,
+    scope: "local" as const,
+    keyParts: [providerId, "exhausted"],
+  };
 
   return {
     providerId,

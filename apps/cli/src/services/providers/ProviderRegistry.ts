@@ -1,9 +1,6 @@
 import type { ProviderMetadata, ShellMode, TitleInfo } from "@/domain/types";
 import type { CoreProviderManifest, ProviderEngine } from "@kunai/core";
-import {
-  fetchAllMangaEpisodeCatalog,
-  searchAllManga,
-} from "@kunai/providers";
+import { fetchAllMangaEpisodeCatalog, searchAllManga } from "@kunai/providers";
 
 import { createProviderFromModule, type Provider } from "./Provider";
 
@@ -34,8 +31,7 @@ export class ProviderRegistryImpl implements ProviderRegistry {
         search: isAllManga
           ? async (query, opts, _signal?) => {
               const animeLang =
-                opts.audioPreference === "ja" ||
-                opts.audioPreference === "original"
+                opts.audioPreference === "ja" || opts.audioPreference === "original"
                   ? ("sub" as const)
                   : ("dub" as const);
               const results = await searchAllManga(
@@ -46,23 +42,21 @@ export class ProviderRegistryImpl implements ProviderRegistry {
                 animeLang,
               );
               if (!results) return null;
-              return results.map(
-                (r): import("@/domain/types").SearchResult => ({
-                  id: r.id,
-                  type: r.type,
-                  title: r.title,
-                  year: r.year ?? "",
-                  overview: "",
-                  posterPath: r.posterUrl ?? null,
-                  rating: null,
-                  popularity: null,
-                  episodeCount: r.epCount,
-                  availableAudioModes: r.availableAudioModes,
-                  subtitleAvailability: r.availableAudioModes?.includes("sub")
-                    ? ("hardsub" as const)
-                    : ("unknown" as const),
-                }),
-              );
+              return results.map((r): import("@/domain/types").SearchResult => ({
+                id: r.id,
+                type: r.type,
+                title: r.title,
+                year: r.year ?? "",
+                overview: "",
+                posterPath: r.posterUrl ?? null,
+                rating: null,
+                popularity: null,
+                episodeCount: r.epCount,
+                availableAudioModes: r.availableAudioModes,
+                subtitleAvailability: r.availableAudioModes?.includes("sub")
+                  ? ("hardsub" as const)
+                  : ("unknown" as const),
+              }));
             }
           : undefined,
         listEpisodes: isAllManga
@@ -118,9 +112,7 @@ export class ProviderRegistryImpl implements ProviderRegistry {
     );
 
     if (!fallback) {
-      throw new Error(
-        `No providers available for mode: ${isAnime ? "anime" : "series"}`,
-      );
+      throw new Error(`No providers available for mode: ${isAnime ? "anime" : "series"}`);
     }
 
     return fallback;

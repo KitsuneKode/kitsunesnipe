@@ -1,6 +1,6 @@
-import { searchAllManga } from "@kunai/providers";
 import type { SearchResult, ShellMode, TitleAlias } from "@/domain/types";
 import type { ProviderRegistry } from "@/services/providers/ProviderRegistry";
+import { searchAllManga } from "@kunai/providers";
 
 export type AnimeProviderMappingContext = {
   readonly mode: ShellMode;
@@ -26,8 +26,7 @@ export async function mapAnimeDiscoveryResultToProviderNative(
   if (context.providerId !== "allanime") return result;
 
   const animeLang =
-    context.animeLanguageProfile.audio === "ja" ||
-    context.animeLanguageProfile.audio === "original"
+    context.animeLanguageProfile.audio === "ja" || context.animeLanguageProfile.audio === "original"
       ? "sub"
       : "dub";
 

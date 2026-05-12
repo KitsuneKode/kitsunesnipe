@@ -21,7 +21,15 @@ const allanimeManifest = defineProviderManifest({
   recommended: false,
   mediaKinds: ["anime", "series"],
   capabilities: ["search", "episode-list", "source-resolve"],
-  runtimePorts: [{ runtime: "direct-http", operations: ["resolve-stream"], browserSafe: false, relaySafe: false, localOnly: true }],
+  runtimePorts: [
+    {
+      runtime: "direct-http",
+      operations: ["resolve-stream"],
+      browserSafe: false,
+      relaySafe: false,
+      localOnly: true,
+    },
+  ],
   cachePolicy: { ttlClass: "stream-manifest", scope: "local", keyParts: [] },
   browserSafe: false,
   relaySafe: false,
@@ -35,7 +43,15 @@ const miruroManifest = defineProviderManifest({
   recommended: true,
   mediaKinds: ["anime"],
   capabilities: ["source-resolve"],
-  runtimePorts: [{ runtime: "direct-http", operations: ["resolve-stream"], browserSafe: true, relaySafe: true, localOnly: false }],
+  runtimePorts: [
+    {
+      runtime: "direct-http",
+      operations: ["resolve-stream"],
+      browserSafe: true,
+      relaySafe: true,
+      localOnly: false,
+    },
+  ],
   cachePolicy: { ttlClass: "stream-manifest", scope: "local", keyParts: [] },
   browserSafe: true,
   relaySafe: true,
@@ -50,7 +66,15 @@ const rivestreamManifest = defineProviderManifest({
   recommended: true,
   mediaKinds: ["movie", "series"],
   capabilities: ["source-resolve"],
-  runtimePorts: [{ runtime: "direct-http", operations: ["resolve-stream"], browserSafe: false, relaySafe: true, localOnly: false }],
+  runtimePorts: [
+    {
+      runtime: "direct-http",
+      operations: ["resolve-stream"],
+      browserSafe: false,
+      relaySafe: true,
+      localOnly: false,
+    },
+  ],
   cachePolicy: { ttlClass: "stream-manifest", scope: "local", keyParts: [] },
   browserSafe: false,
   relaySafe: true,
@@ -65,7 +89,15 @@ const vidkingManifest = defineProviderManifest({
   recommended: true,
   mediaKinds: ["movie", "series"],
   capabilities: ["source-resolve"],
-  runtimePorts: [{ runtime: "direct-http", operations: ["resolve-stream"], browserSafe: false, relaySafe: false, localOnly: true }],
+  runtimePorts: [
+    {
+      runtime: "direct-http",
+      operations: ["resolve-stream"],
+      browserSafe: false,
+      relaySafe: false,
+      localOnly: true,
+    },
+  ],
   cachePolicy: { ttlClass: "stream-manifest", scope: "local", keyParts: [] },
   browserSafe: false,
   relaySafe: false,
@@ -189,7 +221,10 @@ test("provider sdk helpers reject unavailable runtimes before provider work star
 });
 
 test("resolveWithFallback returns the first successful provider and preserves attempts", async () => {
-  const resolved = await resolveWithFallback<{ url: string; providerResolveResult?: import("@kunai/types").ProviderResolveResult }>({
+  const resolved = await resolveWithFallback<{
+    url: string;
+    providerResolveResult?: import("@kunai/types").ProviderResolveResult;
+  }>({
     candidates: [
       {
         providerId: "first",

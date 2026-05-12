@@ -4,7 +4,11 @@ import { buildApiStreamResolveCacheKey } from "@/services/cache/stream-resolve-c
 import type { CacheStore } from "@/services/persistence/CacheStore";
 import { providerResolveResultToStreamInfo } from "@/services/providers/provider-result-adapter";
 import { streamRequestToResolveInput } from "@/services/providers/stream-request-adapter";
-import { type ProviderEngine, type ResolveAttempt, type ProviderResolveFailureError } from "@kunai/core";
+import {
+  type ProviderEngine,
+  type ResolveAttempt,
+  type ProviderResolveFailureError,
+} from "@kunai/core";
 import type { ProviderResolveResult } from "@kunai/types";
 
 export type PlaybackResolveFeedback = {

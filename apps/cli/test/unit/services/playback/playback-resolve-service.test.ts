@@ -1,14 +1,12 @@
 import { describe, expect, test } from "bun:test";
+
 import type { CacheStore } from "@/services/persistence/CacheStore";
 import {
   PlaybackResolveService,
   type PlaybackResolveInput,
 } from "@/services/playback/PlaybackResolveService";
 import type { ProviderEngine, ProviderEngineResolveOutput } from "@kunai/core";
-import type {
-  ProviderId,
-  ProviderResolveResult,
-} from "@kunai/types";
+import type { ProviderId, ProviderResolveResult } from "@kunai/types";
 
 const title = {
   id: "12345",
@@ -32,10 +30,8 @@ const stream = {
   timestamp: Date.now(),
 };
 
-function createMemoryCache(
-  value: (typeof stream) | null,
-): CacheStore & { setKeys: string[] } {
-  let stored: (typeof stream) | null = value;
+function createMemoryCache(value: typeof stream | null): CacheStore & { setKeys: string[] } {
+  let stored: typeof stream | null = value;
   const setKeys: string[] = [];
   return {
     get: async () => stored,
@@ -53,9 +49,7 @@ function createMemoryCache(
   } as unknown as CacheStore & { setKeys: string[] };
 }
 
-function createMockEngine(
-  resolveWithFallbackResult: ProviderEngineResolveOutput,
-): ProviderEngine {
+function createMockEngine(resolveWithFallbackResult: ProviderEngineResolveOutput): ProviderEngine {
   return {
     modules: [],
     get: () => undefined,
