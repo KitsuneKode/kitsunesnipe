@@ -14,64 +14,11 @@ export type AllMangaEpisodeOption = {
   readonly detail?: string;
 };
 
-export type AllMangaStreamData = {
-  readonly url: string;
-  readonly headers: Record<string, string>;
-  readonly subtitle: string | null;
-  readonly subtitleList: readonly string[];
-  readonly subtitleSource: "provider" | "none";
-  readonly subtitleEvidence: {
-    readonly directSubtitleObserved?: boolean;
-    readonly wyzieSearchObserved?: boolean;
-    readonly reason?: "provider-default" | "not-observed";
-  };
-  readonly title: string;
-  readonly timestamp: number;
-};
-
-export type AllMangaResolveOptions = {
-  readonly animeLang: "sub" | "dub";
-};
-
-export interface AllMangaApiProvider {
-  readonly kind: "api";
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
-  readonly domain: string;
-  readonly recommended?: boolean;
-  readonly isAnimeProvider?: boolean;
-  readonly searchBackend: "allmanga";
-  search(
-    query: string,
-    opts: Pick<AllMangaResolveOptions, "animeLang">,
-  ): Promise<AllMangaSearchResult[]>;
-  resolveStream(
-    id: string,
-    type: "movie" | "series",
-    season: number,
-    episode: number,
-    opts: AllMangaResolveOptions,
-  ): Promise<AllMangaStreamData | null>;
-}
-
 export type StreamLink = {
   readonly url: string;
   readonly quality: string;
   readonly referer?: string;
   readonly subtitle?: string;
-};
-
-export type AllMangaApiProviderConfig = {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
-  readonly domain: string;
-  readonly apiUrl: string;
-  readonly referer: string;
-  readonly ua?: string;
-  readonly recommended?: boolean;
-  readonly isAnimeProvider?: boolean;
 };
 
 const DEFAULT_UA =
@@ -413,99 +360,47 @@ export async function fetchAllMangaEpisodeCatalog(opts: {
   }));
 }
 
-export function createAllMangaApiProvider(cfg: AllMangaApiProviderConfig): AllMangaApiProvider {
-  const ua = cfg.ua ?? DEFAULT_UA;
-
-  return {
-    kind: "api",
-    searchBackend: "allmanga",
-    id: cfg.id,
-    name: cfg.name,
-    description: cfg.description,
-    domain: cfg.domain,
-    recommended: cfg.recommended,
-    isAnimeProvider: cfg.isAnimeProvider,
-
-    async search(query, opts) {
-      const gqlQuery = `query($search:SearchInput $limit:Int $page:Int $translationType:VaildTranslationTypeEnumType $countryOrigin:VaildCountryOriginEnumType){
-        shows(search:$search limit:$limit page:$page translationType:$translationType countryOrigin:$countryOrigin){
-          edges{_id name availableEpisodes __typename}
-        }
-      }`;
-      const data = (await gqlPost(cfg.apiUrl, cfg.referer, ua, gqlQuery, {
-        search: { allowAdult: false, allowUnknown: false, query },
-        limit: 40,
-        page: 1,
-        translationType: opts.animeLang,
-        countryOrigin: "ALL",
-      })) as {
-        data: {
-          shows: {
-            edges: Array<{ _id: string; name: string; availableEpisodes: Record<string, unknown> }>;
-          };
-        };
+export async function searchAllManga(
+  apiUrl: string,
+  referer: string,
+  ua: string,
+  query: string,
+  animeLang: "sub" | "dub",
+): Promise<AllMangaSearchResult[]> {
+  const gqlQuery = `query($search:SearchInput $limit:Int $page:Int $translationType:VaildTranslationTypeEnumType $countryOrigin:VaildCountryOriginEnumType){
+    shows(search:$search limit:$limit page:$page translationType:$translationType countryOrigin:$countryOrigin){
+      edges{_id name availableEpisodes __typename}
+    }
+  }`;
+  const data = (await gqlPost(apiUrl, referer, ua, gqlQuery, {
+    search: { allowAdult: false, allowUnknown: false, query },
+    limit: 40,
+    page: 1,
+    translationType: animeLang,
+    countryOrigin: "ALL",
+  })) as {
+    data: {
+      shows: {
+        edges: Array<{ _id: string; name: string; availableEpisodes: Record<string, unknown> }>;
       };
-
-      return data.data.shows.edges.map((edge): AllMangaSearchResult => {
-        const epRaw = edge.availableEpisodes[opts.animeLang];
-        const epCount = typeof epRaw === "number" ? epRaw : undefined;
-        const availableAudioModes = (["sub", "dub"] as const).filter((mode) => {
-          const count = edge.availableEpisodes[mode];
-          return typeof count === "number" && count > 0;
-        });
-        return {
-          id: edge._id,
-          title: edge.name,
-          type: "series",
-          epCount,
-          availableAudioModes,
-        };
-      });
-    },
-
-    async resolveStream(id, _type, _season, episode, opts) {
-      try {
-        const detail = await loadAvailableEpisodesDetail(cfg.apiUrl, cfg.referer, ua, id);
-        const episodes = (detail[opts.animeLang] ?? []) as string[];
-        const epStr = resolveAnimeEpisodeString(episodes, episode);
-        const links = await resolveEpisodeSources({
-          apiUrl: cfg.apiUrl,
-          referer: cfg.referer,
-          ua,
-          showId: id,
-          epStr,
-          mode: opts.animeLang,
-        });
-
-        const best =
-          links.find((link) => link.url.includes("master.m3u8")) ??
-          [...links].sort(
-            (left, right) => (parseInt(right.quality) || 0) - (parseInt(left.quality) || 0),
-          )[0];
-
-        if (!best) {
-          return null;
-        }
-
-        return {
-          url: best.url,
-          headers: buildStreamHeaders(best.referer, cfg.referer, ua),
-          subtitle: best.subtitle ?? null,
-          subtitleList: best.subtitle ? [best.subtitle] : [],
-          subtitleSource: best.subtitle ? "provider" : "none",
-          subtitleEvidence: {
-            directSubtitleObserved: false,
-            wyzieSearchObserved: false,
-            reason: best.subtitle ? "provider-default" : "not-observed",
-          },
-          title: "",
-          timestamp: Date.now(),
-        };
-      } catch {
-        return null;
-      }
-    },
+    };
   };
+
+  return data.data.shows.edges.map((edge): AllMangaSearchResult => {
+    const epRaw = edge.availableEpisodes[animeLang];
+    const epCount = typeof epRaw === "number" ? epRaw : undefined;
+    const availableAudioModes = (["sub", "dub"] as const).filter((mode) => {
+      const count = edge.availableEpisodes[mode];
+      return typeof count === "number" && count > 0;
+    });
+    return {
+      id: edge._id,
+      title: edge.name,
+      type: "series",
+      epCount,
+      availableAudioModes,
+    };
+  });
 }
 
 async function deriveAllMangaKey(): Promise<CryptoKey> {
