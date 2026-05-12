@@ -166,7 +166,7 @@ const HEX: Record<string, string> = {
   "1d": "%",
 };
 
-const KNOWN_SOURCES = new Set(["Default", "Yt-mp4", "S-mp4", "Luf-Mp4"]);
+const KNOWN_SOURCES = new Set(["Default", "Yt-mp4", "S-mp4", "Luf-Mp4", "Fm-mp4"]);
 
 export function hexDecode(encoded: string): string {
   let out = "";
@@ -317,11 +317,42 @@ export async function resolveEpisodeSources(opts: {
     }
   }`;
 
-  const rawText = await gqlRaw(apiUrl, referer, ua, query, {
-    showId,
-    translationType: mode,
-    episodeString: epStr,
-  });
+  // Two-tier request matching ani-cli commit 6803b8a:
+  //   Tier 1 — GET with persisted query hash + youtu-chan.com Origin
+  //   Tier 2 — POST fallback with allmanga.to referer
+  const queryHash = "d405d0edd690624b66baba3068e0edc3ac90f1597d898a1ec8db4e5c43c00fec";
+  const vars = { showId, translationType: mode, episodeString: epStr };
+  const getUrl = `${apiUrl}?variables=${encodeURIComponent(JSON.stringify(vars))}&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: queryHash } }))}`;
+
+  let rawText: string | null = null;
+
+  try {
+    const getRes = await fetch(getUrl, {
+      headers: {
+        Referer: "https://youtu-chan.com",
+        Origin: "https://youtu-chan.com",
+        "User-Agent": ua,
+      },
+    });
+    if (getRes.ok) rawText = await getRes.text();
+  } catch {}
+
+  if (!rawText || !rawText.includes('"tobeparsed"')) {
+    try {
+      const postRes = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Referer: "https://allmanga.to",
+          "User-Agent": ua,
+        },
+        body: JSON.stringify({ query, variables: vars }),
+      });
+      if (postRes.ok) rawText = await postRes.text();
+    } catch {}
+  }
+
+  if (!rawText) return [];
 
   const rawSources = await extractRawSources(rawText);
   const direct: StreamLink[] = [];
@@ -348,8 +379,9 @@ export async function resolveEpisodeSources(opts: {
     }
 
     const sourceName = source.sourceName;
+    const fetcher = sourceName === "Fm-mp4" ? fetchFilemoonLinks : fetchStreamLinks;
     apiJobs.push(
-      fetchStreamLinks(decoded, referer, ua)
+      fetcher(decoded, referer, ua)
         .then((links) => links.map((link) => ({ ...link, quality: link.quality || sourceName })))
         .catch(() => [] as StreamLink[]),
     );
@@ -621,6 +653,66 @@ async function fetchM3u8Variants({
     });
   }
   return links;
+}
+
+function base64urlToBytes(s: string): Uint8Array {
+  const pad = (4 - (s.length % 4)) % 4;
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat(pad);
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+}
+
+async function fetchFilemoonLinks(
+  apiPath: string,
+  referer: string,
+  ua: string,
+): Promise<StreamLink[]> {
+  try {
+    const res = await fetch(`https://allanime.day${apiPath}`, {
+      headers: { Referer: referer, "User-Agent": ua },
+    });
+    if (!res.ok) return [];
+
+    const parsed = (await res.json()) as {
+      iv: string;
+      payload: string;
+      key_parts: [string, string];
+    };
+
+    const iv = base64urlToBytes(parsed.iv);
+    const kp1 = base64urlToBytes(parsed.key_parts[0]);
+    const kp2 = base64urlToBytes(parsed.key_parts[1]);
+    const keyBytes = new Uint8Array(kp1.length + kp2.length);
+    keyBytes.set(kp1, 0);
+    keyBytes.set(kp2, kp1.length);
+
+    const counter = new Uint8Array(16);
+    counter.set(iv, 0);
+    counter[15] = 2;
+
+    const rawPayload = base64urlToBytes(parsed.payload);
+    const data = rawPayload.slice(0, Math.max(0, rawPayload.length - 16));
+
+    const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-CTR" }, false, [
+      "decrypt",
+    ]);
+    const plain = await crypto.subtle.decrypt({ name: "AES-CTR", counter, length: 64 }, key, data);
+    const text = new TextDecoder().decode(plain);
+    const results: StreamLink[] = [];
+    const pattern = /"url"\s*:\s*"([^"]+)"[^}]*"height"\s*:\s*(\d+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+      const url = match[1];
+      const height = match[2];
+      if (!url || !height) continue;
+      results.push({
+        url: url.replace(/\\u0026/g, "&").replace(/\\u003D/g, "="),
+        quality: height,
+      });
+    }
+    return results;
+  } catch {
+    return [];
+  }
 }
 
 function parseHttpUrl(url: string): URL | null {

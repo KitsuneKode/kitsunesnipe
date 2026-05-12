@@ -26,7 +26,7 @@ const ALLMANGA_COMPAT_CONFIG = {
   description: allanimeManifest.description,
   domain: allanimeManifest.domain,
   apiUrl: "https://api.allanime.day/api",
-  referer: "https://youtu-chan.com",
+  referer: "https://allmanga.to",
   recommended: allanimeManifest.recommended,
   isAnimeProvider: true,
 };
