@@ -241,16 +241,63 @@ export async function resolveVidkingDirect(
     });
   }
 
-  // Tier 2: Try scraping the embed page when the API path fails
-  const embedResult = await resolveVidkingFromEmbed(
-    input,
-    context,
-    cachePolicy,
-    events,
-    failures,
-    startedAt,
-  );
-  if (embedResult) return embedResult;
+  // Tier 2: Retry API with embed page referer (mimics in-browser context)
+  const embedReferer = buildEmbedReferer({
+    tmdbId,
+    mediaKind: input.mediaKind as "movie" | "series",
+    season: input.episode?.season,
+    episode: input.episode?.episode,
+  });
+  if (embedReferer) {
+    for (const server of VIDKING_SERVERS) {
+      const sourceId = createSourceId(`${server}-embed-ref`);
+      emit(events, context, {
+        type: "source:start",
+        providerId: VIDKING_PROVIDER_ID,
+        sourceId,
+        message: `Retrying Videasy server ${server} with embed page referer`,
+      });
+
+      for (const query of buildQueryVariants({
+        title: input.title,
+        mediaKind: input.mediaKind,
+        tmdbId,
+        episode: input.episode,
+      })) {
+        try {
+          const response = await fetchVideasyPayload({
+            server,
+            query,
+            fetchPort: context.fetch,
+            signal: context.signal,
+            customReferer: embedReferer,
+          });
+
+          if (!response.ok) continue;
+
+          const payload = (await response.text()).trim();
+          if (!payload) continue;
+
+          const decoded = await decodeVidkingPayload(payload, tmdbId);
+          const result = createVidkingResultFromPayload({
+            input,
+            cachePolicy,
+            payload: decoded,
+            sourceId,
+            server: `${server}-embed-ref`,
+            events,
+            context,
+            startedAt,
+            failures,
+            streamReferer: embedReferer,
+          });
+          if (result) return result;
+        } catch {
+          // Fall through to next server
+        }
+      }
+    }
+  }
 
   return createVidkingExhaustedResult(input, context, undefined, {
     cachePolicy,
@@ -423,11 +470,13 @@ async function fetchVideasyPayload({
   query,
   fetchPort,
   signal,
+  customReferer,
 }: {
   readonly server: VidkingServer;
   readonly query: URLSearchParams;
   readonly fetchPort?: ProviderFetchPort;
   readonly signal?: AbortSignal;
+  readonly customReferer?: string;
 }): Promise<Response> {
   const requester = fetchPort?.fetch.bind(fetchPort) ?? fetch;
   return requester(`${VIDKING_API_BASE}/${server}/sources-with-title?${query.toString()}`, {
@@ -436,7 +485,7 @@ async function fetchVideasyPayload({
       accept: "*/*",
       "accept-language": "en-US,en;q=0.9",
       origin: VIDKING_ORIGIN,
-      referer: VIDKING_REFERER,
+      referer: customReferer ?? VIDKING_REFERER,
       "user-agent": USER_AGENT,
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
@@ -452,84 +501,19 @@ async function fetchVideasyPayload({
  * Tier 2: Scrape the embed page for already-decrypted HLS URL + subtitles.
  * Used as fallback when the Videasy API is blocked (Cloudflare, timeout, etc.).
  */
-async function fetchVidkingEmbed(options: {
+function buildEmbedReferer(options: {
   readonly tmdbId: number;
   readonly mediaKind: "movie" | "series";
   readonly season?: number;
   readonly episode?: number;
-}): Promise<{ hlsUrl: string; embedUrl: string; subtitleUrl?: string } | null> {
+}): string | null {
   const { tmdbId, mediaKind, season, episode } = options;
 
   if (mediaKind === "series" && (!season || !episode)) return null;
 
-  const embedUrl =
-    mediaKind === "series"
-      ? `https://www.vidking.net/embed/tv/${tmdbId}/${season}/${episode}?autoPlay=true&episodeSelector=false&nextEpisode=false`
-      : `https://www.vidking.net/embed/movie/${tmdbId}?autoPlay=true`;
-
-  const res = await fetch(embedUrl, {
-    headers: {
-      "User-Agent": USER_AGENT,
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-      Referer: VIDKING_REFERER,
-    },
-  });
-  if (!res.ok) return null;
-
-  const html = await res.text();
-  const streamMatch = html.match(/"hls","url":"([^"]+)"/);
-  if (!streamMatch?.[1]) return null;
-
-  const subtitleMatch = html.match(/"subtitles"\s*:\s*\[\{[^}]*"src"\s*:\s*"([^"]+)"/);
-
-  return { hlsUrl: streamMatch[1], embedUrl, subtitleUrl: subtitleMatch?.[1] };
-}
-
-async function resolveVidkingFromEmbed(
-  input: ProviderResolveInput,
-  context: ProviderRuntimeContext,
-  cachePolicy: CachePolicy,
-  events: ProviderTraceEvent[],
-  failures: ProviderFailure[],
-  startedAt: string,
-): Promise<ProviderResolveResult | null> {
-  const tmdbId = resolveTmdbId(input.title);
-  if (!tmdbId) return null;
-
-  const embed = await fetchVidkingEmbed({
-    tmdbId,
-    mediaKind: input.mediaKind as "movie" | "series",
-    season: input.episode?.season,
-    episode: input.episode?.episode,
-  });
-  if (!embed) return null;
-
-  emit(events, context, {
-    type: "source:start",
-    providerId: VIDKING_PROVIDER_ID,
-    sourceId: createSourceId("embed-scrape"),
-    message: "API path failed, falling back to embed page scrape",
-  });
-
-  const payload: VidkingPayload = {
-    sources: [{ url: embed.hlsUrl, quality: "auto", type: "hls" }],
-    subtitles: embed.subtitleUrl ? [{ src: embed.subtitleUrl, lang: "en", label: "English" }] : [],
-  };
-
-  const sourceId = createSourceId("embed-scrape");
-  return createVidkingResultFromPayload({
-    input,
-    cachePolicy,
-    payload,
-    sourceId,
-    server: "embed-scrape",
-    events,
-    context,
-    startedAt,
-    failures,
-    streamReferer: embed.embedUrl,
-  });
+  return mediaKind === "series"
+    ? `https://www.vidking.net/embed/tv/${tmdbId}/${season}/${episode}?autoPlay=true&episodeSelector=false&nextEpisode=false`
+    : `https://www.vidking.net/embed/movie/${tmdbId}?autoPlay=true`;
 }
 
 async function loadWasmExports(): Promise<WasmExports> {
