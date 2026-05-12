@@ -22,6 +22,10 @@ import type {
 
 import { TTLCache, HealthTracker } from "../shared/provider-cache";
 import { createExhaustedResult, emitTraceEvent } from "../shared/resolve-helpers";
+import {
+  looksLikeHiSubtitle,
+  normalizeSubtitleLanguage,
+} from "../shared/subtitle-helpers";
 import { vidkingManifest, VIDKING_PROVIDER_ID } from "./manifest";
 
 export { VIDKING_PROVIDER_ID };
@@ -638,8 +642,8 @@ function normalizeStreamCandidates({
               ? "mp4"
               : "unknown",
       audioLanguages:
-        source.language && normalizeLanguage(source.language)
-          ? [normalizeLanguage(source.language) as string]
+        source.language && normalizeSubtitleLanguage(source.language)
+          ? [normalizeSubtitleLanguage(source.language) as string]
           : undefined,
       qualityLabel: source.quality,
       qualityRank,
@@ -682,7 +686,9 @@ function normalizeSubtitleCandidates({
     }
     seen.add(url);
 
-    const language = normalizeLanguage(subtitle.lang ?? subtitle.language ?? subtitle.label);
+    const language = normalizeSubtitleLanguage(
+      subtitle.lang ?? subtitle.language ?? subtitle.label,
+    );
     subtitles.push({
       id: `subtitle:${VIDKING_PROVIDER_ID}:${hashId(url)}`,
       providerId: VIDKING_PROVIDER_ID,
@@ -692,7 +698,13 @@ function normalizeSubtitleCandidates({
       label: subtitle.language ?? subtitle.label ?? subtitle.lang?.toUpperCase(),
       format: inferSubtitleFormat(url),
       source: "provider",
-      confidence: looksLikeHiSubtitle(subtitle) ? 0.7 : 0.88,
+      confidence: looksLikeHiSubtitle(
+        subtitle.language ?? subtitle.label,
+        subtitle.release,
+        subtitle.lang ?? subtitle.language,
+      )
+        ? 0.7
+        : 0.88,
       syncEvidence: subtitle.release,
       cachePolicy: {
         ...cachePolicy,
@@ -771,15 +783,17 @@ function orderSubtitleCandidates(
     return [...subtitles];
   }
 
-  const normalizedPreference = normalizeLanguage(preferredLanguage);
+  const normalizedPreference = normalizeSubtitleLanguage(preferredLanguage);
   return [...subtitles].sort((left, right) => {
-    const leftLang = left.language ? normalizeLanguage(left.language) : undefined;
-    const rightLang = right.language ? normalizeLanguage(right.language) : undefined;
+    const leftLang = left.language ? normalizeSubtitleLanguage(left.language) : undefined;
+    const rightLang = right.language ? normalizeSubtitleLanguage(right.language) : undefined;
     const langDelta =
       Number(leftLang === normalizedPreference) - Number(rightLang === normalizedPreference);
     if (langDelta !== 0) return -langDelta;
 
-    const hiDelta = Number(looksLikeHiSubtitle(left)) - Number(looksLikeHiSubtitle(right));
+    const hiDelta =
+      Number(looksLikeHiSubtitle(left.label, left.syncEvidence)) -
+      Number(looksLikeHiSubtitle(right.label, right.syncEvidence));
     if (hiDelta !== 0) return hiDelta;
 
     return right.confidence - left.confidence;
@@ -879,78 +893,6 @@ function inferSubtitleFormat(url: string): SubtitleCandidate["format"] {
   if (lower.endsWith(".vtt")) return "vtt";
   if (lower.endsWith(".ass")) return "ass";
   return "unknown";
-}
-
-function stripOutermostParenSegment(value: string): string {
-  const openIdx = value.indexOf("(");
-  if (openIdx < 0) {
-    return value;
-  }
-  const closeIdx = value.indexOf(")", openIdx + 1);
-  if (closeIdx < 0) {
-    return value;
-  }
-  return `${value.slice(0, openIdx)} ${value.slice(closeIdx + 1)}`;
-}
-
-function normalizeLanguage(value: string | undefined): string | undefined {
-  let raw = value?.trim().toLowerCase();
-  if (!raw) {
-    return undefined;
-  }
-
-  for (let i = 0; i < 32; i += 1) {
-    const next = stripOutermostParenSegment(raw);
-    if (next === raw) {
-      break;
-    }
-    raw = next;
-  }
-
-  const normalized = raw.replace(/\s+/g, " ").trim();
-
-  const map: Record<string, string> = {
-    eng: "en",
-    english: "en",
-    ara: "ar",
-    arabic: "ar",
-    spa: "es",
-    spanish: "es",
-    fre: "fr",
-    fra: "fr",
-    french: "fr",
-    ger: "de",
-    deu: "de",
-    german: "de",
-    jpn: "ja",
-    japanese: "ja",
-  };
-
-  if (map[normalized]) {
-    return map[normalized];
-  }
-
-  for (const [prefix, language] of Object.entries(map)) {
-    if (normalized.startsWith(prefix)) {
-      return language;
-    }
-  }
-
-  return normalized;
-}
-
-function looksLikeHiSubtitle(
-  subtitle: Pick<SubtitleCandidate, "label" | "syncEvidence"> | VidkingSubtitlePayload,
-): boolean {
-  const release =
-    "syncEvidence" in subtitle
-      ? subtitle.syncEvidence
-      : (subtitle as VidkingSubtitlePayload).release;
-  const raw = [subtitle.label, release, "language" in subtitle ? subtitle.language : undefined]
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-    .join(" ")
-    .toLowerCase();
-  return raw.includes("sdh") || /\bhi\b/.test(raw) || raw.includes("hearing");
 }
 
 function hashId(value: string): string {

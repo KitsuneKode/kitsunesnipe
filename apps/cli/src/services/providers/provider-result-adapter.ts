@@ -1,5 +1,10 @@
 import type { StreamInfo, SubtitleTrack } from "@/domain/types";
 import { selectSubtitle } from "@/subtitle";
+import {
+  looksLikeHiSubtitle,
+  normalizeSubtitleLanguage,
+  subtitleLanguageDisplayName,
+} from "@kunai/providers";
 import type { ProviderResolveResult, SubtitleCandidate } from "@kunai/types";
 
 export interface ProviderResultAdapterInput {
@@ -18,14 +23,17 @@ export function providerResolveResultToStreamInfo(
   }
 
   const selected =
-    result.streams.find((stream) => stream.id === result.selectedStreamId) ?? result.streams[0];
+    result.streams.find((stream) => stream.id === result.selectedStreamId) ??
+    result.streams[0];
   if (!selected?.url) {
     return null;
   }
 
   const subtitleList = result.subtitles.map(subtitleCandidateToTrack);
   const pickedSubtitle =
-    subtitlePreference === "none" ? null : selectSubtitle(subtitleList, subtitlePreference);
+    subtitlePreference === "none"
+      ? null
+      : selectSubtitle(subtitleList, subtitlePreference);
 
   return {
     url: selected.url,
@@ -44,22 +52,30 @@ export function providerResolveResultToStreamInfo(
   };
 }
 
-export function subtitleCandidateToTrack(candidate: SubtitleCandidate): SubtitleTrack {
+export function subtitleCandidateToTrack(
+  candidate: SubtitleCandidate,
+): SubtitleTrack {
+  const normalizedLang = normalizeSubtitleLanguage(candidate.language);
+  const displayName = normalizedLang
+    ? subtitleLanguageDisplayName(normalizedLang)
+    : candidate.label;
+
   return {
     url: candidate.url,
-    display: candidate.label,
-    language: candidate.language,
+    display: displayName ?? candidate.label,
+    language: normalizedLang ?? candidate.language,
     release: candidate.syncEvidence,
     sourceKind:
-      candidate.source === "provider" || candidate.source === "embedded" ? "embedded" : "external",
+      candidate.source === "provider" || candidate.source === "embedded"
+        ? "embedded"
+        : "external",
     sourceName: candidate.source,
-    isHearingImpaired: looksLikeHiSubtitle(candidate),
+    isHearingImpaired: looksLikeHiSubtitle(
+      candidate.label,
+      candidate.syncEvidence,
+      candidate.language,
+    ),
   };
 }
 
-export function looksLikeHiSubtitle(
-  candidate: Pick<SubtitleCandidate, "label" | "syncEvidence">,
-): boolean {
-  const raw = `${candidate.label ?? ""} ${candidate.syncEvidence ?? ""}`.toLowerCase();
-  return raw.includes("sdh") || /\bhi\b/.test(raw) || raw.includes("hearing");
-}
+

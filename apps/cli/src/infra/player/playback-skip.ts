@@ -68,6 +68,13 @@ export function findPlaybackSegmentAtPosition(
     return null;
   }
 
+  // Never skip at position 0 — the episode hasn't started playing yet.
+  // mpv reports position 0 briefly at startup; auto-skip at 0 would
+  // jump the intro before any content appears.
+  if (positionSeconds < 0.5) {
+    return null;
+  }
+
   for (const [kind, segments] of segmentGroups(timing)) {
     for (const segment of segments) {
       const startSeconds = normalizeStartSeconds(segment.startMs);
