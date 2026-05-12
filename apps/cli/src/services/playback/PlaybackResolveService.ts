@@ -9,7 +9,8 @@ import {
   type ResolveAttempt,
   type ProviderResolveFailureError,
 } from "@kunai/core";
-import type { ProviderResolveResult } from "@kunai/types";
+import type { ProviderHealthRepository } from "@kunai/storage";
+import type { ProviderHealthDelta, ProviderResolveResult } from "@kunai/types";
 
 export type PlaybackResolveFeedback = {
   readonly detail?: string | null;
@@ -67,6 +68,7 @@ export class PlaybackResolveService {
     private readonly deps: {
       readonly engine: ProviderEngine;
       readonly cacheStore: CacheStore;
+      readonly providerHealth?: ProviderHealthRepository;
     },
   ) {}
 
@@ -126,6 +128,13 @@ export class PlaybackResolveService {
       input.signal,
     );
 
+    // Persist provider health deltas from all attempts
+    for (const attempt of engineResult.attempts) {
+      if (attempt.result?.healthDelta) {
+        this.persistProviderHealthDelta(attempt.result.healthDelta);
+      }
+    }
+
     if (engineResult.result && !input.signal.aborted) {
       const stream = providerResolveResultToStreamInfo({
         result: engineResult.result,
@@ -183,6 +192,25 @@ export class PlaybackResolveService {
       await this.deps.cacheStore.set(persistKey, stream);
     } catch {
       // Cache persistence is best-effort; playback already succeeded.
+    }
+  }
+
+  private persistProviderHealthDelta(delta: ProviderHealthDelta): void {
+    if (!this.deps.providerHealth) return;
+    try {
+      const status: "healthy" | "degraded" | "down" =
+        delta.outcome === "success" ? "healthy" : "degraded";
+      this.deps.providerHealth.set({
+        providerId: delta.providerId,
+        status,
+        checkedAt: delta.at,
+        medianResolveMs: delta.resolveMs,
+        recentFailureRate: delta.outcome === "failure" ? 1 : 0,
+        subtitleSuccessRate: undefined,
+        streamSurvivalRate: undefined,
+      });
+    } catch {
+      // Health persistence is best-effort
     }
   }
 

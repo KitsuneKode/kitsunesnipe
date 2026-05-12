@@ -82,6 +82,8 @@ import { buildApiStreamResolveCacheKey } from "@/services/cache/stream-resolve-c
 import { buildRuntimeHealthSnapshot } from "@/services/diagnostics/runtime-health";
 import { formatTimestamp } from "@/services/persistence/HistoryStore";
 import { PlaybackResolveService } from "@/services/playback/PlaybackResolveService";
+import { providerResolveResultToStreamInfo } from "@/services/providers/provider-result-adapter";
+import { streamRequestToResolveInput } from "@/services/providers/stream-request-adapter";
 import { mergeSubtitleTracks, resolveSubtitlesByTmdbId, selectSubtitle } from "@/subtitle";
 import { fetchEpisodes, fetchSeasons } from "@/tmdb";
 import type { ResolveAttempt } from "@kunai/core";
@@ -540,6 +542,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             const playbackResolver = new PlaybackResolveService({
               engine,
               cacheStore,
+              providerHealth: container.providerHealth,
             });
             const resolveResult = await playbackResolver.resolve({
               title,
@@ -737,10 +740,11 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               return;
             }
             const nextEp = episodeAvailability.nextEpisode;
-            const prefetchProvider = providerRegistry.get(stateManager.getState().provider);
-            if (!prefetchProvider) return;
+            const prefetchProviderId = stateManager.getState().provider;
+            const prefetchMetadata = providerRegistry.get(prefetchProviderId);
+            if (!prefetchMetadata) return;
             const prefetchCacheKey = buildApiStreamResolveCacheKey({
-              providerId: prefetchProvider.metadata.id,
+              providerId: prefetchMetadata.metadata.id,
               title,
               episode: nextEp,
               mode: stateManager.getState().mode,
@@ -753,29 +757,37 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                   ? config.animeLanguageProfile.subtitle
                   : config.seriesLanguageProfile.subtitle,
             });
-            void prefetchProvider
-              .resolveStream(
-                {
-                  title,
-                  episode: nextEp,
-                  audioPreference:
-                    stateManager.getState().mode === "anime"
-                      ? config.animeLanguageProfile.audio
-                      : config.seriesLanguageProfile.audio,
-                  subtitlePreference:
-                    stateManager.getState().mode === "anime"
-                      ? config.animeLanguageProfile.subtitle
-                      : config.seriesLanguageProfile.subtitle,
-                },
-                AbortSignal.timeout(30_000),
-              )
-              .then(async (s) => {
-                if (s) {
-                  prefetchedNextStream = s;
-                  try {
-                    await cacheStore.set(prefetchCacheKey, s);
-                  } catch {
-                    // best-effort
+            const prefetchInput = streamRequestToResolveInput(
+              {
+                title,
+                episode: nextEp,
+                audioPreference:
+                  stateManager.getState().mode === "anime"
+                    ? config.animeLanguageProfile.audio
+                    : config.seriesLanguageProfile.audio,
+                subtitlePreference:
+                  stateManager.getState().mode === "anime"
+                    ? config.animeLanguageProfile.subtitle
+                    : config.seriesLanguageProfile.subtitle,
+              },
+              stateManager.getState().mode,
+              "prefetch",
+            );
+            void engine
+              .resolve(prefetchInput, prefetchProviderId)
+              .then((result) => {
+                if (result.streams.length) {
+                  const s = providerResolveResultToStreamInfo({
+                    result,
+                    title: title.name,
+                    subtitlePreference:
+                      stateManager.getState().mode === "anime"
+                        ? config.animeLanguageProfile.subtitle
+                        : config.seriesLanguageProfile.subtitle,
+                  });
+                  if (s) {
+                    prefetchedNextStream = s;
+                    void cacheStore.set(prefetchCacheKey, s).catch(() => {});
                   }
                 }
                 return undefined;

@@ -3,6 +3,7 @@
 // control language selection instead of relying on what the player auto-picks.
 
 import { dbg, dbgErr } from "@/logger";
+import { looksLikeHiSubtitle } from "@kunai/providers";
 
 export type SubtitleEntry = {
   id?: string;
@@ -274,7 +275,7 @@ function normalizeWyzieSubtitleEntry(value: unknown): SubtitleEntry | null {
     release,
     sourceKind: "external",
     sourceName: sourceName?.toLowerCase(),
-    isHearingImpaired: detectHearingImpaired(display, release),
+    isHearingImpaired: looksLikeHiSubtitle(display, release),
     downloadCount,
   };
 }
@@ -297,14 +298,6 @@ function asNumber(...values: unknown[]): number | undefined {
     }
   }
   return undefined;
-}
-
-function detectHearingImpaired(...values: Array<string | undefined>): boolean {
-  const raw = values
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-    .join(" ")
-    .toLowerCase();
-  return raw.includes("sdh") || /\bhi\b/.test(raw) || raw.includes("hearing");
 }
 
 function sourcePriority(entry: SubtitleEntry): number {

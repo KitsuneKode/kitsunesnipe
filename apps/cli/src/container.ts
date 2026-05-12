@@ -18,6 +18,7 @@ import {
   getKunaiPaths,
   HistoryRepository,
   openKunaiDatabase,
+  ProviderHealthRepository,
   RecommendationCacheRepository,
   runMigrations,
   SourceInventoryRepository,
@@ -96,6 +97,7 @@ export interface Container {
   readonly cacheStore: CacheStore;
   readonly diagnosticsStore: DiagnosticsStore;
   readonly sourceInventory: SourceInventoryService;
+  readonly providerHealth: ProviderHealthRepository;
   readonly downloadService: DownloadService;
   readonly presence: PresenceService;
 
@@ -160,6 +162,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   const cacheStore = new SqliteCacheStoreImpl(new StreamCacheRepository(cacheDb));
   const sourceInventory = new SourceInventoryService(new SourceInventoryRepository(cacheDb));
   const recommendationCache = new RecommendationCacheRepository(cacheDb);
+  const providerHealth = new ProviderHealthRepository(cacheDb);
   const downloadJobs = new DownloadJobsRepository(dataDb);
   const diagnosticsStore = new DiagnosticsStoreImpl();
 
@@ -202,7 +205,11 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     ytDlpAvailable: options?.capabilitySnapshot?.ytDlp ?? false,
     ffprobeAvailable: Boolean(Bun.which("ffprobe")),
     resolveDownloadStream: async (intent) => {
-      const resolver = new PlaybackResolveService({ engine, cacheStore });
+      const resolver = new PlaybackResolveService({
+        engine,
+        cacheStore,
+        providerHealth,
+      });
       const controller = new AbortController();
       const result = await resolver.resolve({
         title: intent.title,
@@ -246,6 +253,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     cacheStore,
     diagnosticsStore,
     sourceInventory,
+    providerHealth,
     downloadService,
     presence,
     stateManager,
