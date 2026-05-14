@@ -113,9 +113,10 @@ export class RecommendationServiceImpl implements RecommendationService {
       return { label: "", reason: "similar", items: entry.items };
     }
     const segment = type === "movie" ? "movie" : "tv";
-    const data = (await tmdbFetch(`/${segment}/${tmdbId}/recommendations`).catch(() => null)) as {
-      results?: Record<string, unknown>[];
-    } | null;
+    const data = await fetchRecommendationData(`/${segment}/${tmdbId}/recommendations`);
+    if (!data) {
+      return { label: "", reason: "similar", items: [] };
+    }
     const items = (data?.results ?? [])
       .map((r) => toSearchResult(r, segment === "movie" ? "movie" : "tv"))
       .filter((r): r is SearchResult => r !== null)
@@ -130,9 +131,10 @@ export class RecommendationServiceImpl implements RecommendationService {
     if (entry) {
       return { label: "", reason: "trending", items: entry.items };
     }
-    const data = (await tmdbFetch("/trending/all/week").catch(() => null)) as {
-      results?: Record<string, unknown>[];
-    } | null;
+    const data = await fetchRecommendationData("/trending/all/week");
+    if (!data) {
+      return { label: "", reason: "trending", items: [] };
+    }
     const items = (data?.results ?? [])
       .map((r) => toSearchResult(r))
       .filter((r): r is SearchResult => r !== null)
@@ -250,6 +252,14 @@ export class RecommendationServiceImpl implements RecommendationService {
     this.writeCacheEntry(key, { cachedAt: Date.now(), items }, TTL_SIMILAR);
     return { label: "", reason: "genre-affinity", items };
   }
+}
+
+async function fetchRecommendationData(
+  path: string,
+): Promise<{ results?: Record<string, unknown>[] } | null> {
+  return (await tmdbFetch(path).catch(() => null)) as {
+    results?: Record<string, unknown>[];
+  } | null;
 }
 
 function dedupeHistory(
