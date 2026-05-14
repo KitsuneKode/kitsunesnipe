@@ -58,16 +58,29 @@ describe("loading shell runtime policy", () => {
         fallbackAvailable: true,
       }),
     ).toEqual({
-      message: "Preparing playback context...",
+      message: "Preparing playback context…",
       tone: "info",
       footerTask: "Playback bootstrap  ·  f fallback · q / Esc cancel",
     });
 
+    // latestIssue takes priority over elapsed-based degradation
     expect(
       getProviderResolveWaitPresentation({
         elapsedSeconds: 36,
         fallbackAvailable: true,
         latestIssue: "vidking: CDN request timed out",
+      }),
+    ).toEqual({
+      message: "Issue: vidking: CDN request timed out",
+      tone: "warning",
+      footerTask: "Playback bootstrap  ·  f fallback · q / Esc cancel",
+    });
+
+    // Without latestIssue, elapsed >= 20 triggers degradation hint
+    expect(
+      getProviderResolveWaitPresentation({
+        elapsedSeconds: 25,
+        fallbackAvailable: true,
       }),
     ).toEqual({
       message: "Provider/CDN may be degraded. Try fallback or open diagnostics.",

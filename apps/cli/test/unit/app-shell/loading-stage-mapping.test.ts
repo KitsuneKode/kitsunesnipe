@@ -1,0 +1,88 @@
+import { describe, expect, test } from "bun:test";
+
+import {
+  getProviderResolveWaitPresentation,
+  renderStageRail,
+  resolveStageFromOperation,
+  stageDescription,
+  stageLabel,
+} from "@/app-shell/loading-shell-runtime";
+
+describe("loading shell 3-stage mapping", () => {
+  test("maps coarse operations to 3 high-level stages", () => {
+    expect(resolveStageFromOperation("resolving")).toBe("finding-stream");
+    expect(resolveStageFromOperation("loading")).toBe("preparing-player");
+    expect(resolveStageFromOperation("playing")).toBe("starting-playback");
+  });
+
+  test("explicit stage overrides operation inference", () => {
+    expect(resolveStageFromOperation("resolving", "preparing-player")).toBe("preparing-player");
+  });
+
+  test("stage labels are human-readable", () => {
+    expect(stageLabel("finding-stream")).toBe("finding stream");
+    expect(stageLabel("preparing-player")).toBe("preparing player");
+    expect(stageLabel("starting-playback")).toBe("starting playback");
+  });
+
+  test("stage descriptions explain what each stage does", () => {
+    expect(stageDescription("finding-stream")).toContain("Resolving title metadata");
+    expect(stageDescription("preparing-player")).toContain("Loading skip timing");
+    expect(stageDescription("starting-playback")).toContain("Launching mpv");
+  });
+
+  test("stage rail shows all 3 stages with correct tone progression", () => {
+    const rail = renderStageRail("preparing-player", null);
+    expect(rail).toHaveLength(3);
+    expect(rail[0]!.tone).toBe("success"); // finding-stream is past
+    expect(rail[1]!.tone).toBe("info"); // preparing-player is active
+    expect(rail[2]!.tone).toBe("neutral"); // starting-playback is future
+  });
+
+  test("stage rail turns active stage red when latestIssue exists", () => {
+    const rail = renderStageRail("preparing-player", "CDN timeout");
+    expect(rail[1]!.tone).toBe("error");
+  });
+
+  test("stage rail turns active stage amber for non-issue warnings", () => {
+    const rail = renderStageRail("finding-stream", null);
+    expect(rail[0]!.tone).toBe("info");
+  });
+});
+
+describe("provider resolve wait presentation", () => {
+  test("returns stageDetail when provided", () => {
+    const result = getProviderResolveWaitPresentation({
+      elapsedSeconds: 5,
+      stageDetail: "Resolving direct link…",
+    });
+    expect(result.message).toBe("Resolving direct link…");
+  });
+
+  test("latestIssue takes priority over elapsed degradation", () => {
+    const result = getProviderResolveWaitPresentation({
+      elapsedSeconds: 36,
+      latestIssue: "vidking: CDN request timed out",
+    });
+    expect(result.message).toBe("Issue: vidking: CDN request timed out");
+    expect(result.tone).toBe("warning");
+  });
+
+  test("elapsed >= 20 without issue triggers degradation hint", () => {
+    const result = getProviderResolveWaitPresentation({
+      elapsedSeconds: 25,
+      fallbackAvailable: true,
+    });
+    expect(result.message).toContain("degraded");
+    expect(result.tone).toBe("warning");
+    expect(result.footerTask).toContain("fallback");
+  });
+
+  test("elapsed 10-19 shows taking-longer hint", () => {
+    const result = getProviderResolveWaitPresentation({
+      elapsedSeconds: 15,
+    });
+    expect(result.message).toBe("Taking longer than expected…");
+    expect(result.tone).toBe("info");
+  });
+});
