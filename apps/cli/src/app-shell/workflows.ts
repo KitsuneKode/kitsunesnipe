@@ -490,11 +490,11 @@ export async function openCompletedDownloadsPicker(
       { value: { type: "back" as const }, label: "Back" },
     ];
     const picked = await chooseFromListShell({
-      title: "Completed downloads",
+      title: "Offline library",
       subtitle:
         completed.length > 0
-          ? `${completed.length} job(s) · play, reveal folder, delete`
-          : "Nothing finished yet",
+          ? `${completed.length} local item(s) · play, reveal folder, re-download, delete`
+          : "No completed local videos yet. Use /downloads to manage the queue.",
       actionContext,
       options,
     });
@@ -528,13 +528,13 @@ export async function openCompletedDownloadsPicker(
         },
         {
           value: "delete-artifact",
-          label: "Delete artifact and job",
-          detail: "Remove local media, subtitle artifact, and queue record",
+          label: "Delete local file and job",
+          detail: "Remove local media, subtitle file, and queue record",
         },
         {
           value: "delete-job",
           label: "Delete job only",
-          detail: "Keep files on disk but remove this queue record",
+          detail: "Keep local files on disk but remove this queue record",
         },
         { value: "back", label: "Back" },
       ],

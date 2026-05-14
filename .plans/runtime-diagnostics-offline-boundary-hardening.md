@@ -19,7 +19,7 @@ Use this section as the working tracker. Update checkboxes at phase boundaries, 
 - [x] Phase 9: Update service and install method detection.
 - [x] Phase 9a: Launch, resume, and offline entry points.
 - [x] Phase 10: Docs and test hardening.
-- [ ] Phase 11: Product polish and Zen mode.
+- [x] Phase 11: Product polish and Zen mode.
 
 ### Commit Rhythm
 
@@ -947,15 +947,31 @@ This is the “make it feel excellent” phase. It should not introduce new arch
 
 ### Tasks
 
-- [ ] Audit home/startup routes before polishing nested screens.
-- [ ] Make continue watching and offline library visible from home when data exists.
-- [ ] Audit copy and labels across all surfaces.
-- [ ] Remove duplicated state labels.
-- [ ] Normalize badge language.
-- [ ] Normalize footer/action rhythm.
-- [ ] Verify minimal/zen mode uses the same display models.
-- [ ] Add VHS or manual visual verification for major shell flows.
-- [ ] Run full verification.
+- [x] Audit home/startup routes before polishing nested screens.
+- [x] Make continue watching and offline library visible from home when data exists.
+- [x] Audit copy and labels across all surfaces.
+- [x] Remove duplicated state labels.
+- [x] Normalize badge language.
+- [x] Normalize footer/action rhythm.
+- [x] Verify minimal/zen mode uses the same display models.
+- [x] Add VHS or manual visual verification for major shell flows.
+- [x] Run full verification.
+
+### Phase 11 Verification
+
+- Focused red/green: `bun run --cwd apps/cli test:unit test/unit/app-shell/root-status-summary.test.ts` failed before implementation on symbolic download status copy, then passed with `469 pass, 0 fail`.
+- Full verification:
+  - `bun run typecheck`
+  - `bun run lint`
+  - `bun run fmt`
+  - `bun run test`
+
+### Phase 11 Notes
+
+- Home/startup now keeps `/history`, `--continue`, `/offline`, and `--offline` visible as primary fast paths rather than hidden tools.
+- The root status badge now uses plain-language `downloads ...` copy instead of symbolic download chrome.
+- The completed local media picker presents as “Offline library” with shelf-oriented actions and keeps `/downloads` scoped to queue management.
+- Minimal/zen mode remains a projection of the same root status summary and overlay state; no second display model was introduced.
 
 ## Execution Order
 
