@@ -18,7 +18,7 @@ Use this section as the working tracker. Update checkboxes at phase boundaries, 
 - [x] Phase 8: Live playback telemetry snapshot.
 - [x] Phase 9: Update service and install method detection.
 - [x] Phase 9a: Launch, resume, and offline entry points.
-- [ ] Phase 10: Docs and test hardening.
+- [x] Phase 10: Docs and test hardening.
 - [ ] Phase 11: Product polish and Zen mode.
 
 ### Commit Rhythm
@@ -885,14 +885,21 @@ Make Kunai easier for users to learn and easier for maintainers to verify.
 
 ### Tasks
 
-- [ ] Add docs skeletons only after the corresponding feature contracts exist.
-- [ ] Keep README short and route users to docs.
-- [ ] Move smoke-test commands into `.docs/testing-strategy.md` and keep `.docs/cli-reference.md` focused on user behavior.
-- [ ] Document `-S` versus `--jump` / `--quick` behavior explicitly.
-- [ ] Document continue/resume startup behavior after Phase 9a lands.
-- [ ] Document downloads queue versus offline library behavior after Phase 9a lands.
-- [ ] Add test matrix to `.docs/testing-strategy.md`.
-- [ ] Run full verification: `bun run typecheck`, `bun run lint`, `bun run fmt`, `bun run test`.
+- [x] Add docs skeletons only after the corresponding feature contracts exist.
+- [x] Keep README short and route users to docs.
+- [x] Move smoke-test commands into `.docs/testing-strategy.md` and keep `.docs/cli-reference.md` focused on user behavior.
+- [x] Document `-S` versus `--jump` / `--quick` behavior explicitly.
+- [x] Document continue/resume startup behavior after Phase 9a lands.
+- [x] Document downloads queue versus offline library behavior after Phase 9a lands.
+- [x] Add test matrix to `.docs/testing-strategy.md`.
+- [x] Run full verification: `bun run typecheck`, `bun run lint`, `bun run fmt`, `bun run test`.
+
+### Phase 10 Verification
+
+- `bun run typecheck` -> passed.
+- `bun run lint` -> passed with pre-existing warnings only.
+- `bun run fmt` -> passed.
+- `bun run test` -> 13 successful tasks; `@kitsunekode/kunai` 491 pass, 0 fail.
 
 ## Phase 11: Product Polish And Zen Mode
 
