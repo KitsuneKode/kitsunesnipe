@@ -10,7 +10,7 @@ Use this section as the working tracker. Update checkboxes at phase boundaries, 
 - [x] Phase 0a: Stabilize stream-health testability and timeout cleanup.
 - [x] Phase 1: Unified diagnostics service.
 - [x] Phase 2: Playback resolve/cache boundary cleanup.
-- [ ] Phase 3: Typed intent and picker model.
+- [x] Phase 3: Typed intent and picker model.
 - [ ] Phase 4: Offline library and local playback source.
 - [ ] Phase 5: Scoped smart downloads and cleanup policy.
 - [ ] Phase 6: Timeline, result enrichment, and details state.
@@ -413,12 +413,26 @@ Rendering should never regroup items in a way that changes selection semantics.
 
 ### Tasks
 
-- [ ] Add `PickerModel` pure helpers and tests.
-- [ ] Convert command palette matching to return a picker model.
-- [ ] Add regression test for grouped command render order vs selected command.
-- [ ] Convert one low-risk picker to the shared model.
-- [ ] Document migration rules for remaining pickers.
-- [ ] Run typecheck/lint/fmt/tests.
+- [x] Add `PickerModel` pure helpers and tests.
+- [x] Convert command palette matching to return a picker model.
+- [x] Add regression test for grouped command render order vs selected command.
+- [x] Convert one low-risk picker to the shared model.
+- [x] Document migration rules for remaining pickers.
+- [x] Run typecheck/lint/fmt/tests.
+
+### Phase 3 Verification
+
+- `bun run --cwd apps/cli test:unit` passed: 428 tests, 0 failures.
+- `bun run typecheck` passed.
+- `bun run lint` passed with pre-existing warnings in provider files and `loading-shell.tsx`.
+- `bun run fmt` passed.
+
+### Picker Migration Rules
+
+- Build one ordered `PickerModel` before rendering.
+- Render group headers from model rows; never regroup a second array in JSX.
+- Keyboard movement, selected row highlighting, autocomplete, and Enter confirmation must use the same `model.options` ordering.
+- If a picker needs grouping, pass `groupOrder`; if it is filtered, prefer ungrouped ordering unless grouping still improves scanability.
 
 ## Phase 4: Offline Library And Local Playback Source
 
