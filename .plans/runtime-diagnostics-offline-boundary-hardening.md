@@ -17,7 +17,7 @@ Use this section as the working tracker. Update checkboxes at phase boundaries, 
 - [x] Phase 7: Tracks and media preference model.
 - [x] Phase 8: Live playback telemetry snapshot.
 - [x] Phase 9: Update service and install method detection.
-- [ ] Phase 9a: Launch, resume, and offline entry points.
+- [x] Phase 9a: Launch, resume, and offline entry points.
 - [ ] Phase 10: Docs and test hardening.
 - [ ] Phase 11: Product polish and Zen mode.
 
@@ -826,16 +826,23 @@ In shell:
 
 ### Tasks
 
-- [ ] Correct CLI docs and smoke-test examples so auto-play examples use `--jump` or `--quick`.
-- [ ] Add parse tests for `--continue`, `--resume`, `--history`, and `--offline`.
-- [ ] Add a startup route that opens history with `--history`.
-- [ ] Add a startup route that resolves the most recent resumable history item with `--continue` / `--resume`.
-- [ ] Route `/library`, `/offline`, and `--offline` to the completed offline library picker.
-- [ ] Keep `/downloads` queue-first and update labels/copy to make the distinction obvious.
-- [ ] Add tests for command routing so offline/library do not regress back into download enqueue or queue-only surfaces.
-- [ ] Add home/root-shell affordances for continue watching and offline library when data exists.
-- [ ] Add manual smoke-test checklist covering search, auto-pick, continue, history, downloads, offline library, and update.
-- [ ] Run typecheck/lint/fmt/unit tests.
+- [x] Correct CLI docs and smoke-test examples so auto-play examples use `--jump` or `--quick`.
+- [x] Add parse tests for `--continue`, `--resume`, `--history`, and `--offline`.
+- [x] Add a startup route that opens history with `--history`.
+- [x] Add a startup route that resolves the most recent resumable history item with `--continue` / `--resume`.
+- [x] Route `/library`, `/offline`, and `--offline` to the completed offline library picker.
+- [x] Keep `/downloads` queue-first and update labels/copy to make the distinction obvious.
+- [x] Add tests for command routing so offline/library do not regress back into download enqueue or queue-only surfaces.
+- [x] Add home/root-shell affordances for continue watching and offline library when data exists.
+- [x] Add manual smoke-test checklist covering search, auto-pick, continue, history, downloads, offline library, and update.
+- [x] Run typecheck/lint/fmt/unit tests.
+
+### Phase 9a Verification
+
+- `bun run typecheck` -> passed.
+- `bun run lint` -> passed with pre-existing warnings only.
+- `bun run fmt` -> passed.
+- `bun run --cwd apps/cli test:unit` -> 468 pass, 0 fail.
 
 ## Phase 10: Docs And Test Hardening
 

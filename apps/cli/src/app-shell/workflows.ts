@@ -475,7 +475,7 @@ async function openHistoryShell(
   }
 }
 
-async function _openCompletedDownloadsPicker(
+export async function openCompletedDownloadsPicker(
   container: Container,
   actionContext?: ListShellActionContext,
 ): Promise<void> {
@@ -769,16 +769,10 @@ export async function handleShellAction({
   }
 
   if (action === "library") {
-    stateManager.dispatch({ type: "OPEN_OVERLAY", overlay: { type: "downloads" } });
-    await new Promise<void>((resolve) => {
-      const unsubscribe = stateManager.subscribe((state) => {
-        const top = state.activeModals.at(-1);
-        if (!top || top.type !== "downloads") {
-          unsubscribe();
-          resolve();
-        }
-      });
-    });
+    await openCompletedDownloadsPicker(
+      container,
+      buildPickerActionContext({ container, taskLabel: "Offline library" }),
+    );
     return "handled";
   }
 
