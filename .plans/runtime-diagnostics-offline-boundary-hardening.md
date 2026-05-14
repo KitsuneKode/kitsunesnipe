@@ -8,7 +8,7 @@ Use this section as the working tracker. Update checkboxes at phase boundaries, 
 
 - [x] Phase 0: Stabilize and review the UI agent commit.
 - [x] Phase 0a: Stabilize stream-health testability and timeout cleanup.
-- [ ] Phase 1: Unified diagnostics service.
+- [x] Phase 1: Unified diagnostics service.
 - [ ] Phase 2: Playback resolve/cache boundary cleanup.
 - [ ] Phase 3: Typed intent and picker model.
 - [ ] Phase 4: Offline library and local playback source.
@@ -300,16 +300,23 @@ Keep:
 
 ### Tasks
 
-- [ ] Add diagnostic event types and redaction helpers.
-- [ ] Add unit tests for URL, header, cookie, token, and path redaction.
-- [ ] Add `DiagnosticsService` facade over store, logger, and tracer.
-- [ ] Add trace/span support that records attributes and events.
-- [ ] Wire `DiagnosticsService` in `container.ts`.
-- [ ] Update `/export-diagnostics` to write a support bundle.
-- [ ] Convert high-value playback/provider/cache/download events to the new service.
-- [ ] Keep the existing diagnostics panel working during migration.
-- [ ] Update `.docs/diagnostics-guide.md`.
-- [ ] Run `bun run typecheck`, `bun run lint`, `bun run fmt`, and relevant tests.
+- [x] Add diagnostic event types and redaction helpers.
+- [x] Add unit tests for URL, header, cookie, token, and path redaction.
+- [x] Add `DiagnosticsService` facade over store, logger, and tracer.
+- [x] Add trace/span support that records attributes and events.
+- [x] Wire `DiagnosticsService` in `container.ts`.
+- [x] Update `/export-diagnostics` to write a support bundle.
+- [x] Convert high-value playback/provider/cache/download events to the new service.
+- [x] Keep the existing diagnostics panel working during migration.
+- [x] Update `.docs/diagnostics-guide.md`.
+- [x] Run `bun run typecheck`, `bun run lint`, `bun run fmt`, and relevant tests.
+
+### Phase 1 Verification
+
+- `bun run --cwd apps/cli test:unit` passed: 414 tests, 0 failures.
+- `bun run typecheck` passed.
+- `bun run lint` passed with pre-existing warnings in provider files and `loading-shell.tsx`.
+- `bun run fmt` passed.
 
 ## Phase 2: Playback Resolve And Cache Boundary Cleanup
 

@@ -47,6 +47,8 @@ import {
   createCatalogScheduleService,
   type CatalogScheduleService,
 } from "./services/catalog/CatalogScheduleService";
+import type { DiagnosticsService } from "./services/diagnostics/DiagnosticsService";
+import { DiagnosticsServiceImpl } from "./services/diagnostics/DiagnosticsServiceImpl";
 import type { DiagnosticsStore } from "./services/diagnostics/DiagnosticsStore";
 import { DiagnosticsStoreImpl } from "./services/diagnostics/DiagnosticsStoreImpl";
 import { DownloadService } from "./services/download/DownloadService";
@@ -100,6 +102,7 @@ export interface Container {
   readonly configStore: ConfigStore;
   readonly cacheStore: CacheStore;
   readonly diagnosticsStore: DiagnosticsStore;
+  readonly diagnosticsService: DiagnosticsService;
   readonly sourceInventory: SourceInventoryService;
   readonly providerHealth: ProviderHealthRepository;
   readonly downloadService: DownloadService;
@@ -139,6 +142,7 @@ export interface ContainerOptions {
   mpv?: MpvRuntimeOptions;
   shellChrome?: ShellChrome;
   capabilitySnapshot?: CapabilitySnapshot | null;
+  appVersion?: string;
 }
 
 /**
@@ -172,6 +176,12 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   const providerHealth = new ProviderHealthRepository(cacheDb);
   const downloadJobs = new DownloadJobsRepository(dataDb);
   const diagnosticsStore = new DiagnosticsStoreImpl();
+  const diagnosticsService = new DiagnosticsServiceImpl({
+    store: diagnosticsStore,
+    logger,
+    appVersion: options?.appVersion,
+    debug,
+  });
 
   // Load config
   const config = await ConfigServiceImpl.load(configStore);
@@ -260,6 +270,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     configStore,
     cacheStore,
     diagnosticsStore,
+    diagnosticsService,
     sourceInventory,
     providerHealth,
     downloadService,

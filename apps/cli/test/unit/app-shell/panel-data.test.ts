@@ -140,7 +140,9 @@ describe("panel-data", () => {
       recentEvents: [
         {
           timestamp: 3000,
+          level: "info",
           category: "provider",
+          operation: "provider",
           message: "Provider resolve trace completed",
           context: {
             trace: {

@@ -1057,22 +1057,15 @@ export async function handleShellAction({
   }
 
   if (action === "export-diagnostics") {
-    const snapshot = diagnosticsStore.getSnapshot();
-    const redacted = JSON.parse(JSON.stringify(snapshot), (_key, value) => {
-      if (typeof value === "string" && /^https?:\/\//i.test(value)) {
-        return "[redacted-url]";
-      }
-      return value;
-    }) as typeof snapshot;
     const fileName = `kunai-diagnostics-export-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
     const path = join(process.cwd(), fileName);
-    await writeAtomicJson(path, {
-      exportedAt: new Date().toISOString(),
-      eventCount: redacted.length,
-      events: redacted,
+    const bundle = container.diagnosticsService.buildSupportBundle({
+      capabilities: container.capabilitySnapshot as unknown as Record<string, unknown> | null,
     });
-    diagnosticsStore.record({
+    await writeAtomicJson(path, bundle);
+    container.diagnosticsService.record({
       category: "ui",
+      operation: "export-diagnostics",
       message: "Diagnostics exported to file",
       context: { path: fileName },
     });

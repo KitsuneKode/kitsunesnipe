@@ -247,6 +247,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
     mpv: args.mpv,
     shellChrome: args.shellChrome,
     capabilitySnapshot,
+    appVersion: KUNAI_VERSION,
   });
   globalContainer = container;
   const { logger, config, stateManager, cacheStore } = container;
