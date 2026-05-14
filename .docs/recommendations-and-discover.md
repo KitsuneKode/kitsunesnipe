@@ -1,7 +1,7 @@
 # Kunai — Recommendations And Discover
 
-This is the canonical product and architecture reference for the `/recommendation`, `/calendar`,
-and `/random` discovery surfaces.
+This is the canonical product and architecture reference for the `/discover`, `/calendar`,
+and `/random` / `/surprise` discovery surfaces.
 
 ## Goals
 
@@ -24,6 +24,7 @@ and `/random` discovery surfaces.
 | Release schedule service + SQLite cache      | `apps/cli/src/services/catalog/CatalogScheduleService.ts`, `packages/storage/src/repositories/schedule-cache.ts` | Implemented |
 | Calendar result loader                       | `apps/cli/src/app/calendar-results.ts`                                                                           | Implemented |
 | Random result loader                         | `apps/cli/src/app/random-results.ts`                                                                             | Implemented |
+| Surprise catalog pool                        | `apps/cli/src/services/catalog/CatalogDiscoveryService.ts`, `apps/cli/src/app/discovery-lists.ts`                | Implemented |
 | Command routing                              | `apps/cli/src/domain/session/command-registry.ts`, `apps/cli/src/app-shell/command-router.ts`                    | Implemented |
 | Search-phase entry                           | `apps/cli/src/app/SearchPhase.ts`                                                                                | Implemented |
 | Startup discovery routes                     | `--calendar`, `--random`, `/calendar`, `/random`                                                                 | Implemented |
@@ -47,8 +48,14 @@ Calendar uses catalog schedule services on demand:
 - SQLite schedule cache keyed by source, mode, title, season, episode, and local day window
 - release-aware TTLs so future entries refresh around known release time rather than through a global daily sync
 
-Random uses the same discover pipeline, refreshes the source bundle, and chooses 3 to 5 browseable
-picks. It only changes browse results; it does not mutate playback state.
+Random mixes the cached discover pipeline with a short-lived surprise catalog pool:
+
+- anime mode samples a randomized AniList page/sort/genre combination
+- series mode samples a randomized TMDB discover media type, page, and sort
+- the surprise pool is cached briefly so rerolls are fast and do not hammer upstream APIs
+- the tray guarantees a surprise-sourced candidate when that pool is available
+
+It only changes browse results; it does not mutate playback state.
 
 The shell should keep these as suggestions, not as autoplay or background network work.
 
@@ -62,7 +69,7 @@ The shell should keep these as suggestions, not as autoplay or background networ
 - If recommendations fail, show an empty/error state in Discover rather than failing search or playback.
 - Do not couple Discover to provider selection. Opening a recommendation should return to normal browse/title selection flow.
 - Do not treat `airs today` as playable. Provider availability is checked only after the user chooses playback.
-- Do not auto-play random picks. The user can rerun `/random` to spin again or select a title normally.
+- Do not auto-play random picks. The user can rerun `/random` or `/surprise` to spin again, or select a title normally.
 
 ## Remaining Product Work
 

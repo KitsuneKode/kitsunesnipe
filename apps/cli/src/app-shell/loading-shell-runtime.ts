@@ -87,6 +87,7 @@ export function renderStageRail(
   activeStage: LoadingShellState["stage"],
   latestIssue: string | null | undefined,
 ): readonly { label: string; tone: "neutral" | "info" | "success" | "warning" | "error" }[] {
+  const issue = normalizeLoadingIssue(latestIssue);
   const activeIndex = activeStage ? STAGE_ORDER.indexOf(activeStage) : -1;
   return STAGE_ORDER.map((stage, index) => {
     const isActive = index === activeIndex;
@@ -94,11 +95,11 @@ export function renderStageRail(
     let tone: "neutral" | "info" | "success" | "warning" | "error" = isPast
       ? "success"
       : isActive
-        ? latestIssue
+        ? issue
           ? "warning"
           : "info"
         : "neutral";
-    if (latestIssue && isActive) {
+    if (issue && isActive) {
       tone = "error";
     }
     return {
@@ -121,12 +122,11 @@ export function getProviderResolveWaitPresentation(input: {
   readonly stageDetail?: string;
 }): ProviderResolveWaitPresentation {
   const fallbackHint = input.fallbackAvailable ? "f fallback · " : "";
+  const issue = normalizeLoadingIssue(input.latestIssue);
 
-  if (input.latestIssue) {
+  if (issue) {
     return {
-      message: input.stageDetail
-        ? `${input.stageDetail} · Issue: ${input.latestIssue}`
-        : `Issue: ${input.latestIssue}`,
+      message: input.stageDetail ? `${input.stageDetail} · Issue: ${issue}` : `Issue: ${issue}`,
       tone: "warning",
       footerTask: `Playback bootstrap  ·  ${fallbackHint}q / Esc cancel`,
     };
@@ -155,4 +155,25 @@ export function getProviderResolveWaitPresentation(input: {
     tone: "info",
     footerTask: `Playback bootstrap  ·  ${fallbackHint}q / Esc cancel`,
   };
+}
+
+export function normalizeLoadingIssue(issue: string | null | undefined): string | null {
+  const trimmed = issue?.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.toLowerCase();
+  if (
+    normalized === "subtitle attached" ||
+    normalized === "subtitles attached" ||
+    normalized === "subs ready" ||
+    normalized === "subtitles ready"
+  ) {
+    return null;
+  }
+  return trimmed;
+}
+
+export function normalizeProviderDetail(detail: string | null | undefined): string | null {
+  const trimmed = detail?.trim();
+  if (!trimmed) return null;
+  return trimmed.replace(/^provider:\s*/i, "");
 }

@@ -165,9 +165,9 @@ export const COMMANDS: readonly AppCommand[] = [
   },
   {
     id: "recommendation",
-    label: "Recommendation",
+    label: "Discover",
     aliases: ["recommendation", "recommendations", "recs", "suggest", "discover"],
-    description: "Open personalized recommendations and trending content",
+    description: "Open /discover with personalized recommendations and trending content",
   },
   {
     id: "calendar",

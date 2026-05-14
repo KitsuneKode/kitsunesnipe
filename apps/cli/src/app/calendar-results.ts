@@ -44,7 +44,7 @@ function toCalendarSearchResult(item: CatalogScheduleItem): SearchResult {
     title: item.titleName,
     year,
     overview: `${episodeLabel}. ${badgeLabel}. Provider availability is checked only when you choose playback.`,
-    posterPath: null,
+    posterPath: item.posterPath ?? null,
     metadataSource: `${source} calendar · ${badgeLabel}`,
     episodeCount: item.episode,
   };

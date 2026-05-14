@@ -5,6 +5,8 @@ import { requestHardExit } from "./graceful-exit";
 import {
   getLoadingShellTimerPolicy,
   getProviderResolveWaitPresentation,
+  normalizeLoadingIssue,
+  normalizeProviderDetail,
   renderStageRail,
   shouldShowLoadingElapsed,
   stageDescription,
@@ -349,12 +351,18 @@ export function LoadingShell({
     : Math.min(76, Math.max(40, terminalColumns - 12));
 
   const activeStage = state.stage ?? (isPlaying ? "starting-playback" : "finding-stream");
-  const stageRail = renderStageRail(activeStage, state.latestIssue);
+  const loadingIssue = normalizeLoadingIssue(state.latestIssue);
+  const providerDetail = normalizeProviderDetail(state.details);
+  const subtitleReady = Boolean(
+    state.subtitleStatus?.toLowerCase().includes("attached") ||
+    state.subtitleStatus?.toLowerCase().includes("ready"),
+  );
+  const stageRail = renderStageRail(activeStage, loadingIssue);
 
   const waitPresentation = getProviderResolveWaitPresentation({
     elapsedSeconds: elapsed,
     fallbackAvailable: state.fallbackAvailable,
-    latestIssue: state.latestIssue,
+    latestIssue: loadingIssue,
     stageDetail: state.stageDetail,
   });
 
@@ -468,7 +476,7 @@ export function LoadingShell({
       subtitle={state.subtitle ?? "Preparing playback"}
       status={{
         label: isPlaying ? "playing" : stageLabel(activeStage),
-        tone: isPlaying ? "success" : state.latestIssue ? "warning" : "neutral",
+        tone: isPlaying ? "success" : loadingIssue ? "warning" : "neutral",
       }}
       footerTask={
         state.operation === "playing"
@@ -500,22 +508,22 @@ export function LoadingShell({
 
           <LocalSection
             title="Status"
-            tone={isPlaying ? "success" : state.latestIssue ? "warning" : "neutral"}
+            tone={isPlaying ? "success" : loadingIssue ? "warning" : "neutral"}
             marginTop={0}
           >
             {!isPlaying && state.stageDetail ? (
-              <Text color={state.latestIssue ? palette.amber : palette.info}>
-                {state.stageDetail}
-              </Text>
+              <Text color={loadingIssue ? palette.amber : palette.info}>{state.stageDetail}</Text>
             ) : null}
-            {state.details && !isPlaying ? (
-              <Text color="white">Provider: {state.details}</Text>
+            {providerDetail && !isPlaying ? (
+              <Text color="white">Provider: {providerDetail}</Text>
             ) : null}
             {state.downloadStatus ? (
               <Text color={palette.info}>Download: {state.downloadStatus}</Text>
             ) : null}
             {state.subtitleStatus ? (
-              <Text color={palette.gray}>Subtitles: {state.subtitleStatus}</Text>
+              <Text color={subtitleReady ? palette.green : palette.gray}>
+                Subtitles: {state.subtitleStatus}
+              </Text>
             ) : null}
 
             <Box marginTop={1}>

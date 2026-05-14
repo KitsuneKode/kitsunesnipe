@@ -17,6 +17,7 @@ test("loadCalendarResults maps releasing-today items into playable browse candid
           releaseAt: "2026-05-15T12:00:00.000Z",
           releasePrecision: "timestamp",
           status: "upcoming",
+          posterPath: "https://img.example/frieren.jpg",
         },
       ],
     },
@@ -30,6 +31,7 @@ test("loadCalendarResults maps releasing-today items into playable browse candid
     year: "2026",
     metadataSource: "AniList calendar · airs today",
     episodeCount: 29,
+    posterPath: "https://img.example/frieren.jpg",
   });
   expect(results.results[0]?.overview).toContain("Episode 29: A new journey");
 });

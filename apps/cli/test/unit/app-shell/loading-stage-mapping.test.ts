@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   getProviderResolveWaitPresentation,
+  normalizeLoadingIssue,
   renderStageRail,
   resolveStageFromOperation,
   stageDescription,
@@ -42,6 +43,13 @@ describe("loading shell 3-stage mapping", () => {
   test("stage rail turns active stage red when latestIssue exists", () => {
     const rail = renderStageRail("preparing-player", "CDN timeout");
     expect(rail[1]!.tone).toBe("error");
+  });
+
+  test("stage rail treats subtitle-ready notes as healthy status, not issues", () => {
+    expect(normalizeLoadingIssue("subtitle attached")).toBeNull();
+    expect(normalizeLoadingIssue("subs ready")).toBeNull();
+    const rail = renderStageRail("preparing-player", "subtitle attached");
+    expect(rail[1]!.tone).toBe("info");
   });
 
   test("stage rail turns active stage amber for non-issue warnings", () => {

@@ -16,6 +16,7 @@ export type CatalogScheduleItem = {
   readonly titleId: string;
   readonly titleName: string;
   readonly type: CatalogScheduleType;
+  readonly posterPath?: string | null;
   readonly season?: number;
   readonly episode?: number;
   readonly episodeTitle?: string;
@@ -297,7 +298,7 @@ async function loadAniListReleasingToday(
   window: CatalogScheduleWindow,
   signal?: AbortSignal,
 ): Promise<readonly CatalogScheduleItem[]> {
-  const query = `query($start:Int,$end:Int){Page(page:1,perPage:25){airingSchedules(airingAt_greater:$start,airingAt_lesser:$end,sort:TIME){airingAt episode media{id title{romaji english}}}}}`;
+  const query = `query($start:Int,$end:Int){Page(page:1,perPage:25){airingSchedules(airingAt_greater:$start,airingAt_lesser:$end,sort:TIME){airingAt episode media{id title{romaji english} coverImage{extraLarge large}}}}}`;
   const data = await postAniListGraphql<{
     readonly data?: {
       readonly Page?: {
@@ -309,6 +310,10 @@ async function loadAniListReleasingToday(
             readonly title?: {
               readonly romaji?: string | null;
               readonly english?: string | null;
+            } | null;
+            readonly coverImage?: {
+              readonly extraLarge?: string | null;
+              readonly large?: string | null;
             } | null;
           } | null;
         }[];
@@ -333,6 +338,8 @@ async function loadAniListReleasingToday(
         titleId: String(schedule.media.id),
         titleName: schedule.media.title?.english ?? schedule.media.title?.romaji ?? "Unknown",
         type: "anime",
+        posterPath:
+          schedule.media.coverImage?.extraLarge ?? schedule.media.coverImage?.large ?? null,
         episode: schedule.episode ?? undefined,
         releaseAt: new Date(schedule.airingAt * 1000).toISOString(),
         releasePrecision: "timestamp",
@@ -387,6 +394,7 @@ async function loadTmdbAiringToday(
         titleId: String(id),
         titleName,
         type: "series",
+        posterPath: readString(item.poster_path) || readString(item.backdrop_path) || null,
         releaseAt: readString(item.first_air_date) || null,
         releasePrecision: readString(item.first_air_date) ? "date" : "unknown",
         status: "unknown",

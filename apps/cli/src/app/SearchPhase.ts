@@ -33,6 +33,27 @@ export type SearchPhaseInput = {
   autoPickSearchResultIndex?: number;
 };
 
+export const SEARCH_BROWSE_COMMAND_IDS = [
+  "setup",
+  "settings",
+  "trending",
+  "recommendation",
+  "calendar",
+  "random",
+  "downloads",
+  "library",
+  "toggle-mode",
+  "provider",
+  "history",
+  "download",
+  "details",
+  "diagnostics",
+  "export-diagnostics",
+  "help",
+  "about",
+  "quit",
+] as const;
+
 export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
   name = "search";
 
@@ -174,24 +195,7 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
           initialSelectedIndex: currentState.selectedResultIndex,
           placeholder: currentState.mode === "anime" ? "Demon Slayer" : "Breaking Bad",
           footerMode: effectiveFooterHints(container),
-          commands: resolveCommands(currentState, [
-            "setup",
-            "settings",
-            "trending",
-            "recommendation",
-            "calendar",
-            "random",
-            "toggle-mode",
-            "provider",
-            "history",
-            "download",
-            "details",
-            "diagnostics",
-            "export-diagnostics",
-            "help",
-            "about",
-            "quit",
-          ]),
+          commands: resolveCommands(currentState, SEARCH_BROWSE_COMMAND_IDS),
           onSearch: async (query) => {
             stateManager.dispatch({ type: "SET_SEARCH_QUERY", query });
             stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "loading" });
@@ -474,7 +478,7 @@ async function loadSearchRoute(
       : route === "calendar"
         ? await loadCalendarResults(container, context.signal)
         : route === "random"
-          ? await loadRandomResults(container)
+          ? await loadRandomResults(container, { signal: context.signal })
           : await loadDiscoverResults(container);
 
   const results = [...bundle.results];

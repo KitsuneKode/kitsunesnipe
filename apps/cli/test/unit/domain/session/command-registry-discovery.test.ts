@@ -18,6 +18,9 @@ describe("recommendation command", () => {
     expect(parseCommand("/airing")?.id).toBe("calendar");
     expect(parseCommand("/random")?.id).toBe("random");
     expect(parseCommand("/spin")?.id).toBe("random");
+    expect(parseCommand("/surprise")?.id).toBe("random");
+    expect(parseCommand("/offline")?.id).toBe("library");
+    expect(parseCommand("/downloads")?.id).toBe("downloads");
     expect(resolveCommands(state, ["trending"])).toEqual([
       expect.objectContaining({
         id: "trending",
@@ -29,5 +32,10 @@ describe("recommendation command", () => {
       "calendar",
       "random",
     ]);
+    expect(resolveCommands(state, ["recommendation"])[0]).toMatchObject({
+      id: "recommendation",
+      label: "Discover",
+      enabled: true,
+    });
   });
 });

@@ -156,12 +156,13 @@ kunai --download -S "Dune" --download-path ~/Videos/Kunai
 kunai --offline
 kunai --calendar
 kunai --random
+kunai --random -a
 ```
 
 In the shell, use `/download` to enqueue the selected/current item, `/downloads` to inspect,
 retry, abort, or delete jobs, and `/library` or `/offline` for completed local files.
-Use `/calendar` for releases airing today and `/random` to spin a small non-autoplaying
-recommendation tray.
+Use `/discover` for recommendations, `/calendar` for releases airing today, and `/random`
+or `/surprise` to spin a small non-autoplaying surprise tray.
 
 ### Default download path (when enabled)
 
@@ -171,7 +172,9 @@ recommendation tray.
 
 ## Recommendations
 
-- Run `/ recommendation` to open recommendation + trending sections
+- Run `/discover` to open recommendation + trending sections
+- Run `/random` or `/surprise` to mix recommendations with a cached randomized catalog pool
+- Run `/calendar` to see releases airing today; provider availability is checked only after selection
 - Press `Ctrl+T` in browse mode to reload trending recommendation lists
 - Recommendation lists use cached catalog responses for deterministic UX
 
@@ -223,6 +226,7 @@ apps/cli/src/infra/*      -> player/ipc/filesystem/runtime mechanics
 - Typecheck, lint, tests, package checks, and release dry-run are green
 - Canonical runtime is `apps/cli/src/main.ts` with deterministic shell flow
 - Watch history, diagnostics, provider fallback, and discover/recommendation are integrated
+- Release calendar artwork, surprise picks, and offline/download command routes are integrated
 - Optional capability guardrails cover `mpv`, `yt-dlp`, `ffprobe`, `chafa`, and image renderer/terminal support
 
 ### Remaining improvements (non-blocking)
@@ -236,7 +240,7 @@ apps/cli/src/infra/*      -> player/ipc/filesystem/runtime mechanics
 1. **Publish hygiene pass**: metadata, README, package tarball, release dry-run
 2. **Boundary hardening pass**: enforce import fences and app-shell/service boundaries
 3. **Live reliability pass**: validate autoplay/provider drift handling on real sessions
-4. **Download/offline pass**: move from feature gate to queue + library + setup wizard slices
+4. **Download/offline pass**: continue batch and daemon polish beyond the current queue/library/setup flow
 5. **Release pass**: final checks, changelog, publish
 
 ## Demos (VHS)

@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import {
   getLoadingShellTimerPolicy,
   getProviderResolveWaitPresentation,
+  normalizeLoadingIssue,
+  normalizeProviderDetail,
   shouldShowLoadingElapsed,
 } from "@/app-shell/loading-shell-runtime";
 import {
@@ -87,6 +89,24 @@ describe("loading shell runtime policy", () => {
       tone: "warning",
       footerTask: "Provider/CDN degraded  ·  f fallback · Esc cancel · d diagnostics",
     });
+  });
+
+  test("loading copy does not promote subtitle-ready status into an issue", () => {
+    expect(normalizeLoadingIssue("subtitle attached")).toBeNull();
+    expect(
+      getProviderResolveWaitPresentation({
+        elapsedSeconds: 4,
+        latestIssue: "subtitle attached",
+        stageDetail: "Opening provider stream",
+      }).message,
+    ).toBe("Opening provider stream");
+  });
+
+  test("provider detail avoids duplicate Provider labels", () => {
+    expect(normalizeProviderDetail("Provider: vidking · direct-http")).toBe(
+      "vidking · direct-http",
+    );
+    expect(normalizeProviderDetail("vidking · direct-http")).toBe("vidking · direct-http");
   });
 });
 
