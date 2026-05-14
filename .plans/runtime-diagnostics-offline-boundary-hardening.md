@@ -17,6 +17,7 @@ Use this section as the working tracker. Update checkboxes at phase boundaries, 
 - [x] Phase 7: Tracks and media preference model.
 - [x] Phase 8: Live playback telemetry snapshot.
 - [x] Phase 9: Update service and install method detection.
+- [ ] Phase 9a: Launch, resume, and offline entry points.
 - [ ] Phase 10: Docs and test hardening.
 - [ ] Phase 11: Product polish and Zen mode.
 
@@ -764,6 +765,78 @@ Let users know when Kunai is out of date and offer safe, install-method-aware up
 - `bun run fmt` -> passed.
 - `bun run --cwd apps/cli test:unit` -> 465 pass, 0 fail.
 
+## Phase 9a: Launch, Resume, And Offline Entry Points
+
+### Purpose
+
+Make Kunai easier to enter, smoke test, and resume without knowing hidden shell flows.
+
+The current CLI/bootstrap story is too ambiguous:
+
+- `-S "Title"` performs a bootstrap search, but does not mean hands-off playback unless paired with `--jump` or `--quick`.
+- there is no direct startup path for "continue the last thing I was watching".
+- `/library`, `/offline`, and `--offline` should feel like a completed offline library, not a generic downloads queue.
+- home should make continue, search, discover, downloads, offline library, history, setup, diagnostics, and update paths obvious.
+
+### Target Files
+
+- Modify: `apps/cli/src/main.ts`
+- Modify: `apps/cli/src/app/SessionController.ts`
+- Modify: `apps/cli/src/app-shell/workflows.ts`
+- Modify: `apps/cli/src/app-shell/root-overlay-shell.tsx`
+- Modify: `apps/cli/src/domain/session/command-registry.ts`
+- Modify: `apps/cli/src/domain/session/SessionState.ts`
+- Modify: `apps/cli/src/app-shell/panel-data.ts`
+- Modify: `.docs/cli-reference.md`
+- Test: `apps/cli/test/unit/main-args.test.ts`
+- Test: `apps/cli/test/unit/app-shell/*`
+- Test: `apps/cli/test/unit/app/*`
+
+### Rules
+
+- `-S` alone may prefill/search, but docs and help must not imply it auto-plays.
+- Hands-off playback smoke tests must use `--jump N` or `--quick`.
+- `--continue` / `--resume` should use local history and should never require network before choosing the target.
+- `--history` should open the history surface at startup.
+- `--offline` should open the completed offline library surface, not the queue-first downloads panel.
+- `/downloads` remains queue/status management.
+- `/library` and `/offline` mean completed local media first.
+- Home actions should be projections of command/overlay state, not separate bespoke flows.
+- Do not silently delete offline artifacts or history during entry-point cleanup.
+
+### UX Contract
+
+The entry story should become:
+
+```sh
+bun run dev
+bun run dev -- -S "Dune" --jump 1
+bun run dev -- -a -S "Attack on Titan" --jump 1
+bun run dev -- --continue
+bun run dev -- --history
+bun run dev -- --offline
+```
+
+In shell:
+
+- `/history` opens recent progress and can continue a selected item.
+- `/library` or `/offline` opens completed local downloads first.
+- `/downloads` opens active/failed/queued jobs first.
+- home should visibly advertise continue watching and offline library when data exists.
+
+### Tasks
+
+- [ ] Correct CLI docs and smoke-test examples so auto-play examples use `--jump` or `--quick`.
+- [ ] Add parse tests for `--continue`, `--resume`, `--history`, and `--offline`.
+- [ ] Add a startup route that opens history with `--history`.
+- [ ] Add a startup route that resolves the most recent resumable history item with `--continue` / `--resume`.
+- [ ] Route `/library`, `/offline`, and `--offline` to the completed offline library picker.
+- [ ] Keep `/downloads` queue-first and update labels/copy to make the distinction obvious.
+- [ ] Add tests for command routing so offline/library do not regress back into download enqueue or queue-only surfaces.
+- [ ] Add home/root-shell affordances for continue watching and offline library when data exists.
+- [ ] Add manual smoke-test checklist covering search, auto-pick, continue, history, downloads, offline library, and update.
+- [ ] Run typecheck/lint/fmt/unit tests.
+
 ## Phase 10: Docs And Test Hardening
 
 ### Purpose
@@ -788,6 +861,11 @@ Make Kunai easier for users to learn and easier for maintainers to verify.
 
 ### Test Targets
 
+- launch arg parsing and bootstrap route selection
+- hands-off search with `--jump` / `--quick`
+- continue/resume target selection from history
+- history startup surface
+- offline library versus downloads queue routing
 - diagnostics redaction and support bundle
 - picker model order/selection
 - stream health/cache policy
@@ -802,6 +880,10 @@ Make Kunai easier for users to learn and easier for maintainers to verify.
 
 - [ ] Add docs skeletons only after the corresponding feature contracts exist.
 - [ ] Keep README short and route users to docs.
+- [ ] Move smoke-test commands into `.docs/testing-strategy.md` and keep `.docs/cli-reference.md` focused on user behavior.
+- [ ] Document `-S` versus `--jump` / `--quick` behavior explicitly.
+- [ ] Document continue/resume startup behavior after Phase 9a lands.
+- [ ] Document downloads queue versus offline library behavior after Phase 9a lands.
 - [ ] Add test matrix to `.docs/testing-strategy.md`.
 - [ ] Run full verification: `bun run typecheck`, `bun run lint`, `bun run fmt`, `bun run test`.
 
@@ -816,6 +898,7 @@ This is the “make it feel excellent” phase. It should not introduce new arch
 ### Surfaces
 
 - home/search/browse
+- launch flags and startup routes
 - details panel
 - episode picker
 - provider picker
@@ -844,10 +927,14 @@ This is the “make it feel excellent” phase. It should not introduce new arch
 - minimal mode is a projection of the same state, not a second code path
 - errors should suggest the next useful action
 - offline should feel comforting, not technical
+- continue/resume should feel like the primary path back into the app, not a hidden history trick
+- offline library should feel like a shelf of playable media, not a job queue wearing a coat
 - diagnostics can be nerdy, but normal screens should be human
 
 ### Tasks
 
+- [ ] Audit home/startup routes before polishing nested screens.
+- [ ] Make continue watching and offline library visible from home when data exists.
 - [ ] Audit copy and labels across all surfaces.
 - [ ] Remove duplicated state labels.
 - [ ] Normalize badge language.
@@ -869,8 +956,9 @@ This is the “make it feel excellent” phase. It should not introduce new arch
 9. Phase 7: Tracks and media preference model.
 10. Phase 8: Live playback telemetry snapshot.
 11. Phase 9: Update service and install method detection.
-12. Phase 10: Docs and test hardening.
-13. Phase 11: Product polish and Zen mode.
+12. Phase 9a: Launch, resume, and offline entry points.
+13. Phase 10: Docs and test hardening.
+14. Phase 11: Product polish and Zen mode.
 
 ## When To Stop And Replan
 
@@ -881,6 +969,9 @@ Stop and replan if:
 - stream health introduces provider breakage or slow startup.
 - diagnostics export risks leaking signed stream URLs or secrets.
 - offline playback forks history/progress behavior from online playback.
+- `/library`, `/offline`, and `--offline` drift back into queue-first downloads behavior.
+- `--continue` starts provider/network work before choosing a local history target.
+- docs imply `-S` alone auto-plays or fully smoke-tests playback.
 - smart downloads deletes user files without explicit policy and diagnostics.
 - `/tracks` requires provider-specific branches inside shell components.
 - update checks block startup or run package manager commands silently.
