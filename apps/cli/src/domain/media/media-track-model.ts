@@ -34,6 +34,22 @@ export type MediaSwitchingCapability = {
   readonly audio: boolean;
 };
 
+export type LanguageSelectionRequest =
+  | { readonly kind: "subtitle"; readonly language: string }
+  | { readonly kind: "audio"; readonly language: string }
+  | { readonly kind: "hardsub"; readonly language: string };
+
+export type LanguageSelectionIntent = LanguageSelectionRequest & {
+  readonly path:
+    | "no-op"
+    | "mpv-soft-subtitle"
+    | "mpv-subtitle-off"
+    | "cached-stream-reload"
+    | "provider-lookup-required";
+  readonly subtitleUrl?: string;
+  readonly streamId?: string;
+};
+
 export type MediaTrackModel = {
   readonly provider: ProviderMediaInventory;
   readonly selected: SelectedMediaTrackState;
@@ -97,6 +113,47 @@ export function describeStreamCandidateMediaDetail(
   ]
     .filter((part): part is string => typeof part === "string" && part.length > 0)
     .join("  ·  ");
+}
+
+export function resolveLanguageSelectionIntent(
+  stream: StreamInfo,
+  request: LanguageSelectionRequest,
+): LanguageSelectionIntent {
+  if (request.kind === "subtitle" && request.language === "none") {
+    return {
+      ...request,
+      path: stream.subtitle ? "mpv-subtitle-off" : "no-op",
+    };
+  }
+
+  const result = stream.providerResolveResult;
+  const subtitles = result?.subtitles ?? stream.subtitleList ?? [];
+
+  if (request.kind === "subtitle") {
+    const subtitle = subtitles.find((candidate) => candidate.language === request.language);
+    if (subtitle?.url) {
+      return {
+        ...request,
+        path: subtitle.url === stream.subtitle ? "no-op" : "mpv-soft-subtitle",
+        subtitleUrl: subtitle.url,
+      };
+    }
+    return { ...request, path: "provider-lookup-required" };
+  }
+
+  const selectedStreamId = result?.selectedStreamId;
+  const matchingStream = result?.streams.find((candidate) =>
+    request.kind === "audio"
+      ? candidate.audioLanguages?.includes(request.language)
+      : candidate.hardSubLanguage === request.language,
+  );
+
+  if (!matchingStream) return { ...request, path: "provider-lookup-required" };
+  return {
+    ...request,
+    path: matchingStream.id === selectedStreamId ? "no-op" : "cached-stream-reload",
+    streamId: matchingStream.id,
+  };
 }
 
 export function subtitlesForStreamCandidate(

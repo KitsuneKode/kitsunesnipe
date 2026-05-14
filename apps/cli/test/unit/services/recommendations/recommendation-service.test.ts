@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildRecommendCacheKey,
   isCacheExpired,
+  RecommendationServiceImpl,
 } from "@/services/recommendations/RecommendationServiceImpl";
 
 describe("recommendation cache", () => {
@@ -25,4 +26,79 @@ describe("recommendation cache", () => {
     const recent = Date.now() - 1 * 60 * 60 * 1000;
     expect(isCacheExpired(recent, 24 * 60 * 60 * 1000)).toBe(false);
   });
+
+  test("getTrending does not cache an empty section when upstream fetches fail", async () => {
+    const originalFetch = globalThis.fetch;
+    const cache = createRecommendationCacheDouble();
+    globalThis.fetch = createFetchDouble(async () => new Response("{}", { status: 503 }));
+
+    try {
+      const service = new RecommendationServiceImpl(cache as never);
+      const section = await service.getTrending();
+
+      expect(section.items).toEqual([]);
+      expect(cache.setCalls).toBe(0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("getForTitle does not cache an empty section when upstream fetches fail", async () => {
+    const originalFetch = globalThis.fetch;
+    const cache = createRecommendationCacheDouble();
+    globalThis.fetch = createFetchDouble(async () => new Response("{}", { status: 503 }));
+
+    try {
+      const service = new RecommendationServiceImpl(cache as never);
+      const section = await service.getForTitle("438631", "movie");
+
+      expect(section.items).toEqual([]);
+      expect(cache.setCalls).toBe(0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("getTrending caches a successful empty upstream response", async () => {
+    const originalFetch = globalThis.fetch;
+    const cache = createRecommendationCacheDouble();
+    globalThis.fetch = createFetchDouble(
+      async () =>
+        new Response(JSON.stringify({ results: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    try {
+      const service = new RecommendationServiceImpl(cache as never);
+      const section = await service.getTrending();
+
+      expect(section.items).toEqual([]);
+      expect(cache.setCalls).toBe(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
+
+type FetchHandler = (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
+
+function createFetchDouble(handler: FetchHandler): typeof fetch {
+  return Object.assign(handler, {
+    preconnect: globalThis.fetch.preconnect,
+  });
+}
+
+function createRecommendationCacheDouble() {
+  return {
+    setCalls: 0,
+    get() {
+      return undefined;
+    },
+    set() {
+      this.setCalls += 1;
+    },
+    clear() {},
+  };
+}

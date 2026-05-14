@@ -12,6 +12,8 @@
 //   bun run dev -- --continue              # Continue newest unfinished local history entry
 //   bun run dev -- --history               # Open watch history first
 //   bun run dev -- --offline               # Open completed offline library first
+//   bun run dev -- --calendar              # Open releases airing today first
+//   bun run dev -- --random                # Open a rerollable random recommendation tray first
 //   bun run dev -- -m                      # Minimal footer for this session
 //
 // This file owns the current fullscreen session runtime.
@@ -50,6 +52,7 @@ export function parseArgs(argv: string[]): {
   continuePlayback: boolean;
   download: boolean;
   downloadPath?: string;
+  initialRoute?: "calendar" | "random";
   shellChrome: ShellChrome;
 } {
   const args: {
@@ -68,6 +71,7 @@ export function parseArgs(argv: string[]): {
     continuePlayback: boolean;
     download: boolean;
     downloadPath?: string;
+    initialRoute?: "calendar" | "random";
   } = {
     anime: false,
     debug: false,
@@ -106,6 +110,10 @@ export function parseArgs(argv: string[]): {
       args.setup = true;
     } else if (arg === "--offline") {
       args.offline = true;
+    } else if (arg === "--calendar") {
+      args.initialRoute = "calendar";
+    } else if (arg === "--random") {
+      args.initialRoute = "random";
     } else if (arg === "--history") {
       args.history = true;
     } else if (arg === "--continue" || arg === "--resume") {
@@ -430,6 +438,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
     await globalController.run({
       initialQuery: bootstrapQuery,
       initialTitle: bootstrapTitle,
+      initialRoute: args.initialRoute,
       autoPickSearchResultIndex,
     });
 

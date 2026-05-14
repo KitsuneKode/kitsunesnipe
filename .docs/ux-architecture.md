@@ -46,6 +46,10 @@ KitsuneSnipe should behave like a terminal app shell, not a sequence of unrelate
 - `/` is the global entry point for actions
 - post-playback should always expose a direct path back into a fresh search without quitting the app
 - common operations should have short command aliases
+- discovery commands should be explicit and safe:
+  - `/recommendation` loads personalized discovery
+  - `/calendar` loads releases airing today without provider resolution
+  - `/random` spins a small browse tray and never starts playback by itself
 - commands should be discoverable rather than hidden
 - command ownership should live in one global router, not in each component independently
 - `/` should stay available in every interactive state, including picker and filter flows
@@ -110,6 +114,8 @@ This keeps the user anchored in the current query and result list while they ins
 Title details should be honest about data quality:
 
 - show overview, poster availability, rating, episode count, and provider facts when the source returned them
+- promote local progress, offline availability, and broken local artifact state near the title summary when known
+- show calendar entries as release facts, not playable guarantees
 - show explicit unavailable placeholders when a provider-native result does not expose those fields
 - keep actual Kitty/Ghostty image rendering outside the Ink render tree until the image-pane service owns layout, clearing, and flicker control
 - never require image support for selection, playback, or episode navigation
@@ -179,6 +185,7 @@ Keep deeper detail in a diagnostics overlay:
 
 - cache / prefetch / fresh scrape / API path
 - subtitle source and selected track
+- language switch path, especially whether the request was an mpv soft-subtitle switch, cached stream reload, or provider lookup
 - scrape timing
 - retry and fallback history
 - capability state for `mpv`, Playwright, and image backends

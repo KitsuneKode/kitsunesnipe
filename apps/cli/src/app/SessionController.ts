@@ -15,6 +15,7 @@ export type SessionOutcome = "quit" | "mode_switch";
 export interface SessionBootstrap {
   initialQuery?: string;
   initialTitle?: TitleInfo | null;
+  initialRoute?: SearchPhaseInput["initialRoute"];
   preserveExistingSearch?: boolean;
   /** 1-based search result index for the first bootstrap query (`--jump` / `--quick`). */
   autoPickSearchResultIndex?: number;
@@ -36,6 +37,7 @@ export class SessionController {
     const { logger, tracer, stateManager, diagnosticsStore } = this.container;
     let pendingInitialTitle = bootstrap.initialTitle ?? null;
     let pendingInitialQuery = bootstrap.initialQuery;
+    let pendingInitialRoute = bootstrap.initialRoute;
     let preserveExistingSearch = bootstrap.preserveExistingSearch ?? false;
     let pendingAutoPick = bootstrap.autoPickSearchResultIndex;
 
@@ -60,12 +62,14 @@ export class SessionController {
             const searchResult = await this.executePhase(
               {
                 initialQuery: pendingInitialQuery,
+                initialRoute: pendingInitialRoute,
                 preserveExistingSearch,
                 autoPickSearchResultIndex: pendingAutoPick,
               } satisfies SearchPhaseInput,
               new (await import("./SearchPhase")).SearchPhase(),
             );
             pendingInitialQuery = undefined;
+            pendingInitialRoute = undefined;
             pendingAutoPick = undefined;
             preserveExistingSearch = false;
 

@@ -33,4 +33,29 @@ describe("selectFooterActions", () => {
       "command-mode",
     ]);
   });
+
+  test("keeps detailed footer compact when actions overflow", () => {
+    const actions: readonly FooterAction[] = [
+      { key: "/", label: "commands", action: "command-mode" },
+      { key: "q", label: "stop", action: "quit" },
+      { key: "n", label: "next", action: "next" },
+      { key: "p", label: "previous", action: "previous" },
+      { key: "a", label: "autoplay", action: "toggle-autoplay" },
+      { key: "u", label: "autoskip", action: "toggle-autoskip" },
+      { key: "e", label: "episodes", action: "pick-episode" },
+      { key: "k", label: "streams", action: "streams" },
+      { key: "o", label: "source", action: "source" },
+      { key: "v", label: "quality", action: "quality" },
+      { key: "r", label: "recover", action: "recover" },
+    ];
+
+    const selected = selectFooterActions(actions, "detailed", 120);
+
+    expect(selected.length).toBeLessThanOrEqual(5);
+    expect(
+      selected.filter((action) => action.action !== "command-mode").length,
+    ).toBeLessThanOrEqual(4);
+    expect(selected.at(-1)?.action).toBe("command-mode");
+    expect(selected.at(-1)?.label).toContain("more");
+  });
 });

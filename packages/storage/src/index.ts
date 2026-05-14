@@ -14,6 +14,8 @@ export type { DownloadJobRecord, DownloadJobStatus } from "./repositories/downlo
 export { ProviderHealthRepository } from "./repositories/provider-health";
 export { ResolveTraceRepository } from "./repositories/resolve-trace";
 export { RecommendationCacheRepository } from "./repositories/recommendation-cache";
+export { ScheduleCacheRepository } from "./repositories/schedule-cache";
+export type { ScheduleCacheEntry, ScheduleCacheSetOptions } from "./repositories/schedule-cache";
 export { SourceInventoryRepository } from "./repositories/source-inventory";
 export type { SourceInventoryEntry } from "./repositories/source-inventory";
 export { StreamCacheRepository } from "./repositories/stream-cache";

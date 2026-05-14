@@ -1,8 +1,8 @@
 # Kunai — Daily-Use UX, Discovery, And Runtime Hardening
 
-Status: active
+Status: implementation pass complete, pending manual smoke
 
-Last updated: 2026-05-14
+Last updated: 2026-05-15
 
 This is the current active plan produced from the product grill session around daily-use experience,
 release calendars, recommendations, language handling, offline visibility, fullscreen TUI behavior,
@@ -82,6 +82,13 @@ Exit criteria:
 Goal: anime and TV release timing becomes a first-class catalog service, separate from provider
 playability.
 
+Progress:
+
+- 2026-05-15: schedule results are persisted in the SQLite cache DB through `schedule_cache`,
+  wired into `CatalogScheduleService`, and reused across service instances. Calendar browse routes
+  now exist as `/calendar` and `--calendar`; calendar rows explicitly say provider availability is
+  checked only after title selection.
+
 Tasks:
 
 - persist schedule results in SQLite cache instead of only in-memory service caches
@@ -106,6 +113,12 @@ Exit criteria:
 
 Goal: search stays instant while rows become more informative after local and relevant lazy
 enrichment.
+
+Progress:
+
+- 2026-05-14: local progress/offline enrichment now feeds normal browse/search/trending/recommendation
+  option mapping. Partial history is shown as a continue badge with episode, timestamp, and percent;
+  completed offline artifacts and broken local artifacts are surfaced as local/offline facts.
 
 Tasks:
 
@@ -132,6 +145,11 @@ Exit criteria:
 
 Goal: “recommend me something” feels playful but still controlled.
 
+Progress:
+
+- 2026-05-15: `/random` and `--random` load a rerollable browse tray from the discover pipeline,
+  explain each pick with `Random pick`, and never start playback automatically.
+
 Tasks:
 
 - add `/random`
@@ -150,6 +168,11 @@ Exit criteria:
 ## Milestone 5: Details Panel Repair
 
 Goal: the details panel should feel like a real title hub, not a broken shallow projection.
+
+Progress:
+
+- 2026-05-14: details panels now promote local progress and offline state near the top of the
+  title overview instead of burying them among provider facts.
 
 Tasks:
 
@@ -178,6 +201,12 @@ Current invariant:
 - preferred subtitle is selected as active/default
 - all available subtitle tracks are attached to mpv when possible
 - providers expose evidence; playback owns user preference policy
+
+Progress:
+
+- 2026-05-15: `LanguageSelectionIntent` now classifies language requests as mpv soft-subtitle
+  switch, subtitle-off, cached stream reload, no-op, or provider lookup required. Existing mpv tests
+  cover preferred subtitle first plus additional subtitle inventory attachment.
 
 Tasks:
 
@@ -324,13 +353,13 @@ bun run dev -- -S "Attack on Titan" -a
 bun run dev -- -S "Dune" --debug
 bun run dev -- --continue
 bun run dev -- --offline
-```
-
-Additional smoke after this plan lands:
-
-```sh
 bun run dev -- --calendar
 bun run dev -- --random
+```
+
+Additional visual/runtime smoke:
+
+```sh
 bun run dev -- -S "Attack on Titan" --debug
 KUNAI_POSTER=0 bun run dev
 KUNAI_IMAGE_DEBUG=1 bun run dev -- -S "Dune"

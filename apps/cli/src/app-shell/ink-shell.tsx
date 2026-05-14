@@ -697,6 +697,7 @@ function AppRoot({ container }: { container: Container }) {
                   cancellable: playbackCanCancel,
                   trace: playbackTrace,
                   showMemory: container.config.showMemory,
+                  posterUrl: state.currentTitle?.posterUrl,
                   getRuntimeHealth: () =>
                     state.playbackStatus === "playing" ||
                     state.playbackStatus === "buffering" ||

@@ -15,9 +15,13 @@ test("parseArgs supports startup entry routes", () => {
   const continuePlayback = parseArgs(["--continue"]);
   const history = parseArgs(["--history"]);
   const offline = parseArgs(["--offline"]);
+  const calendar = parseArgs(["--calendar"]);
+  const random = parseArgs(["--random"]);
 
   expect(resume.continuePlayback).toBe(true);
   expect(continuePlayback.continuePlayback).toBe(true);
   expect(history.history).toBe(true);
   expect(offline.offline).toBe(true);
+  expect(calendar.initialRoute).toBe("calendar");
+  expect(random.initialRoute).toBe("random");
 });

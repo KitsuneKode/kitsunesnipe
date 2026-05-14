@@ -14,6 +14,8 @@ export type { SharedResolveTrace };
 export type { MediaPreference, MediaPreferenceKind } from "./media/media-preferences";
 export type {
   ActiveMediaTrackState,
+  LanguageSelectionIntent,
+  LanguageSelectionRequest,
   MediaTrackModel,
   ProviderMediaInventory,
   SelectedMediaTrackState,

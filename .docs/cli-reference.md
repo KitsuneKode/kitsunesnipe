@@ -31,6 +31,8 @@ Source installs require Bun during beta. The CLI uses Bun runtime APIs directly,
 5. **Continue watching** — `--continue` / `--resume`: picks the newest unfinished local history entry and enters the normal playback flow without doing provider/network work before choosing the target.
 6. **History first** — `--history`: opens the history picker at startup so you can choose what to continue.
 7. **Offline library first** — `--offline`: opens completed local downloads first. This is the same intent as `/library` or `/offline`; use `/downloads` for queue/status management.
+8. **Calendar first** — `--calendar`: opens releases airing today. It does not imply the episode is provider-playable yet.
+9. **Random tray first** — `--random`: opens a small explained surprise tray. It never auto-plays.
 
 History, resume, provider choice, season/episode pickers, and diagnostics export are **in-shell** (command palette `/`, settings, etc.), not separate CLI flags today.
 
@@ -57,6 +59,8 @@ All flags are optional. Values that take an argument consume the **next** argv t
 | `--continue` | `--resume` | Continue the newest unfinished local history item. If none exists, Kunai falls back to the shell. |
 | `--history`  | —          | Open watch history first and continue the selected entry.                                         |
 | `--offline`  | —          | Open the completed offline library first.                                                         |
+| `--calendar` | —          | Open releases airing today first. Provider availability is checked only after selection.          |
+| `--random`   | —          | Open a rerollable surprise tray first without starting playback.                                  |
 
 ### Session UI density (shell chrome)
 
@@ -134,6 +138,8 @@ These are useful for docs parity so users do not search for a `--history` flag.
 | Provider fallback              | `f`; skips to the next compatible provider during resolve or recovery                                                              |
 | Pause autoskip                 | `u` during active playback; suppresses automatic segment skips for the current title/session without changing config               |
 | Completed offline library      | `/ library`, `/ offline`, or `--offline` — browses playable completed downloads first                                              |
+| Release calendar               | `/ calendar`, `/ airing`, or `--calendar` — shows releases airing today without provider resolve                                   |
+| Random picks                   | `/ random`, `/ surprise`, `/ spin`, or `--random` — shows a small explained surprise tray; rerun to spin again                     |
 | Download queue                 | `/ downloads` — manages queued, running, and failed download jobs                                                                  |
 | Check for updates              | `/ update` or command palette — checks the configured update source, then shows manual install-method-aware guidance               |
 
@@ -192,6 +198,8 @@ bun run dev -- -a -S "Attack on Titan" --jump 1
 bun run dev -- --continue
 bun run dev -- --history
 bun run dev -- --offline
+bun run dev -- --calendar
+bun run dev -- --random
 
 # Dense shell + search
 bun run dev -- -m -S "Attack on Titan"
