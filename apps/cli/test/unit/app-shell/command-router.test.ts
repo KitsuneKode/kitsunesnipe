@@ -20,4 +20,19 @@ describe("routePlaybackShellAction", () => {
 
     expect(result).toBe("handled");
   });
+
+  test("calendar and random actions during search are handled by the search phase", async () => {
+    await expect(
+      routeSearchShellAction({
+        action: "calendar",
+        container: {} as never,
+      }),
+    ).resolves.toBe("handled");
+    await expect(
+      routeSearchShellAction({
+        action: "random",
+        container: {} as never,
+      }),
+    ).resolves.toBe("handled");
+  });
 });

@@ -217,6 +217,28 @@ export const cacheMigrations: readonly Migration[] = [
         ON recommendation_cache(expires_at);
     `,
   },
+  {
+    id: "006_cache_schedule_cache",
+    database: "cache",
+    sql: `
+      CREATE TABLE IF NOT EXISTS schedule_cache (
+        cache_key TEXT PRIMARY KEY,
+        source TEXT,
+        mode TEXT,
+        payload_json TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        last_accessed_at TEXT NOT NULL,
+        hit_count INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_schedule_cache_expires_at
+        ON schedule_cache(expires_at);
+
+      CREATE INDEX IF NOT EXISTS idx_schedule_cache_mode
+        ON schedule_cache(mode, expires_at);
+    `,
+  },
 ];
 
 export function runMigrations(

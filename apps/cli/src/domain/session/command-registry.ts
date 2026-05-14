@@ -5,6 +5,8 @@ export type AppCommandId =
   | "search"
   | "trending"
   | "recommendation"
+  | "calendar"
+  | "random"
   | "settings"
   | "presence"
   | "toggle-mode"
@@ -92,6 +94,8 @@ export const COMMAND_CONTEXTS = {
     "setup",
     "search",
     "recommendation",
+    "calendar",
+    "random",
     "settings",
     "presence",
     "toggle-mode",
@@ -164,6 +168,18 @@ export const COMMANDS: readonly AppCommand[] = [
     label: "Recommendation",
     aliases: ["recommendation", "recommendations", "recs", "suggest", "discover"],
     description: "Open personalized recommendations and trending content",
+  },
+  {
+    id: "calendar",
+    label: "Release Calendar",
+    aliases: ["calendar", "schedule", "airing", "today", "releases"],
+    description: "Open releases airing today without resolving provider streams",
+  },
+  {
+    id: "random",
+    label: "Random Picks",
+    aliases: ["random", "roulette", "spin", "surprise", "pick-for-me"],
+    description: "Spin a small explained tray of recommendations without autoplaying",
   },
   {
     id: "settings",
@@ -449,6 +465,8 @@ function resolveCommandState(
     case "search":
     case "trending":
     case "recommendation":
+    case "calendar":
+    case "random":
     case "settings":
     case "presence":
     case "history":

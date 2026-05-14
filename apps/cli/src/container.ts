@@ -23,6 +23,7 @@ import {
   ProviderHealthRepository,
   RecommendationCacheRepository,
   runMigrations,
+  ScheduleCacheRepository,
   SourceInventoryRepository,
   StreamCacheRepository,
 } from "@kunai/storage";
@@ -188,6 +189,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   const mediaTrackService = new MediaTrackService();
   const recommendationCache = new RecommendationCacheRepository(cacheDb);
   const providerHealth = new ProviderHealthRepository(cacheDb);
+  const scheduleCache = new ScheduleCacheRepository(cacheDb);
   const downloadJobs = new DownloadJobsRepository(dataDb);
   const diagnosticsStore = new DiagnosticsStoreImpl();
   const diagnosticsService = new DiagnosticsServiceImpl({
@@ -271,7 +273,7 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   const capabilitySnapshot = options?.capabilitySnapshot ?? null;
 
   const recommendationService = new RecommendationServiceImpl(recommendationCache);
-  const catalogScheduleService = createCatalogScheduleService();
+  const catalogScheduleService = createCatalogScheduleService(scheduleCache);
   const timelineService = new TimelineService(catalogScheduleService);
   const resultEnrichmentService = new ResultEnrichmentService({
     historyStore,

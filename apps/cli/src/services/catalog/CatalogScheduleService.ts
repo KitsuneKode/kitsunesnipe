@@ -3,6 +3,7 @@ const ANILIST_GRAPHQL_URL = "https://graphql.anilist.co";
 const NEXT_RELEASE_TTL_MS = 2 * 60 * 60 * 1000;
 const RELEASING_TODAY_TTL_MS = 30 * 60 * 1000;
 const HISTORICAL_RELEASE_TTL_MS = 24 * 60 * 60 * 1000;
+const RELEASE_SAFETY_WINDOW_MS = 15 * 60 * 1000;
 
 export type CatalogScheduleSource = "tmdb" | "anilist";
 export type CatalogScheduleType = "anime" | "series" | "movie";
@@ -50,6 +51,23 @@ export type CatalogScheduleLoaders = {
   ) => Promise<readonly CatalogScheduleItem[]>;
 };
 
+export type CatalogScheduleCacheStore = {
+  readonly get: (
+    key: string,
+    now?: Date,
+  ) => { readonly payloadJson: string; readonly expiresAt?: string } | undefined;
+  readonly set: (
+    key: string,
+    payloadJson: string,
+    options: {
+      readonly expiresAt: string;
+      readonly now?: string;
+      readonly source?: string;
+      readonly mode?: string;
+    },
+  ) => void;
+};
+
 type ScheduleCacheEntry<T> = {
   readonly expiresAt: number;
   readonly value: T;
@@ -62,6 +80,7 @@ export class CatalogScheduleService {
   constructor(
     private readonly loaders: CatalogScheduleLoaders = defaultCatalogScheduleLoaders,
     private readonly now: () => number = () => Date.now(),
+    private readonly persistentCache?: CatalogScheduleCacheStore,
   ) {}
 
   clearCache(): void {
@@ -74,7 +93,7 @@ export class CatalogScheduleService {
     signal?: AbortSignal,
   ): Promise<CatalogScheduleItem | null> {
     const key = `next:${input.source}:${input.type}:${input.titleId}:${input.season ?? "-"}:${input.episode ?? "-"}`;
-    return this.loadCached(key, NEXT_RELEASE_TTL_MS, signal, async () => {
+    return this.loadCached(key, NEXT_RELEASE_TTL_MS, signal, { source: input.source }, async () => {
       const item = await this.loaders.nextRelease(input, signal);
       return item ? normalizeScheduleItem(item, this.now()) : null;
     });
@@ -86,7 +105,7 @@ export class CatalogScheduleService {
   ): Promise<readonly CatalogScheduleItem[]> {
     const window = buildLocalDayWindow(this.now());
     const key = `today:${mode}:${window.dateKey}`;
-    return this.loadCached(key, RELEASING_TODAY_TTL_MS, signal, async () => {
+    return this.loadCached(key, RELEASING_TODAY_TTL_MS, signal, { mode }, async () => {
       const items = await this.loaders.releasingToday(mode, window, signal);
       return items.map((item) => normalizeScheduleItem(item, this.now()));
     });
@@ -96,18 +115,29 @@ export class CatalogScheduleService {
     key: string,
     ttlMs: number,
     _signal: AbortSignal | undefined,
+    metadata: { readonly source?: string; readonly mode?: string },
     load: () => Promise<T>,
   ): Promise<T> {
     const cached = this.cache.get(key);
     if (cached && cached.expiresAt > this.now()) return cached.value as T;
 
+    const persisted = this.loadPersisted<T>(key);
+    if (persisted.found) return persisted.value;
+
     const inflight = this.inflight.get(key);
     if (inflight) return (await inflight) as T;
 
     const task = load().then((value) => {
+      const ttl = ttlForScheduleValue(value, ttlMs, this.now());
+      const expiresAt = this.now() + ttl;
       this.cache.set(key, {
-        expiresAt: this.now() + ttlForScheduleValue(value, ttlMs),
+        expiresAt,
         value,
+      });
+      this.persistentCache?.set(key, JSON.stringify(value), {
+        expiresAt: new Date(expiresAt).toISOString(),
+        now: new Date(this.now()).toISOString(),
+        ...metadata,
       });
       return value;
     });
@@ -119,10 +149,34 @@ export class CatalogScheduleService {
       this.inflight.delete(key);
     }
   }
+
+  private loadPersisted<T>(key: string): { found: true; value: T } | { found: false } {
+    const persisted = this.persistentCache?.get(key, new Date(this.now()));
+    if (!persisted) return { found: false };
+    try {
+      const value = JSON.parse(persisted.payloadJson) as T;
+      const expiresAt = persisted.expiresAt
+        ? Date.parse(persisted.expiresAt)
+        : this.now() + NEXT_RELEASE_TTL_MS;
+      this.cache.set(key, {
+        expiresAt: Number.isFinite(expiresAt) ? expiresAt : this.now() + NEXT_RELEASE_TTL_MS,
+        value,
+      });
+      return { found: true, value };
+    } catch {
+      return { found: false };
+    }
+  }
 }
 
-export function createCatalogScheduleService(): CatalogScheduleService {
-  return new CatalogScheduleService();
+export function createCatalogScheduleService(
+  persistentCache?: CatalogScheduleCacheStore,
+): CatalogScheduleService {
+  return new CatalogScheduleService(
+    defaultCatalogScheduleLoaders,
+    () => Date.now(),
+    persistentCache,
+  );
 }
 
 export function normalizeScheduleItem(
@@ -164,8 +218,14 @@ export function buildLocalDayWindow(nowMs: number): CatalogScheduleWindow {
   };
 }
 
-function ttlForScheduleValue<T>(value: T, fallbackTtlMs: number): number {
+function ttlForScheduleValue<T>(value: T, fallbackTtlMs: number, nowMs: number): number {
   if (isScheduleItem(value) && value.status === "released") return HISTORICAL_RELEASE_TTL_MS;
+  if (isScheduleItem(value) && value.status === "upcoming" && value.releaseAt) {
+    const releaseMs = Date.parse(value.releaseAt);
+    if (Number.isFinite(releaseMs) && releaseMs > nowMs) {
+      return Math.max(60_000, releaseMs - nowMs + RELEASE_SAFETY_WINDOW_MS);
+    }
+  }
   return fallbackTtlMs;
 }
 

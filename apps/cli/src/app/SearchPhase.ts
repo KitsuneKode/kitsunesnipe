@@ -11,9 +11,11 @@ import { openBrowseShell } from "@/app-shell/ink-shell";
 import { buildShellRuntimeBindings } from "@/app-shell/runtime-bindings";
 import { mapAnimeDiscoveryResultToProviderNative } from "@/app/anime-provider-mapping";
 import { chooseSearchResultTitle, toBrowseResultOption } from "@/app/browse-option-mappers";
+import { loadCalendarResults } from "@/app/calendar-results";
 import { loadDiscoverResults } from "@/app/discover-results";
 import { loadDiscoveryList } from "@/app/discovery-lists";
 import type { Phase, PhaseResult, PhaseContext } from "@/app/Phase";
+import { loadRandomResults } from "@/app/random-results";
 import { searchTitles } from "@/app/search-routing";
 import { effectiveFooterHints } from "@/container";
 import type { SearchResult, TitleInfo } from "@/domain/types";
@@ -25,6 +27,7 @@ import type { HistoryEntry } from "@/services/persistence/HistoryStore";
 
 export type SearchPhaseInput = {
   initialQuery?: string;
+  initialRoute?: "trending" | "recommendation" | "calendar" | "random";
   preserveExistingSearch?: boolean;
   /** 1-based index into search results; skips the browse shell when in range (use with bootstrap search). */
   autoPickSearchResultIndex?: number;
@@ -43,6 +46,8 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
     try {
       const preserveExistingSearch =
         !!input && "preserveExistingSearch" in input && input.preserveExistingSearch === true;
+      let pendingInitialRoute =
+        input && "initialRoute" in input && input.initialRoute ? input.initialRoute : undefined;
 
       if (!preserveExistingSearch) {
         stateManager.dispatch({ type: "RESET_SEARCH" });
@@ -56,6 +61,16 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
 
       while (true) {
         const currentState = stateManager.getState();
+        if (
+          pendingInitialRoute &&
+          currentState.searchQuery.trim().length === 0 &&
+          currentState.searchResults.length === 0
+        ) {
+          await loadSearchRoute(pendingInitialRoute, context);
+          pendingInitialRoute = undefined;
+          continue;
+        }
+
         if (currentState.searchQuery.trim().length > 0 && currentState.searchResults.length === 0) {
           stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "loading" });
 
@@ -164,6 +179,8 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
             "settings",
             "trending",
             "recommendation",
+            "calendar",
+            "random",
             "toggle-mode",
             "provider",
             "history",
@@ -351,15 +368,16 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
           }
 
           if (outcome.action === "recommendation") {
-            const discover = await loadDiscoverResults(container);
-            stateManager.dispatch({ type: "SET_SEARCH_QUERY", query: "" });
-            stateManager.dispatch({
-              type: "SET_SEARCH_RESULTS",
-              results: [...discover.results],
-            });
-            if (discover.results.length > 0) {
-              stateManager.dispatch({ type: "SELECT_RESULT", index: 0 });
-            }
+            await loadSearchRoute("recommendation", context);
+            continue;
+          }
+
+          if (
+            outcome.action === "trending" ||
+            outcome.action === "calendar" ||
+            outcome.action === "random"
+          ) {
+            await loadSearchRoute(outcome.action, context);
             continue;
           }
 
@@ -435,6 +453,51 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
       };
     }
   }
+}
+
+async function loadSearchRoute(
+  route: NonNullable<SearchPhaseInput["initialRoute"]>,
+  context: PhaseContext,
+): Promise<void> {
+  const { container } = context;
+  const { stateManager, diagnosticsStore, logger } = container;
+  stateManager.dispatch({ type: "SET_SEARCH_QUERY", query: "" });
+  stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "loading" });
+
+  const mode = stateManager.getState().mode;
+  const bundle =
+    route === "trending"
+      ? {
+          results: await loadDiscoveryList(mode, context.signal),
+          subtitle: `${mode === "anime" ? "AniList" : "TMDB"} trending`,
+        }
+      : route === "calendar"
+        ? await loadCalendarResults(container, context.signal)
+        : route === "random"
+          ? await loadRandomResults(container)
+          : await loadDiscoverResults(container);
+
+  const results = [...bundle.results];
+  stateManager.dispatch({ type: "SET_SEARCH_RESULTS", results });
+  stateManager.dispatch({ type: "SET_SEARCH_STATE", state: "ready" });
+  if (results.length > 0) {
+    stateManager.dispatch({ type: "SELECT_RESULT", index: 0 });
+  }
+
+  logger.info("Search route loaded", {
+    route,
+    mode,
+    count: results.length,
+  });
+  diagnosticsStore.record({
+    category: "search",
+    message: "Search route loaded",
+    context: {
+      route,
+      mode,
+      count: results.length,
+    },
+  });
 }
 
 type BrowseDisplayContext = {

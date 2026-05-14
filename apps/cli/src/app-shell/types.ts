@@ -7,6 +7,8 @@ export type ShellAction =
   | "back-to-search"
   | "trending"
   | "recommendation"
+  | "calendar"
+  | "random"
   | "back-to-results"
   | "settings"
   | "presence"
@@ -173,6 +175,8 @@ export function toShellAction(commandId: AppCommandId): ShellAction {
     case "setup":
     case "trending":
     case "recommendation":
+    case "calendar":
+    case "random":
     case "settings":
     case "presence":
     case "toggle-mode":

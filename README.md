@@ -29,6 +29,8 @@ kunai -a -S "Frieren" --jump 1
 kunai --continue
 kunai --history
 kunai --offline
+kunai --calendar
+kunai --random
 kunai --debug
 kunai --setup
 ```
@@ -152,10 +154,14 @@ kunai --setup
 kunai --download -S "Dune"
 kunai --download -S "Dune" --download-path ~/Videos/Kunai
 kunai --offline
+kunai --calendar
+kunai --random
 ```
 
 In the shell, use `/download` to enqueue the selected/current item, `/downloads` to inspect,
 retry, abort, or delete jobs, and `/library` or `/offline` for completed local files.
+Use `/calendar` for releases airing today and `/random` to spin a small non-autoplaying
+recommendation tray.
 
 ### Default download path (when enabled)
 

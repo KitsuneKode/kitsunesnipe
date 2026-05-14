@@ -16,6 +16,7 @@ import {
   ProviderHealthRepository,
   ResolveTraceRepository,
   runMigrations,
+  ScheduleCacheRepository,
   SourceInventoryRepository,
   StreamCacheRepository,
 } from "../src/index";
@@ -82,9 +83,29 @@ test("migrations are idempotent and create expected storage tables", () => {
   expect(cacheTables).toContain("provider_health");
   expect(cacheTables).toContain("source_inventory");
   expect(cacheTables).toContain("resolve_traces");
+  expect(cacheTables).toContain("schedule_cache");
 
   dataDb.close();
   cacheDb.close();
+});
+
+test("schedule cache repository stores and expires catalog payloads by cache key", () => {
+  const db = migratedCacheDb();
+  const repo = new ScheduleCacheRepository(db);
+
+  repo.set("today:anime:2026-05-15", JSON.stringify([{ titleId: "21" }]), {
+    expiresAt: "2026-05-15T13:00:00.000Z",
+    now: "2026-05-15T12:00:00.000Z",
+    source: "anilist",
+    mode: "anime",
+  });
+
+  expect(
+    repo.get("today:anime:2026-05-15", new Date("2026-05-15T12:30:00.000Z"))?.payloadJson,
+  ).toBe(JSON.stringify([{ titleId: "21" }]));
+  expect(repo.get("today:anime:2026-05-15", new Date("2026-05-15T14:00:00.000Z"))).toBe(undefined);
+
+  db.close();
 });
 
 test("ttl and stream cache key helpers encode compatibility inputs", () => {

@@ -71,6 +71,52 @@ describe("CatalogScheduleService", () => {
     expect(calls).toBe(2);
   });
 
+  test("reuses persisted schedule cache across service instances", async () => {
+    let calls = 0;
+    const store = new MemoryScheduleCache();
+    const first = new CatalogScheduleService(
+      createLoaders({
+        nextRelease: async (input) => {
+          calls += 1;
+          return {
+            source: input.source,
+            titleId: input.titleId,
+            titleName: input.titleName,
+            type: input.type,
+            season: input.season,
+            episode: input.episode,
+            releaseAt: "2026-05-09",
+            releasePrecision: "date",
+            status: "unknown",
+          };
+        },
+      }),
+      () => NOW,
+      store,
+    );
+    const second = new CatalogScheduleService(createLoaders({}), () => NOW, store);
+
+    await first.getNextRelease({
+      source: "tmdb",
+      titleId: "1",
+      titleName: "Demo",
+      type: "series",
+      season: 1,
+      episode: 2,
+    });
+    const cached = await second.getNextRelease({
+      source: "tmdb",
+      titleId: "1",
+      titleName: "Demo",
+      type: "series",
+      season: 1,
+      episode: 2,
+    });
+
+    expect(cached?.status).toBe("upcoming");
+    expect(calls).toBe(1);
+  });
+
   test("dedupes in-flight releasing-today loads per mode and day", async () => {
     let calls = 0;
     let releaseLoad!: () => void;
@@ -120,4 +166,18 @@ function createLoaders(overrides: Partial<CatalogScheduleLoaders>): CatalogSched
     releasingToday: async () => [],
     ...overrides,
   };
+}
+
+class MemoryScheduleCache {
+  private readonly entries = new Map<string, { payloadJson: string; expiresAt: string }>();
+
+  get(key: string, now = new Date()): { payloadJson: string } | undefined {
+    const entry = this.entries.get(key);
+    if (!entry || Date.parse(entry.expiresAt) <= now.getTime()) return undefined;
+    return { payloadJson: entry.payloadJson };
+  }
+
+  set(key: string, payloadJson: string, options: { expiresAt: string }): void {
+    this.entries.set(key, { payloadJson, expiresAt: options.expiresAt });
+  }
 }

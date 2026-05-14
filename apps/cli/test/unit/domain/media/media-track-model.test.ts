@@ -6,6 +6,7 @@ import {
 } from "@/domain/media/media-preferences";
 import {
   buildMediaTrackModel,
+  resolveLanguageSelectionIntent,
   describeStreamCandidateMediaDetail,
 } from "@/domain/media/media-track-model";
 import type { StreamInfo } from "@/domain/types";
@@ -137,5 +138,65 @@ describe("media track model", () => {
         subtitleCandidate,
       ]),
     ).toBe("hls  ·  m3u8  ·  audio ja  ·  hardsub en  ·  soft subs en");
+  });
+
+  test("classifies language switch paths from cached inventory before provider lookup", () => {
+    const stream: StreamInfo = {
+      url: "https://cdn.example/1080.m3u8",
+      headers: {},
+      subtitle: "https://cdn.example/en.vtt",
+      timestamp: Date.now(),
+      providerResolveResult: {
+        providerId: "vidking",
+        selectedStreamId: "stream-1080",
+        streams: [
+          { ...streamCandidate, variantId: "variant-1080" },
+          {
+            ...streamCandidate,
+            id: "stream-dub",
+            audioLanguages: ["en"],
+            hardSubLanguage: undefined,
+            url: "https://cdn.example/dub.m3u8",
+          },
+        ],
+        sources: [],
+        subtitles: [
+          subtitleCandidate,
+          { ...subtitleCandidate, id: "sub-fr", language: "fr", url: "https://cdn.example/fr.vtt" },
+        ],
+        trace: {
+          id: "trace-1",
+          startedAt: new Date().toISOString(),
+          cacheHit: false,
+          title: { id: "1", kind: "series", title: "Demo" },
+          steps: [],
+          failures: [],
+        },
+        failures: [],
+      },
+    };
+
+    expect(resolveLanguageSelectionIntent(stream, { kind: "subtitle", language: "fr" })).toEqual({
+      kind: "subtitle",
+      language: "fr",
+      path: "mpv-soft-subtitle",
+      subtitleUrl: "https://cdn.example/fr.vtt",
+    });
+    expect(resolveLanguageSelectionIntent(stream, { kind: "audio", language: "en" })).toEqual({
+      kind: "audio",
+      language: "en",
+      path: "cached-stream-reload",
+      streamId: "stream-dub",
+    });
+    expect(resolveLanguageSelectionIntent(stream, { kind: "subtitle", language: "none" })).toEqual({
+      kind: "subtitle",
+      language: "none",
+      path: "mpv-subtitle-off",
+    });
+    expect(resolveLanguageSelectionIntent(stream, { kind: "audio", language: "ko" })).toEqual({
+      kind: "audio",
+      language: "ko",
+      path: "provider-lookup-required",
+    });
   });
 });

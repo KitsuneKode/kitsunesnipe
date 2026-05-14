@@ -14,12 +14,20 @@ describe("recommendation command", () => {
     expect(parseCommand("/trending")?.id).toBe("trending");
     expect(parseCommand("/recommendation")?.id).toBe("recommendation");
     expect(parseCommand("/discover")?.id).toBe("recommendation");
+    expect(parseCommand("/calendar")?.id).toBe("calendar");
+    expect(parseCommand("/airing")?.id).toBe("calendar");
+    expect(parseCommand("/random")?.id).toBe("random");
+    expect(parseCommand("/spin")?.id).toBe("random");
     expect(resolveCommands(state, ["trending"])).toEqual([
       expect.objectContaining({
         id: "trending",
         label: "Trending",
         enabled: true,
       }),
+    ]);
+    expect(resolveCommands(state, ["calendar", "random"]).map((command) => command.id)).toEqual([
+      "calendar",
+      "random",
     ]);
   });
 });
