@@ -83,10 +83,16 @@ export type PlaybackShellState = {
   readonly recommendationRailMoreCount?: number;
 };
 
+export type LoadingShellStage = "finding-stream" | "preparing-player" | "starting-playback";
+
 export type LoadingShellState = {
   title: string;
   subtitle?: string;
   operation: "resolving" | "playing" | "loading";
+  /** High-level stage label for the 3-stage loading UX. */
+  stage?: LoadingShellStage;
+  /** Human-readable sub-status within the current stage (e.g. "Resolving direct link…"). */
+  stageDetail?: string;
   progress?: number; // 0-100 or undefined for indeterminate
   details?: string;
   trace?: string;
@@ -99,6 +105,17 @@ export type LoadingShellState = {
   autoskipPaused?: boolean;
   autoplayPaused?: boolean;
   fallbackProviderName?: string;
+  /** Playback supervision telemetry (populated when operation === "playing"). */
+  currentPosition?: number;
+  duration?: number;
+  qualityLabel?: string;
+  bufferHealth?: "healthy" | "buffering" | "stalled";
+  audioTrack?: string;
+  subtitleTrack?: string;
+  nextEpisodeLabel?: string;
+  previousEpisodeLabel?: string;
+  hasNextEpisode?: boolean;
+  hasPreviousEpisode?: boolean;
   latestIssue?: string | null;
   stopHint?: string;
   controlHint?: string;

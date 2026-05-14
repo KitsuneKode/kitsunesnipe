@@ -16,6 +16,7 @@ export function isRootChoiceOverlay(
   | { type: "subtitle_picker" }
   | { type: "source_picker" }
   | { type: "quality_picker" }
+  | { type: "recommendation_picker" }
 > {
   return (
     overlay.type === "provider_picker" ||
@@ -34,13 +35,15 @@ export function isRootMediaPickerOverlay(
   | { type: "subtitle_picker" }
   | { type: "source_picker" }
   | { type: "quality_picker" }
+  | { type: "recommendation_picker" }
 > {
   return (
     overlay.type === "season_picker" ||
     overlay.type === "episode_picker" ||
     overlay.type === "subtitle_picker" ||
     overlay.type === "source_picker" ||
-    overlay.type === "quality_picker"
+    overlay.type === "quality_picker" ||
+    overlay.type === "recommendation_picker"
   );
 }
 
@@ -66,6 +69,7 @@ export function getRootOverlayTitle(overlay: RootOwnedOverlay): string {
   if (overlay.type === "subtitle_picker") return "Choose subtitles";
   if (overlay.type === "source_picker") return "Choose source";
   if (overlay.type === "quality_picker") return "Choose quality";
+  if (overlay.type === "recommendation_picker") return "Recommendations";
   return "Provider";
 }
 
@@ -101,5 +105,7 @@ export function getRootOverlaySubtitle({
   if (overlay.type === "source_picker") return `${overlay.options.length} sources available`;
   if (overlay.type === "quality_picker")
     return `${overlay.options.length} quality options available`;
+  if (overlay.type === "recommendation_picker")
+    return `${overlay.options.length} picks based on your watch history`;
   return `Current provider ${state.provider}`;
 }

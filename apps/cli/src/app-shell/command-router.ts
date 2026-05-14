@@ -205,6 +205,36 @@ export async function routePlaybackShellAction({
     await openRootOwnedOverlay(container, { type: "settings" });
     return "handled";
   }
+  if (action === "recommendation") {
+    const { loadDiscoverResults } = await import("../app/discover-results");
+    const { createSessionPickerId, openSessionPicker, waitForSessionPicker } =
+      await import("./session-picker");
+    const recommendation = await loadDiscoverResults(container);
+    const id = createSessionPickerId("recommendation");
+    const options = recommendation.results.map((r) => ({
+      value: r.id,
+      label: r.title,
+      detail: `${r.type === "movie" ? "movie" : "series"} · ${r.year}`,
+    }));
+    void openSessionPicker(stateManager, {
+      type: "recommendation_picker",
+      id,
+      options,
+      emptyMessage: recommendation.emptyMessage,
+    });
+    const selectedId = await waitForSessionPicker(stateManager, id);
+    if (!selectedId) return "handled";
+    const selected = recommendation.results.find((r) => r.id === selectedId);
+    if (!selected) return "handled";
+    return {
+      type: "history-entry",
+      title: {
+        id: selected.id,
+        type: selected.type,
+        name: selected.title,
+      },
+    };
+  }
 
   const result = await handleShellAction({ action, container });
   return result === "quit" ? "quit" : result;

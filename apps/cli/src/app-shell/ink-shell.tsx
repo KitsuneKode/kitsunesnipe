@@ -651,6 +651,16 @@ function AppRoot({ container }: { container: Container }) {
                       : state.playbackStatus === "loading"
                         ? "loading"
                         : "resolving",
+                  stage:
+                    state.playbackStatus === "playing" ||
+                    state.playbackStatus === "buffering" ||
+                    state.playbackStatus === "seeking" ||
+                    state.playbackStatus === "stalled"
+                      ? "starting-playback"
+                      : state.playbackStatus === "loading"
+                        ? "preparing-player"
+                        : "finding-stream",
+                  stageDetail: state.playbackDetail ?? undefined,
                   details: state.playbackDetail ?? `Provider: ${state.provider}`,
                   subtitleStatus:
                     state.playbackStatus === "playing" ||
@@ -700,6 +710,14 @@ function AppRoot({ container }: { container: Container }) {
                       : undefined,
                   commands: resolveCommandContext(state, "activePlayback"),
                   footerMode: "detailed",
+                  audioTrack: state.stream?.audioLanguages?.length
+                    ? state.stream.audioLanguages.join(", ")
+                    : undefined,
+                  subtitleTrack: playbackSubtitleStatus,
+                  nextEpisodeLabel: state.episodeNavigation.nextLabel,
+                  previousEpisodeLabel: state.episodeNavigation.previousLabel,
+                  hasNextEpisode: state.episodeNavigation.hasNext,
+                  hasPreviousEpisode: state.episodeNavigation.hasPrevious,
                   onCommandAction: (action) => {
                     if (action === "command-mode") return;
                     if (action === "next" && canGoNext) {

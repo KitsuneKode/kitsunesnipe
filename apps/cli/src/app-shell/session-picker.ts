@@ -17,7 +17,8 @@ type PickerOverlayInput =
       readonly type: "episode_picker";
       readonly season: number;
       readonly initialIndex?: number;
-    } & PickerOverlayInputBase);
+    } & PickerOverlayInputBase)
+  | ({ readonly type: "recommendation_picker" } & PickerOverlayInputBase);
 
 export type SessionPickerOverlay = PickerModalOverlayState;
 

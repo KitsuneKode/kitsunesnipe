@@ -1,5 +1,4 @@
-import type { LoadingShellState } from "./types";
-import type { ShellStatusTone } from "./types";
+import type { LoadingShellState, ShellStatusTone } from "./types";
 
 export type LoadingShellTimerPolicy = {
   readonly animate: boolean;
@@ -33,6 +32,82 @@ export function getLoadingShellTimerPolicy(input: {
   };
 }
 
+// ── 3-stage loading UX ──────────────────────────────────────────────────────
+
+const STAGE_ORDER: readonly LoadingShellState["stage"][] = [
+  "finding-stream",
+  "preparing-player",
+  "starting-playback",
+];
+
+export function resolveStageFromOperation(
+  operation: LoadingShellState["operation"],
+  explicitStage?: LoadingShellState["stage"],
+): LoadingShellState["stage"] {
+  if (explicitStage) return explicitStage;
+  switch (operation) {
+    case "resolving":
+      return "finding-stream";
+    case "loading":
+      return "preparing-player";
+    case "playing":
+      return "starting-playback";
+    default:
+      return "finding-stream";
+  }
+}
+
+export function stageLabel(stage: LoadingShellState["stage"]): string {
+  switch (stage) {
+    case "finding-stream":
+      return "finding stream";
+    case "preparing-player":
+      return "preparing player";
+    case "starting-playback":
+      return "starting playback";
+    default:
+      return "loading";
+  }
+}
+
+export function stageDescription(stage: LoadingShellState["stage"]): string {
+  switch (stage) {
+    case "finding-stream":
+      return "Resolving title metadata, provider data, direct links, and subtitles.";
+    case "preparing-player":
+      return "Loading skip timing, building player arguments, and opening IPC socket.";
+    case "starting-playback":
+      return "Launching mpv, validating stream, and waiting for ready signal.";
+    default:
+      return "Preparing playback context.";
+  }
+}
+
+export function renderStageRail(
+  activeStage: LoadingShellState["stage"],
+  latestIssue: string | null | undefined,
+): readonly { label: string; tone: "neutral" | "info" | "success" | "warning" | "error" }[] {
+  const activeIndex = activeStage ? STAGE_ORDER.indexOf(activeStage) : -1;
+  return STAGE_ORDER.map((stage, index) => {
+    const isActive = index === activeIndex;
+    const isPast = index < activeIndex;
+    let tone: "neutral" | "info" | "success" | "warning" | "error" = isPast
+      ? "success"
+      : isActive
+        ? latestIssue
+          ? "warning"
+          : "info"
+        : "neutral";
+    if (latestIssue && isActive) {
+      tone = "error";
+    }
+    return {
+      label: stageLabel(stage),
+      tone,
+    };
+  });
+}
+
 export type ProviderResolveWaitPresentation = {
   readonly message: string;
   readonly tone: ShellStatusTone;
@@ -43,26 +118,40 @@ export function getProviderResolveWaitPresentation(input: {
   readonly elapsedSeconds: number;
   readonly fallbackAvailable?: boolean;
   readonly latestIssue?: string | null;
+  readonly stageDetail?: string;
 }): ProviderResolveWaitPresentation {
   const fallbackHint = input.fallbackAvailable ? "f fallback · " : "";
-  if (input.elapsedSeconds >= 20) {
-    return {
-      message: "Provider/CDN may be degraded. Try fallback or open diagnostics.",
-      tone: "warning",
-      footerTask: `Provider/CDN degraded  ·  ${fallbackHint}Esc cancel · d diagnostics`,
-    };
-  }
 
   if (input.latestIssue) {
     return {
-      message: `Latest issue: ${input.latestIssue}`,
+      message: input.stageDetail
+        ? `${input.stageDetail} · Issue: ${input.latestIssue}`
+        : `Issue: ${input.latestIssue}`,
       tone: "warning",
       footerTask: `Playback bootstrap  ·  ${fallbackHint}q / Esc cancel`,
     };
   }
 
+  if (input.elapsedSeconds >= 20) {
+    return {
+      message: input.stageDetail
+        ? `${input.stageDetail} · Provider/CDN may be degraded.`
+        : "Provider/CDN may be degraded. Try fallback or open diagnostics.",
+      tone: "warning",
+      footerTask: `Provider/CDN degraded  ·  ${fallbackHint}Esc cancel · d diagnostics`,
+    };
+  }
+
+  if (input.elapsedSeconds >= 10) {
+    return {
+      message: input.stageDetail ?? "Taking longer than expected…",
+      tone: "info",
+      footerTask: `Playback bootstrap  ·  ${fallbackHint}q / Esc cancel`,
+    };
+  }
+
   return {
-    message: "Preparing playback context...",
+    message: input.stageDetail ?? "Preparing playback context…",
     tone: "info",
     footerTask: `Playback bootstrap  ·  ${fallbackHint}q / Esc cancel`,
   };

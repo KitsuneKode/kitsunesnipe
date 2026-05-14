@@ -595,12 +595,19 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
                   return;
                 }
 
-                this.updatePlaybackFeedback(context, {
-                  detail: event.retryable
-                    ? `Recoverable provider issue (${event.attempt}/${event.maxAttempts})`
-                    : "Provider returned a non-recoverable issue",
-                  note: event.issue,
-                });
+                if (event.type === "failure") {
+                  this.updatePlaybackFeedback(context, {
+                    detail: event.retryable
+                      ? `Recoverable provider issue (${event.attempt}/${event.maxAttempts})`
+                      : "Provider returned a non-recoverable issue",
+                    note: event.issue,
+                  });
+                } else if (event.type === "cache-stale") {
+                  this.updatePlaybackFeedback(context, {
+                    detail: "Cached stream expired, refetching…",
+                    note: null,
+                  });
+                }
               },
             });
 
@@ -1526,20 +1533,6 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               loadDiagnosticsPanel: shellRuntime.loadDiagnosticsPanel,
               loadHistoryPanel: shellRuntime.loadHistoryPanel,
             });
-
-            if (postAction === "recommendation") {
-              const { loadDiscoverResults } = await import("./discover-results");
-              const recommendation = await loadDiscoverResults(container);
-              stateManager.dispatch({ type: "SET_SEARCH_QUERY", query: "" });
-              stateManager.dispatch({
-                type: "SET_SEARCH_RESULTS",
-                results: [...recommendation.results],
-              });
-              if (recommendation.results.length > 0) {
-                stateManager.dispatch({ type: "SELECT_RESULT", index: 0 });
-              }
-              return { status: "success", value: "back_to_search" };
-            }
 
             const routedAction = await routePlaybackShellAction({
               action: postAction,

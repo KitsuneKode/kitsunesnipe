@@ -24,7 +24,7 @@ const FOOTER_GLYPHS: Record<string, string> = {
   s: "⌕",
   q: "✕",
   f: "⤳",
-  "/": "/",
+  "/": "⌘",
   e: "☰",
   g: "★",
   h: "⏱",

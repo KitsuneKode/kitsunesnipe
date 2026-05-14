@@ -5,11 +5,14 @@ import { requestHardExit } from "./graceful-exit";
 import {
   getLoadingShellTimerPolicy,
   getProviderResolveWaitPresentation,
+  renderStageRail,
   shouldShowLoadingElapsed,
+  stageDescription,
+  stageLabel,
 } from "./loading-shell-runtime";
 import { getRuntimeMemoryLine } from "./runtime-memory";
 import { ShellFrame } from "./shell-frame";
-import { Badge, LocalSection } from "./shell-primitives";
+import { Badge, ContextStrip, LocalSection } from "./shell-primitives";
 import { palette } from "./shell-theme";
 import type { FooterAction, LoadingShellState, ShellPanelLine } from "./types";
 
@@ -61,6 +64,14 @@ function formatElapsed(seconds: number): string {
   return m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${String(s)}s`;
 }
 
+function formatTimestamp(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 function useRuntimeMemoryLine(refreshMs: number | null): string {
   const [memoryLine, setMemoryLine] = React.useState(() =>
     refreshMs === null ? "" : getRuntimeMemoryLine(),
@@ -106,17 +117,16 @@ function useRuntimeHealthLine(
   return healthLine;
 }
 
-function renderPhaseRail(active: LoadingShellState["operation"]): readonly {
-  label: string;
-  tone: "neutral" | "info" | "success";
-}[] {
-  const order: readonly LoadingShellState["operation"][] = ["resolving", "playing"];
-  const activeIndex = order.indexOf(active);
-
-  return order.map((phase, index) => ({
-    label: phase === "playing" ? "play" : phase,
-    tone: index < activeIndex ? "success" : index === activeIndex ? "info" : "neutral",
-  }));
+function BufferHealthBadge({ health }: { health?: "healthy" | "buffering" | "stalled" }) {
+  if (!health) return null;
+  const color =
+    health === "healthy" ? palette.green : health === "buffering" ? palette.amber : palette.red;
+  const label = health === "healthy" ? "● buffer healthy" : `● ${health}`;
+  return (
+    <Text color={color} bold>
+      {label}
+    </Text>
+  );
 }
 
 export function LoadingShell({
@@ -297,19 +307,14 @@ export function LoadingShell({
   const isPlaying = state.operation === "playing";
   const infoWidth = Math.min(76, Math.max(40, (stdout.columns ?? 80) - 12));
 
-  const operationLabels: Record<LoadingShellState["operation"], string> = {
-    resolving: "Resolving stream",
-    playing: "Now playing",
-    loading: "Loading playback",
-  };
-  const phaseRail =
-    state.operation === "loading"
-      ? [{ label: "loading", tone: "info" as const }]
-      : renderPhaseRail(state.operation);
+  const activeStage = state.stage ?? (isPlaying ? "starting-playback" : "finding-stream");
+  const stageRail = renderStageRail(activeStage, state.latestIssue);
+
   const waitPresentation = getProviderResolveWaitPresentation({
     elapsedSeconds: elapsed,
     fallbackAvailable: state.fallbackAvailable,
     latestIssue: state.latestIssue,
+    stageDetail: state.stageDetail,
   });
 
   const fallbackLabel = state.fallbackProviderName
@@ -323,15 +328,15 @@ export function LoadingShell({
             key: "n",
             label: "next",
             action: "next",
-            disabled: !onNext,
-            reason: "No next episode available.",
+            disabled: !onNext && !state.hasNextEpisode,
+            reason: state.nextEpisodeLabel ? undefined : "No next episode available.",
           },
           {
             key: "p",
             label: "previous",
             action: "previous",
-            disabled: !onPrevious,
-            reason: "No previous episode available.",
+            disabled: !onPrevious && !state.hasPreviousEpisode,
+            reason: state.previousEpisodeLabel ? undefined : "No previous episode available.",
           },
           {
             key: "a",
@@ -420,8 +425,8 @@ export function LoadingShell({
       title={state.title}
       subtitle={state.subtitle ?? "Preparing playback"}
       status={{
-        label: isPlaying ? "playing" : operationLabels[state.operation].toLowerCase(),
-        tone: isPlaying ? "success" : "neutral",
+        label: isPlaying ? "playing" : stageLabel(activeStage),
+        tone: isPlaying ? "success" : state.latestIssue ? "warning" : "neutral",
       }}
       footerTask={
         state.operation === "playing"
@@ -440,13 +445,22 @@ export function LoadingShell({
       <Box flexDirection="column" width={infoWidth} justifyContent="center" flexGrow={1}>
         {!isPlaying && (
           <Box flexWrap="wrap" marginBottom={1}>
-            {phaseRail.map((phase) => (
+            {stageRail.map((phase) => (
               <Badge key={phase.label} label={phase.label} tone={phase.tone} />
             ))}
           </Box>
         )}
 
-        <LocalSection title="Status" tone={isPlaying ? "success" : "neutral"} marginTop={0}>
+        <LocalSection
+          title="Status"
+          tone={isPlaying ? "success" : state.latestIssue ? "warning" : "neutral"}
+          marginTop={0}
+        >
+          {!isPlaying && state.stageDetail ? (
+            <Text color={state.latestIssue ? palette.amber : palette.info}>
+              {state.stageDetail}
+            </Text>
+          ) : null}
           {state.details && !isPlaying ? (
             <Text color="white">Provider: {state.details}</Text>
           ) : null}
@@ -462,7 +476,7 @@ export function LoadingShell({
               {isPlaying
                 ? "MPV is active. Shell controls and subtitle switching remain available."
                 : state.cancellable
-                  ? "Resolving provider data, timing, and player startup. Esc cancels."
+                  ? stageDescription(activeStage)
                   : "Resolving provider data, stream headers, and playback context."}
             </Text>
           </Box>
@@ -489,6 +503,53 @@ export function LoadingShell({
             </Box>
           ) : null}
         </LocalSection>
+
+        {/* Playback supervision telemetry — only when actively playing */}
+        {isPlaying && (
+          <LocalSection title="Playback" tone="success" marginTop={1}>
+            {state.currentPosition !== undefined &&
+            state.duration !== undefined &&
+            state.duration > 0 ? (
+              <Text color={palette.teal}>
+                {formatTimestamp(state.currentPosition)} / {formatTimestamp(state.duration)}
+                {"  "}
+                <Text color={palette.gray}>
+                  ({Math.round((state.currentPosition / state.duration) * 100)}%)
+                </Text>
+              </Text>
+            ) : null}
+            {state.qualityLabel ? (
+              <Text color={palette.gray}>Quality: {state.qualityLabel}</Text>
+            ) : null}
+            {state.bufferHealth ? (
+              <Box marginTop={1}>
+                <BufferHealthBadge health={state.bufferHealth} />
+              </Box>
+            ) : null}
+            {state.audioTrack || state.subtitleTrack ? (
+              <Box marginTop={1} flexDirection="column">
+                {state.audioTrack ? (
+                  <Text color={palette.gray}>Audio: {state.audioTrack}</Text>
+                ) : null}
+                {state.subtitleTrack ? (
+                  <Text color={palette.gray}>Subtitles: {state.subtitleTrack}</Text>
+                ) : null}
+              </Box>
+            ) : null}
+          </LocalSection>
+        )}
+
+        {/* Up-next preview */}
+        {isPlaying && (state.hasNextEpisode || state.hasPreviousEpisode) ? (
+          <LocalSection title="Navigation" tone="info" marginTop={1}>
+            {state.nextEpisodeLabel ? (
+              <Text color={palette.teal}>Next: {state.nextEpisodeLabel}</Text>
+            ) : null}
+            {state.previousEpisodeLabel ? (
+              <Text color={palette.gray}>Previous: {state.previousEpisodeLabel}</Text>
+            ) : null}
+          </LocalSection>
+        ) : null}
 
         {!isPlaying && state.trace && (
           <Box marginTop={2}>
@@ -517,7 +578,7 @@ export function LoadingShell({
           !isPlaying && (
             <Box marginTop={2}>
               <Text color={pulse ? palette.info : palette.gray} dimColor>
-                {pulse ? waitPresentation.message : "Waiting on provider response..."}
+                {pulse ? waitPresentation.message : "Waiting on provider response…"}
               </Text>
             </Box>
           )

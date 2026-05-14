@@ -27,6 +27,14 @@ export type PlaybackResolveEvent =
       readonly providerId: string;
     }
   | {
+      readonly type: "cache-stale";
+      readonly providerId: string;
+    }
+  | {
+      readonly type: "cache-hit-validated";
+      readonly providerId: string;
+    }
+  | {
       readonly type: "attempt";
       readonly providerId: string;
       readonly providerName: string;
@@ -88,13 +96,33 @@ export class PlaybackResolveService {
     const cacheKey = this.buildCacheKey(input, input.providerId);
     const cachedStream = await this.deps.cacheStore.get(cacheKey);
     if (cachedStream) {
-      input.onEvent?.({ type: "cache-hit", providerId: input.providerId });
-      return {
-        stream: { ...cachedStream, cacheProvenance: "cached" },
-        providerId: input.providerId,
-        attempts: [],
-        cacheStatus: "hit",
-      };
+      const cacheAgeMs = Date.now() - (cachedStream.timestamp ?? 0);
+      const shouldValidate = cacheAgeMs > 2 * 60 * 60 * 1000;
+
+      if (shouldValidate) {
+        const healthy = await checkStreamHealth(cachedStream.url, cachedStream.headers);
+        if (!healthy) {
+          await this.deps.cacheStore.delete(cacheKey);
+          input.onEvent?.({ type: "cache-stale", providerId: input.providerId });
+          // Fall through to refetch below
+        } else {
+          input.onEvent?.({ type: "cache-hit-validated", providerId: input.providerId });
+          return {
+            stream: { ...cachedStream, cacheProvenance: "revalidated" },
+            providerId: input.providerId,
+            attempts: [],
+            cacheStatus: "hit",
+          };
+        }
+      } else {
+        input.onEvent?.({ type: "cache-hit", providerId: input.providerId });
+        return {
+          stream: { ...cachedStream, cacheProvenance: "cached" },
+          providerId: input.providerId,
+          attempts: [],
+          cacheStatus: "hit",
+        };
+      }
     }
 
     input.onEvent?.({ type: "cache-miss", providerId: input.providerId });
@@ -225,5 +253,36 @@ export class PlaybackResolveService {
       audioPreference: input.audioPreference,
       subtitlePreference: input.subtitlePreference,
     });
+  }
+}
+
+/** Validate that a cached stream URL is still reachable. */
+async function checkStreamHealth(url: string, headers?: Record<string, string>): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5_000);
+    const response = await fetch(url, {
+      method: "HEAD",
+      headers: { ...headers },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (response.ok) return true;
+  } catch {
+    // HEAD may not be supported; fall through to GET with Range
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5_000);
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { ...headers, Range: "bytes=0-0" },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    return response.ok || response.status === 206;
+  } catch {
+    return false;
   }
 }
