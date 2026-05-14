@@ -84,6 +84,7 @@ export function usePosterPreview(
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      clearRenderedPosterImages();
     };
   }, [allowKitty, cols, debounceMs, enabled, rows, url, variant]);
 

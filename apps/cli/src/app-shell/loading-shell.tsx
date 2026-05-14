@@ -10,11 +10,13 @@ import {
   stageDescription,
   stageLabel,
 } from "./loading-shell-runtime";
+import type { PosterResult, PosterState } from "./poster-types";
 import { getRuntimeMemoryLine } from "./runtime-memory";
 import { ShellFrame } from "./shell-frame";
 import { Badge, LocalSection } from "./shell-primitives";
 import { palette } from "./shell-theme";
 import type { FooterAction, LoadingShellState, ShellPanelLine } from "./types";
+import { usePosterPreview } from "./use-poster-preview";
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const MEMORY_PANEL_AUTO_HIDE_MS = 8_000;
@@ -70,6 +72,28 @@ function formatTimestamp(seconds: number): string {
   const s = Math.floor(seconds % 60);
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+export function shouldShowLoadingPosterCompanion({
+  operation,
+  columns,
+  posterUrl,
+  posterKind,
+  posterState,
+}: {
+  operation: LoadingShellState["operation"];
+  columns: number;
+  posterUrl?: string;
+  posterKind: PosterResult["kind"];
+  posterState: PosterState;
+}): boolean {
+  if (operation !== "playing" || columns < 130) return false;
+  return Boolean(
+    posterUrl ||
+    posterKind !== "none" ||
+    posterState === "loading" ||
+    posterState === "unavailable",
+  );
 }
 
 function useRuntimeMemoryLine(refreshMs: number | null): string {
@@ -182,6 +206,14 @@ export function LoadingShell({
     state.getRuntimeHealth,
   );
   const { stdout } = useStdout();
+  const terminalColumns = stdout.columns ?? 80;
+  const { poster, posterState } = usePosterPreview(state.posterUrl, {
+    rows: 10,
+    cols: 22,
+    enabled: state.operation === "playing",
+    debounceMs: 90,
+    variant: "detail",
+  });
 
   React.useEffect(() => {
     if (!memoryPanelVisible) return undefined;
@@ -305,7 +337,16 @@ export function LoadingShell({
   });
 
   const isPlaying = state.operation === "playing";
-  const infoWidth = Math.min(76, Math.max(40, (stdout.columns ?? 80) - 12));
+  const showPosterCompanion = shouldShowLoadingPosterCompanion({
+    operation: state.operation,
+    columns: terminalColumns,
+    posterUrl: state.posterUrl,
+    posterKind: poster.kind,
+    posterState,
+  });
+  const infoWidth = showPosterCompanion
+    ? Math.max(52, Math.min(82, terminalColumns - 36))
+    : Math.min(76, Math.max(40, terminalColumns - 12));
 
   const activeStage = state.stage ?? (isPlaying ? "starting-playback" : "finding-stream");
   const stageRail = renderStageRail(activeStage, state.latestIssue);
@@ -323,6 +364,7 @@ export function LoadingShell({
   const footerActions: readonly FooterAction[] =
     state.operation === "playing"
       ? [
+          { key: "/", label: "commands", action: "command-mode" },
           { key: "q", label: "stop", action: "quit" },
           {
             key: "n",
@@ -437,152 +479,180 @@ export function LoadingShell({
       }
       footerActions={footerActions}
       footerMode={state.footerMode ?? "detailed"}
-      commands={state.operation === "playing" ? [] : (state.commands ?? [])}
+      commands={state.commands ?? []}
       inputLocked={!state.onCommandAction}
       escapeAction={null}
       onResolve={(action) => state.onCommandAction?.(action)}
     >
-      <Box flexDirection="column" width={infoWidth} justifyContent="center" flexGrow={1}>
-        {!isPlaying && (
-          <Box flexWrap="wrap" marginBottom={1}>
-            {stageRail.map((phase) => (
-              <Badge key={phase.label} label={phase.label} tone={phase.tone} />
-            ))}
-          </Box>
-        )}
-
-        <LocalSection
-          title="Status"
-          tone={isPlaying ? "success" : state.latestIssue ? "warning" : "neutral"}
-          marginTop={0}
-        >
-          {!isPlaying && state.stageDetail ? (
-            <Text color={state.latestIssue ? palette.amber : palette.info}>
-              {state.stageDetail}
-            </Text>
-          ) : null}
-          {state.details && !isPlaying ? (
-            <Text color="white">Provider: {state.details}</Text>
-          ) : null}
-          {state.downloadStatus ? (
-            <Text color={palette.info}>Download: {state.downloadStatus}</Text>
-          ) : null}
-          {state.subtitleStatus ? (
-            <Text color={palette.gray}>Subtitles: {state.subtitleStatus}</Text>
-          ) : null}
-
-          <Box marginTop={1}>
-            <Text color="white">
-              {isPlaying
-                ? "MPV is active. Shell controls and subtitle switching remain available."
-                : state.cancellable
-                  ? stageDescription(activeStage)
-                  : "Resolving provider data, stream headers, and playback context."}
-            </Text>
-          </Box>
-
-          {shouldShowLoadingElapsed(state.operation, elapsed) || memoryLine || runtimeHealthLine ? (
-            <Box marginTop={1} flexDirection="column">
-              {shouldShowLoadingElapsed(state.operation, elapsed) ? (
-                <Text color={palette.gray}>Elapsed: {formatElapsed(elapsed)}</Text>
-              ) : null}
-              {memoryPanelVisible && memoryLine ? (
-                <Text color={palette.gray}>Memory: {memoryLine}</Text>
-              ) : null}
-              {runtimeHealthLine ? (
-                <Text
-                  color={
-                    !runtimeHealthLine.tone || runtimeHealthLine.tone === "neutral"
-                      ? palette.gray
-                      : palette[runtimeHealthLine.tone as keyof typeof palette]
-                  }
-                >
-                  {runtimeHealthLine.label}: {runtimeHealthLine.detail}
-                </Text>
-              ) : null}
+      <Box
+        flexDirection={showPosterCompanion ? "row" : "column"}
+        justifyContent="space-between"
+        flexGrow={1}
+      >
+        <Box flexDirection="column" width={infoWidth} justifyContent="center" flexGrow={1}>
+          {!isPlaying && (
+            <Box flexWrap="wrap" marginBottom={1}>
+              {stageRail.map((phase) => (
+                <Badge key={phase.label} label={phase.label} tone={phase.tone} />
+              ))}
             </Box>
-          ) : null}
-        </LocalSection>
+          )}
 
-        {/* Playback supervision telemetry — only when actively playing */}
-        {isPlaying && (
-          <LocalSection title="Playback" tone="success" marginTop={1}>
-            {state.currentPosition !== undefined &&
-            state.duration !== undefined &&
-            state.duration > 0 ? (
-              <Text color={palette.teal}>
-                {formatTimestamp(state.currentPosition)} / {formatTimestamp(state.duration)}
-                {"  "}
-                <Text color={palette.gray}>
-                  ({Math.round((state.currentPosition / state.duration) * 100)}%)
-                </Text>
+          <LocalSection
+            title="Status"
+            tone={isPlaying ? "success" : state.latestIssue ? "warning" : "neutral"}
+            marginTop={0}
+          >
+            {!isPlaying && state.stageDetail ? (
+              <Text color={state.latestIssue ? palette.amber : palette.info}>
+                {state.stageDetail}
               </Text>
             ) : null}
-            {state.qualityLabel ? (
-              <Text color={palette.gray}>Quality: {state.qualityLabel}</Text>
+            {state.details && !isPlaying ? (
+              <Text color="white">Provider: {state.details}</Text>
             ) : null}
-            {state.bufferHealth ? (
-              <Box marginTop={1}>
-                <BufferHealthBadge health={state.bufferHealth} />
-              </Box>
+            {state.downloadStatus ? (
+              <Text color={palette.info}>Download: {state.downloadStatus}</Text>
             ) : null}
-            {state.audioTrack || state.subtitleTrack ? (
+            {state.subtitleStatus ? (
+              <Text color={palette.gray}>Subtitles: {state.subtitleStatus}</Text>
+            ) : null}
+
+            <Box marginTop={1}>
+              <Text color="white">
+                {isPlaying
+                  ? "MPV is active. Shell controls and subtitle switching remain available."
+                  : state.cancellable
+                    ? stageDescription(activeStage)
+                    : "Resolving provider data, stream headers, and playback context."}
+              </Text>
+            </Box>
+
+            {shouldShowLoadingElapsed(state.operation, elapsed) ||
+            memoryLine ||
+            runtimeHealthLine ? (
               <Box marginTop={1} flexDirection="column">
-                {state.audioTrack ? (
-                  <Text color={palette.gray}>Audio: {state.audioTrack}</Text>
+                {shouldShowLoadingElapsed(state.operation, elapsed) ? (
+                  <Text color={palette.gray}>Elapsed: {formatElapsed(elapsed)}</Text>
                 ) : null}
-                {state.subtitleTrack ? (
-                  <Text color={palette.gray}>Subtitles: {state.subtitleTrack}</Text>
+                {memoryPanelVisible && memoryLine ? (
+                  <Text color={palette.gray}>Memory: {memoryLine}</Text>
+                ) : null}
+                {runtimeHealthLine ? (
+                  <Text
+                    color={
+                      !runtimeHealthLine.tone || runtimeHealthLine.tone === "neutral"
+                        ? palette.gray
+                        : palette[runtimeHealthLine.tone as keyof typeof palette]
+                    }
+                  >
+                    {runtimeHealthLine.label}: {runtimeHealthLine.detail}
+                  </Text>
                 ) : null}
               </Box>
             ) : null}
           </LocalSection>
-        )}
 
-        {/* Up-next preview */}
-        {isPlaying && (state.hasNextEpisode || state.hasPreviousEpisode) ? (
-          <LocalSection title="Navigation" tone="info" marginTop={1}>
-            {state.nextEpisodeLabel ? (
-              <Text color={palette.teal}>Next: {state.nextEpisodeLabel}</Text>
-            ) : null}
-            {state.previousEpisodeLabel ? (
-              <Text color={palette.gray}>Previous: {state.previousEpisodeLabel}</Text>
-            ) : null}
-          </LocalSection>
-        ) : null}
+          {/* Playback supervision telemetry — only when actively playing */}
+          {isPlaying && (
+            <LocalSection title="Playback" tone="success" marginTop={1}>
+              {state.currentPosition !== undefined &&
+              state.duration !== undefined &&
+              state.duration > 0 ? (
+                <Text color={palette.teal}>
+                  {formatTimestamp(state.currentPosition)} / {formatTimestamp(state.duration)}
+                  {"  "}
+                  <Text color={palette.gray}>
+                    ({Math.round((state.currentPosition / state.duration) * 100)}%)
+                  </Text>
+                </Text>
+              ) : null}
+              {state.qualityLabel ? (
+                <Text color={palette.gray}>Quality: {state.qualityLabel}</Text>
+              ) : null}
+              {state.bufferHealth ? (
+                <Box marginTop={1}>
+                  <BufferHealthBadge health={state.bufferHealth} />
+                </Box>
+              ) : null}
+              {state.audioTrack || state.subtitleTrack ? (
+                <Box marginTop={1} flexDirection="column">
+                  {state.audioTrack ? (
+                    <Text color={palette.gray}>Audio: {state.audioTrack}</Text>
+                  ) : null}
+                  {state.subtitleTrack ? (
+                    <Text color={palette.gray}>Subtitles: {state.subtitleTrack}</Text>
+                  ) : null}
+                </Box>
+              ) : null}
+            </LocalSection>
+          )}
 
-        {!isPlaying && state.trace && (
-          <Box marginTop={2}>
-            <Text color={palette.gray} dimColor>
-              {state.trace}
-            </Text>
-          </Box>
-        )}
+          {/* Up-next preview */}
+          {isPlaying && (state.hasNextEpisode || state.hasPreviousEpisode) ? (
+            <LocalSection title="Navigation" tone="info" marginTop={1}>
+              {state.nextEpisodeLabel ? (
+                <Text color={palette.teal}>Next: {state.nextEpisodeLabel}</Text>
+              ) : null}
+              {state.previousEpisodeLabel ? (
+                <Text color={palette.gray}>Previous: {state.previousEpisodeLabel}</Text>
+              ) : null}
+            </LocalSection>
+          ) : null}
 
-        {state.progress !== undefined ? (
-          <Box marginTop={2}>
-            <Box
-              width={Math.min(40, (stdout.columns ?? 80) - 4)}
-              borderStyle="round"
-              borderColor={palette.info}
-              paddingX={1}
-            >
-              <Text>
-                {"█".repeat(Math.floor(state.progress / 2.5))}
-                {"░".repeat(40 - Math.floor(state.progress / 2.5))}
-              </Text>
-              <Text color={palette.info}> {Math.round(state.progress)}%</Text>
-            </Box>
-          </Box>
-        ) : (
-          !isPlaying && (
+          {!isPlaying && state.trace && (
             <Box marginTop={2}>
-              <Text color={pulse ? palette.info : palette.gray} dimColor>
-                {pulse ? waitPresentation.message : "Waiting on provider response…"}
+              <Text color={palette.gray} dimColor>
+                {state.trace}
               </Text>
             </Box>
-          )
-        )}
+          )}
+
+          {state.progress !== undefined ? (
+            <Box marginTop={2}>
+              <Box
+                width={Math.min(40, (stdout.columns ?? 80) - 4)}
+                borderStyle="round"
+                borderColor={palette.info}
+                paddingX={1}
+              >
+                <Text>
+                  {"█".repeat(Math.floor(state.progress / 2.5))}
+                  {"░".repeat(40 - Math.floor(state.progress / 2.5))}
+                </Text>
+                <Text color={palette.info}> {Math.round(state.progress)}%</Text>
+              </Box>
+            </Box>
+          ) : (
+            !isPlaying && (
+              <Box marginTop={2}>
+                <Text color={pulse ? palette.info : palette.gray} dimColor>
+                  {pulse ? waitPresentation.message : "Waiting on provider response…"}
+                </Text>
+              </Box>
+            )
+          )}
+        </Box>
+
+        {showPosterCompanion ? (
+          <Box marginLeft={2} flexDirection="column" width={28} justifyContent="flex-end">
+            <Text color={palette.amber}>Now showing</Text>
+            <Box marginTop={1}>
+              {poster.kind !== "none" ? (
+                <Text>{poster.placeholder}</Text>
+              ) : (
+                <Box flexDirection="column">
+                  <Text color={posterState === "loading" ? palette.info : palette.gray} dimColor>
+                    {posterState === "loading" ? "Loading artwork…" : "Artwork unavailable"}
+                  </Text>
+                  <Text color={palette.gray} dimColor>
+                    Controls stay live while artwork catches up.
+                  </Text>
+                </Box>
+              )}
+            </Box>
+          </Box>
+        ) : null}
       </Box>
     </ShellFrame>
   );

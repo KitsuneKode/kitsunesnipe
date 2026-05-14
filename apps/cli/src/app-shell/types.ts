@@ -98,6 +98,7 @@ export type LoadingShellState = {
   details?: string;
   trace?: string;
   downloadStatus?: string;
+  posterUrl?: string;
   subtitleStatus?: string;
   showMemory?: boolean;
   getRuntimeHealth?: () => ShellPanelLine | undefined;

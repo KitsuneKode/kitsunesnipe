@@ -9,6 +9,7 @@ type InlineBadgeTone = "neutral" | "info" | "success" | "warning" | "error";
 type BadgeTone = "neutral" | "info" | "success" | "warning" | "error" | "accent";
 const MINIMAL_FOOTER_ACTION_LIMIT = 4;
 const DETAILED_FOOTER_ACTION_LIMIT = 7;
+const DETAILED_FOOTER_VISIBLE_LIMIT = 4;
 
 /** Unicode glyphs for footer action keys — makes the footer feel like a cockpit. */
 const FOOTER_GLYPHS: Record<string, string> = {
@@ -82,25 +83,47 @@ export function selectFooterActions(
     return commandAction ? [...primaryActions, commandAction] : primaryActions;
   }
 
-  // Detailed mode: use dynamic width if available, else fixed limit
+  // Detailed mode: keep the persistent footer glanceable. Deeper actions belong
+  // behind / commands so the footer never turns into a wrapped command paragraph.
   const commandAction = enabledActions.find((action) => action.action === "command-mode");
   const nonCommandActions = enabledActions.filter((action) => action.action !== "command-mode");
 
   if (terminalWidth && terminalWidth > 0) {
-    // Dynamic: fit as many as the terminal allows
-    const actionsToFit = commandAction ? [...nonCommandActions, commandAction] : nonCommandActions;
-    const { visible, overflowCount } = computeVisibleActions(actionsToFit, terminalWidth);
-    const result = [...visible];
-    if (overflowCount > 0) {
-      result.push({ key: "/", label: `+${overflowCount} more`, action: "command-mode" });
+    const widthLimit =
+      terminalWidth < 92 ? 2 : terminalWidth < 132 ? 3 : DETAILED_FOOTER_VISIBLE_LIMIT;
+    const primaryLimit = Math.max(1, widthLimit);
+
+    if (nonCommandActions.length > primaryLimit) {
+      const hiddenCount = nonCommandActions.length - primaryLimit;
+      return [
+        ...nonCommandActions.slice(0, primaryLimit),
+        {
+          key: commandAction?.key ?? "/",
+          label: `+${hiddenCount} more`,
+          action: "command-mode" as const,
+        },
+      ];
     }
-    return result;
+
+    const visible = commandAction ? [...nonCommandActions, commandAction] : nonCommandActions;
+    const { visible: widthVisible, overflowCount } = computeVisibleActions(visible, terminalWidth);
+    if (overflowCount > 0) {
+      return [
+        ...widthVisible.filter((action) => action.action !== "command-mode"),
+        {
+          key: commandAction?.key ?? "/",
+          label: `+${overflowCount} more`,
+          action: "command-mode" as const,
+        },
+      ].slice(0, primaryLimit + 1);
+    }
+    return widthVisible;
   }
 
   // Fallback: fixed limit
   const primaryActions = nonCommandActions.slice(
     0,
-    commandAction ? DETAILED_FOOTER_ACTION_LIMIT - 1 : DETAILED_FOOTER_ACTION_LIMIT,
+    commandAction ? DETAILED_FOOTER_VISIBLE_LIMIT : DETAILED_FOOTER_ACTION_LIMIT,
   );
   const hiddenCount = enabledActions.length - primaryActions.length - (commandAction ? 1 : 0);
   const result = commandAction ? [...primaryActions, commandAction] : primaryActions;
@@ -148,6 +171,7 @@ export function Footer({
 }) {
   const { stdout } = useStdout();
   const terminalWidth = stdout.columns ?? 100;
+  const taskWidth = Math.max(20, terminalWidth - 4);
   const visibleActions = selectFooterActions(
     actions,
     mode,
@@ -157,12 +181,14 @@ export function Footer({
   if (commandMode) {
     return (
       <Box flexDirection="column" marginTop={1}>
-        <Text color="white">{taskLabel}</Text>
+        <Text color="white">{truncateLine(taskLabel, taskWidth)}</Text>
         <Box marginTop={1} flexDirection="column">
           <Text color={palette.amber}>Command palette</Text>
           <Text color={palette.gray}>
-            {" "}
-            · Type to search · Tab autocomplete · ↑↓ choose · Enter run · Esc close
+            {truncateLine(
+              "Type to search · Tab autocomplete · ↑↓ choose · Enter run · Esc close",
+              taskWidth,
+            )}
           </Text>
         </Box>
       </Box>
@@ -171,9 +197,9 @@ export function Footer({
 
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Text color="white">{taskLabel}</Text>
+      <Text color="white">{truncateLine(taskLabel, taskWidth)}</Text>
       {visibleActions.length > 0 ? (
-        <Box flexWrap="wrap" marginTop={1}>
+        <Box flexWrap="nowrap" marginTop={1}>
           {visibleActions.map((action, index) => {
             const glyph = FOOTER_GLYPHS[action.key] ?? "";
             const keyDisplay = glyph ? `${glyph} ${action.key}` : action.key;
@@ -184,7 +210,7 @@ export function Footer({
                 marginBottom={1}
               >
                 <Text color={palette.teal}>{hotkeyLabel(keyDisplay)}</Text>
-                <Text color="white"> {action.label}</Text>
+                <Text color="white"> {truncateLine(action.label, 18)}</Text>
               </Box>
             );
           })}
