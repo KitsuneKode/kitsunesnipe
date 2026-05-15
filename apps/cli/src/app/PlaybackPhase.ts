@@ -1657,7 +1657,7 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
               }
               break postPlayback;
             } else if (routedAction === "replay") {
-              pendingStart = startEpisodeNavigation({ targetResumeSeconds: resumeSeconds });
+              pendingStart = startFromBeginning();
               const playbackAction = resolvePostPlaybackSessionAction("replay", playbackSession);
               playbackSession = playbackAction.session;
               if (!playbackAction.session.autoplayPaused) {

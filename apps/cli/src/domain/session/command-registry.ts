@@ -280,7 +280,7 @@ export const COMMANDS: readonly AppCommand[] = [
     id: "replay",
     label: "Replay",
     aliases: ["replay", "restart"],
-    description: "Replay the current item",
+    description: "Restart the current item from the beginning without refreshing the source",
   },
   {
     id: "recover",
