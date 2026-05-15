@@ -15,8 +15,13 @@ import { writeAtomicJson } from "@/infra/fs/atomic-write";
 import { revealPathInOsFileManager } from "@/infra/os/reveal-in-file-manager";
 import { DownloadEnqueueRejectedError } from "@/services/download/DownloadService";
 import {
+  formatOfflineLibraryGroupDetail,
+  formatOfflineLibraryGroupLabel,
   formatOfflineJobListingTitle,
+  formatOfflineShelfBadge,
+  formatOfflineShelfDetail,
   formatOfflineSecondaryLine,
+  groupOfflineLibraryEntries,
   offlineStatusIcon,
 } from "@/services/offline/offline-library";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
@@ -39,6 +44,7 @@ type HistoryAction =
   | { type: "back" };
 
 type DownloadJobAction = { type: "job"; id: string } | { type: "back" };
+type OfflineLibraryGroupAction = { type: "group"; key: string } | { type: "back" };
 type CompletedDownloadAction =
   | "play"
   | "reveal"
@@ -481,11 +487,12 @@ export async function openCompletedDownloadsPicker(
 ): Promise<void> {
   while (true) {
     const completed = await container.offlineLibraryService.listCompletedEntries(60);
-    const options: ShellOption<DownloadJobAction>[] = [
-      ...completed.map((entry) => ({
-        value: { type: "job" as const, id: entry.job.id },
-        label: `${offlineStatusIcon(entry.status)} ${formatOfflineJobListingTitle(entry.job)}`,
-        detail: `${formatOfflineSecondaryLine(entry.job, entry.status)}  ·  ${entry.job.outputPath}`,
+    const groups = groupOfflineLibraryEntries(completed);
+    const options: ShellOption<OfflineLibraryGroupAction>[] = [
+      ...groups.map((group) => ({
+        value: { type: "group" as const, key: group.key },
+        label: formatOfflineLibraryGroupLabel(group),
+        detail: formatOfflineLibraryGroupDetail(group),
       })),
       { value: { type: "back" as const }, label: "Back" },
     ];
@@ -493,8 +500,40 @@ export async function openCompletedDownloadsPicker(
       title: "Offline library",
       subtitle:
         completed.length > 0
-          ? `${completed.length} local item(s) · play, reveal folder, re-download, delete`
+          ? `${groups.length} title(s) · ${completed.length} local item(s) · choose a title`
           : "No completed local videos yet. Use /downloads to manage the queue.",
+      actionContext,
+      options,
+    });
+    if (!picked || picked.type === "back") return;
+    const group = groups.find((candidate) => candidate.key === picked.key);
+    if (!group) continue;
+    await openOfflineLibraryGroupPicker(container, group.entries, actionContext);
+  }
+}
+
+async function openOfflineLibraryGroupPicker(
+  container: Container,
+  entries: readonly import("@/services/offline/offline-library").OfflineLibraryEntry[],
+  actionContext?: ListShellActionContext,
+): Promise<void> {
+  while (true) {
+    const first = entries[0]?.job;
+    if (!first) return;
+    const options: ShellOption<DownloadJobAction>[] = [
+      ...entries.map((entry) => ({
+        value: { type: "job" as const, id: entry.job.id },
+        label: `${offlineStatusIcon(entry.status)} ${formatOfflineJobListingTitle(entry.job)}`,
+        detail: `${formatOfflineShelfBadge(entry.job, entry.status)}  ·  ${formatOfflineShelfDetail(
+          entry.job,
+          entry.status,
+        )}`,
+      })),
+      { value: { type: "back" as const }, label: "Back to titles" },
+    ];
+    const picked = await chooseFromListShell({
+      title: first.titleName,
+      subtitle: `${entries.length} local ${entries.length === 1 ? "item" : "items"} · play, reveal folder, re-download, delete`,
       actionContext,
       options,
     });

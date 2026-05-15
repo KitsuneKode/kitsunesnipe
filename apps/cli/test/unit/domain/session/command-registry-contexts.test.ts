@@ -74,6 +74,7 @@ describe("command registry contexts", () => {
       "recommendation",
       "calendar",
       "random",
+      "surprise",
       "settings",
       "presence",
       "toggle-mode",

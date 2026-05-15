@@ -71,6 +71,7 @@ export async function routeSearchShellAction({
   if (action === "recommendation") return "handled";
   if (action === "calendar") return "handled";
   if (action === "random") return "handled";
+  if (action === "surprise") return "handled";
   if (action === "toggle-mode") {
     switchSessionMode(stateManager);
     stateManager.dispatch({ type: "RESET_SEARCH" });

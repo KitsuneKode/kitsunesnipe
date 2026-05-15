@@ -12,6 +12,7 @@
 //   bun run dev -- --continue              # Continue newest unfinished local history entry
 //   bun run dev -- --history               # Open watch history first
 //   bun run dev -- --offline               # Open completed offline library first
+//   bun run dev -- --discover              # Open recommendations first
 //   bun run dev -- --calendar              # Open releases airing today first
 //   bun run dev -- --random                # Open a rerollable random recommendation tray first
 //   bun run dev -- -m                      # Minimal footer for this session
@@ -52,7 +53,7 @@ export function parseArgs(argv: string[]): {
   continuePlayback: boolean;
   download: boolean;
   downloadPath?: string;
-  initialRoute?: "calendar" | "random";
+  initialRoute?: "recommendation" | "calendar" | "random";
   shellChrome: ShellChrome;
 } {
   const args: {
@@ -71,7 +72,7 @@ export function parseArgs(argv: string[]): {
     continuePlayback: boolean;
     download: boolean;
     downloadPath?: string;
-    initialRoute?: "calendar" | "random";
+    initialRoute?: "recommendation" | "calendar" | "random";
   } = {
     anime: false,
     debug: false,
@@ -110,6 +111,8 @@ export function parseArgs(argv: string[]): {
       args.setup = true;
     } else if (arg === "--offline") {
       args.offline = true;
+    } else if (arg === "--discover") {
+      args.initialRoute = "recommendation";
     } else if (arg === "--calendar") {
       args.initialRoute = "calendar";
     } else if (arg === "--random") {

@@ -5,6 +5,11 @@ import { join } from "node:path";
 
 import {
   formatOfflineJobListingTitle,
+  formatOfflineLibraryGroupDetail,
+  formatOfflineLibraryGroupLabel,
+  formatOfflineShelfBadge,
+  formatOfflineShelfDetail,
+  groupOfflineLibraryEntries,
   formatOfflineSecondaryLine,
   offlineStatusIcon,
   resolveOfflineArtifactStatus,
@@ -62,6 +67,69 @@ describe("offline-library helpers", () => {
         "ready",
       ),
     ).toContain("subtitles cached");
+  });
+
+  test("offline shelf copy surfaces readiness before filesystem noise", () => {
+    const job = minimalJob({
+      id: "1",
+      titleName: "Example",
+      season: 1,
+      episode: 4,
+      fileSize: 15_728_640,
+      subtitlePath: "/downloads/example.srt",
+      outputPath: "/downloads/Example/episode-4.mp4",
+    });
+
+    expect(formatOfflineShelfBadge(job, "ready")).toBe("offline ready");
+    expect(formatOfflineShelfDetail(job, "ready")).toBe(
+      "S01E04 · 15.0 MB · subtitles cached · Example",
+    );
+    expect(formatOfflineShelfBadge(job, "missing")).toBe("file missing");
+  });
+
+  test("offline library groups completed files by title before showing episodes", () => {
+    const groups = groupOfflineLibraryEntries([
+      {
+        job: minimalJob({
+          id: "bb-1",
+          titleId: "bb",
+          titleName: "Breaking Bad",
+          season: 5,
+          episode: 1,
+          fileSize: 100,
+          completedAt: "2026-05-12T00:00:00.000Z",
+        }),
+        status: "ready",
+      },
+      {
+        job: minimalJob({
+          id: "bb-2",
+          titleId: "bb",
+          titleName: "Breaking Bad",
+          season: 5,
+          episode: 2,
+          completedAt: "2026-05-13T00:00:00.000Z",
+        }),
+        status: "missing",
+      },
+      {
+        job: minimalJob({
+          id: "solo-1",
+          titleId: "solo",
+          titleName: "Solo Leveling",
+          season: 1,
+          episode: 1,
+          completedAt: "2026-05-14T00:00:00.000Z",
+        }),
+        status: "ready",
+      },
+    ]);
+
+    expect(groups.map((group) => group.titleName)).toEqual(["Solo Leveling", "Breaking Bad"]);
+    expect(formatOfflineLibraryGroupLabel(groups[1]!)).toBe("Breaking Bad  ·  2 episodes");
+    expect(formatOfflineLibraryGroupDetail(groups[1]!)).toContain("1 ready");
+    expect(formatOfflineLibraryGroupDetail(groups[1]!)).toContain("1 needs attention");
+    expect(groups[1]!.entries.map((entry) => entry.job.episode)).toEqual([1, 2]);
   });
 
   test("artifact hydration marks readable non-empty files as ready", async () => {

@@ -18,7 +18,7 @@ describe("recommendation command", () => {
     expect(parseCommand("/airing")?.id).toBe("calendar");
     expect(parseCommand("/random")?.id).toBe("random");
     expect(parseCommand("/spin")?.id).toBe("random");
-    expect(parseCommand("/surprise")?.id).toBe("random");
+    expect(parseCommand("/surprise")?.id).toBe("surprise");
     expect(parseCommand("/offline")?.id).toBe("library");
     expect(parseCommand("/downloads")?.id).toBe("downloads");
     expect(resolveCommands(state, ["trending"])).toEqual([
@@ -32,6 +32,11 @@ describe("recommendation command", () => {
       "calendar",
       "random",
     ]);
+    expect(resolveCommands(state, ["surprise"])[0]).toMatchObject({
+      id: "surprise",
+      label: "Surprise Me",
+      enabled: true,
+    });
     expect(resolveCommands(state, ["recommendation"])[0]).toMatchObject({
       id: "recommendation",
       label: "Discover",

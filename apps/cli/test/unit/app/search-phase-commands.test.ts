@@ -5,7 +5,7 @@ import { SEARCH_BROWSE_COMMAND_IDS } from "@/app/SearchPhase";
 
 test("search browse command palette exposes discover, random, and offline surfaces", () => {
   expect([...SEARCH_BROWSE_COMMAND_IDS]).toEqual(
-    expect.arrayContaining(["recommendation", "random", "downloads", "library"]),
+    expect.arrayContaining(["recommendation", "random", "surprise", "downloads", "library"]),
   );
 });
 

@@ -102,6 +102,19 @@ describe("loading shell runtime policy", () => {
     ).toBe("Opening provider stream");
   });
 
+  test("loading copy does not promote provider retry progress into an issue", () => {
+    expect(
+      normalizeLoadingIssue("Recoverable provider failures retry before fallback."),
+    ).toBeNull();
+    expect(
+      getProviderResolveWaitPresentation({
+        elapsedSeconds: 4,
+        latestIssue: "Recoverable provider failures retry before fallback.",
+        stageDetail: "Resolving via AllManga",
+      }).message,
+    ).toBe("Resolving via AllManga");
+  });
+
   test("provider detail avoids duplicate Provider labels", () => {
     expect(normalizeProviderDetail("Provider: vidking · direct-http")).toBe(
       "vidking · direct-http",

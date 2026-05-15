@@ -147,6 +147,25 @@ describe("panel-data", () => {
     expect(provider?.tone).toBe("success");
   });
 
+  test("buildDiagnosticsPanelLines includes smoke test recipes for manual checks", () => {
+    const lines = buildDiagnosticsPanelLines({
+      state: createInitialState("vidking", "allanime", {
+        anime: { audio: "original", subtitle: "en" },
+        series: { audio: "original", subtitle: "none" },
+        movie: { audio: "original", subtitle: "en" },
+      }),
+      recentEvents: [],
+    });
+
+    expect(lines.some((line) => line.label === "─── Smoke tests")).toBe(true);
+    expect(lines.some((line) => line.detail === 'bun run dev -- -S "Dune"')).toBe(true);
+    expect(lines.some((line) => line.detail === 'bun run dev -- -S "Attack on Titan" -a')).toBe(
+      true,
+    );
+    expect(lines.some((line) => line.detail === 'bun run dev -- -S "Dune" --debug')).toBe(true);
+    expect(lines.some((line) => line.detail === "bun run dev -- --discover")).toBe(true);
+  });
+
   test("buildHistoryPanelLines sorts newest entries first", () => {
     const lines = buildHistoryPanelLines([
       [

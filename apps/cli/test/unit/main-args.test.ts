@@ -17,6 +17,7 @@ test("parseArgs supports startup entry routes", () => {
   const offline = parseArgs(["--offline"]);
   const calendar = parseArgs(["--calendar"]);
   const random = parseArgs(["--random"]);
+  const discover = parseArgs(["--discover"]);
 
   expect(resume.continuePlayback).toBe(true);
   expect(continuePlayback.continuePlayback).toBe(true);
@@ -24,4 +25,5 @@ test("parseArgs supports startup entry routes", () => {
   expect(offline.offline).toBe(true);
   expect(calendar.initialRoute).toBe("calendar");
   expect(random.initialRoute).toBe("random");
+  expect(discover.initialRoute).toBe("recommendation");
 });

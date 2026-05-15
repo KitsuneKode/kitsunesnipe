@@ -40,9 +40,9 @@ describe("loading shell 3-stage mapping", () => {
     expect(rail[2]!.tone).toBe("neutral"); // starting-playback is future
   });
 
-  test("stage rail turns active stage red when latestIssue exists", () => {
+  test("stage rail turns active stage amber when latestIssue exists", () => {
     const rail = renderStageRail("preparing-player", "CDN timeout");
-    expect(rail[1]!.tone).toBe("error");
+    expect(rail[1]!.tone).toBe("warning");
   });
 
   test("stage rail treats subtitle-ready notes as healthy status, not issues", () => {
@@ -50,6 +50,17 @@ describe("loading shell 3-stage mapping", () => {
     expect(normalizeLoadingIssue("subs ready")).toBeNull();
     const rail = renderStageRail("preparing-player", "subtitle attached");
     expect(rail[1]!.tone).toBe("info");
+  });
+
+  test("stage rail treats provider retry copy as progress, not an issue", () => {
+    expect(
+      normalizeLoadingIssue("Recoverable provider failures retry before fallback."),
+    ).toBeNull();
+    const rail = renderStageRail(
+      "finding-stream",
+      "Recoverable provider failures retry before fallback.",
+    );
+    expect(rail[0]!.tone).toBe("info");
   });
 
   test("stage rail turns active stage amber for non-issue warnings", () => {

@@ -3,6 +3,7 @@ import type { Container } from "@/container";
 import type { SessionState } from "@/domain/session/SessionState";
 import type {
   AutoDownloadMode,
+  DiscoverMode,
   KitsuneConfig,
   QuitNearEndBehavior,
   QuitNearEndThresholdMode,
@@ -399,6 +400,18 @@ export function RootOverlayShell({
             }
             setSettingsError("Type a numeric Discord application client id, or Esc to cancel.");
           }
+          if (settingsChoice === "downloadPath" && settingsDraft) {
+            const typedPath = filterQuery.trim();
+            if (typedPath.startsWith("/")) {
+              setSettingsDraft({ ...settingsDraft, downloadPath: typedPath });
+              setSettingsChoice(null);
+              setFilterQuery("");
+              setSelectedIndex(settingsParentIndex);
+              setSettingsError("Download path saved in draft. Press S to save settings.");
+              return;
+            }
+            setSettingsError("Type an absolute download path, or Esc to cancel.");
+          }
           return;
         }
         if (picked.value.startsWith("section:")) {
@@ -446,8 +459,28 @@ export function RootOverlayShell({
             next.animeTitlePreference = picked.value as typeof next.animeTitlePreference;
           } else if (settingsChoice === "footerHints") {
             next.footerHints = picked.value as "detailed" | "minimal";
+          } else if (settingsChoice === "discoverMode") {
+            next.discoverMode = picked.value as DiscoverMode;
+          } else if (settingsChoice === "discoverItemLimit") {
+            next.discoverItemLimit = Number(picked.value);
           } else if (settingsChoice === "autoDownload") {
             next.autoDownload = picked.value as AutoDownloadMode;
+          } else if (settingsChoice === "autoDownloadNextCount") {
+            next.autoDownloadNextCount = Number(picked.value);
+          } else if (settingsChoice === "autoCleanupGraceDays") {
+            next.autoCleanupGraceDays = Number(picked.value);
+          } else if (settingsChoice === "downloadPath") {
+            const typedPath = filterQuery.trim();
+            if (typedPath.startsWith("/")) {
+              next.downloadPath = typedPath;
+            } else if (picked.value === "__clear__") {
+              next.downloadPath = "";
+            } else if (picked.value === "__keep__") {
+              // Keep the existing draft value.
+            } else {
+              setSettingsError("Type an absolute download path, or Esc to cancel.");
+              return;
+            }
           } else if (settingsChoice === "presenceProvider") {
             next.presenceProvider = picked.value as typeof next.presenceProvider;
           } else if (settingsChoice === "presencePrivacy") {
@@ -483,6 +516,27 @@ export function RootOverlayShell({
         }
         if (picked.value === "autoNext") {
           setSettingsDraft({ ...settingsDraft, autoNext: !settingsDraft.autoNext });
+          setSettingsError(null);
+          return;
+        }
+        if (picked.value === "discoverShowOnStartup") {
+          setSettingsDraft({
+            ...settingsDraft,
+            discoverShowOnStartup: !settingsDraft.discoverShowOnStartup,
+          });
+          setSettingsError(null);
+          return;
+        }
+        if (picked.value === "recommendationRailEnabled") {
+          setSettingsDraft({
+            ...settingsDraft,
+            recommendationRailEnabled: !settingsDraft.recommendationRailEnabled,
+          });
+          setSettingsError(null);
+          return;
+        }
+        if (picked.value === "downloadsEnabled") {
+          setSettingsDraft({ ...settingsDraft, downloadsEnabled: !settingsDraft.downloadsEnabled });
           setSettingsError(null);
           return;
         }

@@ -1,5 +1,6 @@
 import type {
   AutoDownloadMode,
+  DiscoverMode,
   KitsuneConfig,
   QuitNearEndBehavior,
   QuitNearEndThresholdMode,
@@ -91,11 +92,19 @@ type SettingsAction =
   | "skipCredits"
   | "skipPreview"
   | "footerHints"
+  | "discoverShowOnStartup"
+  | "discoverMode"
+  | "discoverItemLimit"
+  | "recommendationRailEnabled"
   | "presenceProvider"
   | "presencePrivacy"
   | "presenceStatus"
   | "presenceDiscordClientId"
   | "presenceConnection"
+  | "downloadsEnabled"
+  | "autoDownloadNextCount"
+  | "autoCleanupGraceDays"
+  | "downloadPath"
   | "clearCache"
   | "clearHistory";
 
@@ -172,6 +181,59 @@ const FOOTER_HINT_OPTIONS: readonly ShellPickerOption<"detailed" | "minimal">[] 
   },
 ];
 
+const DISCOVER_MODE_OPTIONS: readonly ShellPickerOption<DiscoverMode>[] = [
+  {
+    value: "auto",
+    label: "Auto",
+    detail: "Follow the current shell mode when building discovery lists",
+  },
+  {
+    value: "unified",
+    label: "Unified",
+    detail: "Mix anime and series when both catalogs are available",
+  },
+  {
+    value: "anime-only",
+    label: "Anime only",
+    detail: "Keep discovery and surprise focused on anime",
+  },
+  {
+    value: "series-only",
+    label: "Series only",
+    detail: "Keep discovery and surprise focused on shows and movies",
+  },
+];
+
+const DISCOVER_ITEM_LIMIT_OPTIONS: readonly ShellPickerOption<string>[] = [12, 24, 36, 48, 80].map(
+  (count) => ({
+    value: String(count),
+    label: `${count} items`,
+    detail: count <= 24 ? "Lean tray with quicker scanning" : "Bigger tray for browsing sessions",
+  }),
+);
+
+const AUTO_DOWNLOAD_NEXT_COUNT_OPTIONS: readonly ShellPickerOption<string>[] = [
+  1, 2, 3, 6, 12, 24,
+].map((count) => ({
+  value: String(count),
+  label: count === 1 ? "1 episode" : `${count} episodes`,
+  detail:
+    count === 1
+      ? "Only keep the immediate next episode queued"
+      : `Keep the next ${count} released episodes queued when Auto-download is Next`,
+}));
+
+const AUTO_CLEANUP_GRACE_DAY_OPTIONS: readonly ShellPickerOption<string>[] = [
+  0, 1, 3, 7, 14, 30,
+].map((days) => ({
+  value: String(days),
+  label: days === 0 ? "Immediately" : days === 1 ? "1 day" : `${days} days`,
+  detail:
+    days === 0
+      ? "Show watched downloads as cleanup candidates immediately"
+      : `Wait ${days} day${days === 1 ? "" : "s"} after watch completion`,
+}));
+
 const PRESENCE_PROVIDER_OPTIONS: readonly ShellPickerOption<KitsuneConfig["presenceProvider"]>[] = [
   {
     value: "off",
@@ -213,7 +275,7 @@ const AUTO_DOWNLOAD_OPTIONS: readonly ShellPickerOption<AutoDownloadMode>[] = [
 ];
 
 export function buildSettingsSummary(config: KitsuneConfig): string {
-  return `${config.defaultMode} default  ·  series ${config.provider}  ·  anime ${config.animeProvider}  ·  presence ${config.presenceProvider}`;
+  return `${config.defaultMode} default  ·  discover ${config.discoverMode}  ·  series ${config.provider}  ·  anime ${config.animeProvider}`;
 }
 
 function describeDiscordClientId(config: KitsuneConfig): string {
@@ -263,6 +325,27 @@ export function buildSettingsOptions(
       value: "footerHints",
       label: `▸ Footer hints  ·  ${config.footerHints}`,
       detail: "Detailed keeps two lines, minimal keeps only the task line",
+    },
+    { value: "section:discover", label: "Discover", detail: "Home recommendations and surprise" },
+    {
+      value: "discoverShowOnStartup",
+      label: `Discover on startup  ·  ${config.discoverShowOnStartup ? "on" : "off"}`,
+      detail: "Open recommendations first instead of the empty search home",
+    },
+    {
+      value: "discoverMode",
+      label: `▸ Discover mode  ·  ${config.discoverMode}`,
+      detail: "Choose whether discover follows mode, mixes catalogs, or stays focused",
+    },
+    {
+      value: "discoverItemLimit",
+      label: `▸ Discover tray size  ·  ${config.discoverItemLimit} items`,
+      detail: "How many results /discover, /random, and /surprise should stage",
+    },
+    {
+      value: "recommendationRailEnabled",
+      label: `Post-playback recommendations  ·  ${config.recommendationRailEnabled ? "on" : "off"}`,
+      detail: "Show a compact recommendation rail after finishing playback",
     },
     { value: "section:providers", label: "Providers", detail: "Default stream sources" },
     {
@@ -323,11 +406,35 @@ export function buildSettingsOptions(
       detail: "Queue future episodes for offline viewing after playback",
     },
     {
+      value: "downloadsEnabled",
+      label: `Offline downloads  ·  ${config.downloadsEnabled ? "enabled" : "off"}`,
+      detail: "Enable local completed downloads and the offline library surface",
+    },
+    {
+      value: "autoDownloadNextCount",
+      label: `▸ Auto-download next count  ·  ${config.autoDownloadNextCount} ${
+        config.autoDownloadNextCount === 1 ? "episode" : "episodes"
+      }`,
+      detail: "When Auto-download is Next, keep more than one future episode staged",
+    },
+    {
       value: "autoCleanupWatched",
       label: `▸ Auto-cleanup  ·  ${
         config.autoCleanupWatched ? `on (${config.autoCleanupGraceDays} day grace)` : "off"
       }`,
       detail: "Flag watched completed downloads for explicit cleanup after the grace period",
+    },
+    {
+      value: "autoCleanupGraceDays",
+      label: `▸ Cleanup grace  ·  ${config.autoCleanupGraceDays} ${
+        config.autoCleanupGraceDays === 1 ? "day" : "days"
+      }`,
+      detail: "How long watched downloads stay before they appear as cleanup candidates",
+    },
+    {
+      value: "downloadPath",
+      label: `▸ Download path  ·  ${config.downloadPath.trim() ? "configured" : "default"}`,
+      detail: config.downloadPath.trim() || "Use Kunai's app data directory",
     },
     {
       value: "autoNext",
@@ -547,6 +654,23 @@ export function buildSettingsChoiceOverlay({
       ...option,
       label: option.value === config.footerHints ? `${option.label}  ·  current` : option.label,
     })) as readonly ShellPickerOption<string>[];
+  } else if (setting === "discoverMode") {
+    title = "Discover mode";
+    subtitle = `Current ${config.discoverMode}`;
+    options = DISCOVER_MODE_OPTIONS.map((option) => ({
+      ...option,
+      label: option.value === config.discoverMode ? `${option.label}  ·  current` : option.label,
+    })) as readonly ShellPickerOption<string>[];
+  } else if (setting === "discoverItemLimit") {
+    title = "Discover tray size";
+    subtitle = `Current ${config.discoverItemLimit} items`;
+    options = DISCOVER_ITEM_LIMIT_OPTIONS.map((option) => ({
+      ...option,
+      label:
+        Number(option.value) === config.discoverItemLimit
+          ? `${option.label}  ·  current`
+          : option.label,
+    }));
   } else if (setting === "autoDownload") {
     title = "Auto-download";
     subtitle = `Current ${config.autoDownload}`;
@@ -554,6 +678,43 @@ export function buildSettingsChoiceOverlay({
       ...option,
       label: option.value === config.autoDownload ? `${option.label}  ·  current` : option.label,
     })) as readonly ShellPickerOption<string>[];
+  } else if (setting === "autoDownloadNextCount") {
+    title = "Auto-download next count";
+    subtitle = `Current ${config.autoDownloadNextCount}`;
+    options = AUTO_DOWNLOAD_NEXT_COUNT_OPTIONS.map((option) => ({
+      ...option,
+      label:
+        Number(option.value) === config.autoDownloadNextCount
+          ? `${option.label}  ·  current`
+          : option.label,
+    }));
+  } else if (setting === "autoCleanupGraceDays") {
+    title = "Cleanup grace";
+    subtitle = `Current ${config.autoCleanupGraceDays} days`;
+    options = AUTO_CLEANUP_GRACE_DAY_OPTIONS.map((option) => ({
+      ...option,
+      label:
+        Number(option.value) === config.autoCleanupGraceDays
+          ? `${option.label}  ·  current`
+          : option.label,
+    }));
+  } else if (setting === "downloadPath") {
+    title = "Download path";
+    subtitle = config.downloadPath.trim()
+      ? `Current ${config.downloadPath.trim()}`
+      : "Using default Kunai app data directory";
+    options = [
+      {
+        value: "__keep__",
+        label: "Keep current path",
+        detail: "Type an absolute path to filter, then press Enter to draft it",
+      },
+      {
+        value: "__clear__",
+        label: "Use Kunai default path",
+        detail: "Clear the override and let Kunai choose the platform app-data directory",
+      },
+    ];
   } else if (setting === "presenceProvider") {
     title = "Presence integration";
     subtitle = `Current ${config.presenceProvider}`;

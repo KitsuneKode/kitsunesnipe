@@ -62,6 +62,87 @@ test("settings expose Discord presence onboarding actions", () => {
   );
 });
 
+test("settings expose discover and offline controls that already exist in config", () => {
+  const options = buildSettingsOptions({
+    ...DEFAULT_CONFIG,
+    discoverShowOnStartup: true,
+    discoverMode: "anime-only",
+    discoverItemLimit: 48,
+    downloadsEnabled: true,
+    autoDownload: "next",
+    autoDownloadNextCount: 3,
+    autoCleanupWatched: true,
+    autoCleanupGraceDays: 14,
+    downloadPath: "/tmp/kunai-downloads",
+  });
+  const values = options.map((option) => option.value);
+
+  expect(values).toContain("discoverShowOnStartup");
+  expect(values).toContain("discoverMode");
+  expect(values).toContain("discoverItemLimit");
+  expect(values).toContain("downloadsEnabled");
+  expect(values).toContain("autoDownloadNextCount");
+  expect(values).toContain("autoCleanupGraceDays");
+  expect(values).toContain("downloadPath");
+  expect(options.find((option) => option.value === "discoverMode")?.label).toContain("anime-only");
+  expect(options.find((option) => option.value === "autoDownloadNextCount")?.label).toContain(
+    "3 episodes",
+  );
+  expect(options.find((option) => option.value === "downloadPath")?.label).toContain("configured");
+});
+
+test("discover and offline settings provide bounded choice overlays", () => {
+  const config = {
+    ...DEFAULT_CONFIG,
+    discoverMode: "series-only" as const,
+    discoverItemLimit: 48,
+    autoDownloadNextCount: 6,
+    autoCleanupGraceDays: 14,
+    downloadPath: "/tmp/kunai-downloads",
+  };
+
+  expect(
+    buildSettingsChoiceOverlay({
+      config,
+      setting: "discoverMode",
+      seriesProviderOptions: [],
+      animeProviderOptions: [],
+    }).options.map((option) => option.value),
+  ).toEqual(["auto", "unified", "anime-only", "series-only"]);
+  expect(
+    buildSettingsChoiceOverlay({
+      config,
+      setting: "discoverItemLimit",
+      seriesProviderOptions: [],
+      animeProviderOptions: [],
+    }).options.map((option) => option.value),
+  ).toContain("48");
+  expect(
+    buildSettingsChoiceOverlay({
+      config,
+      setting: "autoDownloadNextCount",
+      seriesProviderOptions: [],
+      animeProviderOptions: [],
+    }).options.map((option) => option.value),
+  ).toContain("6");
+  expect(
+    buildSettingsChoiceOverlay({
+      config,
+      setting: "autoCleanupGraceDays",
+      seriesProviderOptions: [],
+      animeProviderOptions: [],
+    }).options.map((option) => option.value),
+  ).toContain("14");
+  expect(
+    buildSettingsChoiceOverlay({
+      config,
+      setting: "downloadPath",
+      seriesProviderOptions: [],
+      animeProviderOptions: [],
+    }).options.map((option) => option.value),
+  ).toEqual(["__keep__", "__clear__"]);
+});
+
 test("settings show bundled default client id source when no explicit id is set", () => {
   const options = buildSettingsOptions({
     ...DEFAULT_CONFIG,

@@ -7,6 +7,7 @@ export type AppCommandId =
   | "recommendation"
   | "calendar"
   | "random"
+  | "surprise"
   | "settings"
   | "presence"
   | "toggle-mode"
@@ -96,6 +97,7 @@ export const COMMAND_CONTEXTS = {
     "recommendation",
     "calendar",
     "random",
+    "surprise",
     "settings",
     "presence",
     "toggle-mode",
@@ -178,8 +180,14 @@ export const COMMANDS: readonly AppCommand[] = [
   {
     id: "random",
     label: "Random Picks",
-    aliases: ["random", "roulette", "spin", "surprise", "pick-for-me"],
+    aliases: ["random", "roulette", "spin", "pick-for-me"],
     description: "Spin a small explained tray of recommendations without autoplaying",
+  },
+  {
+    id: "surprise",
+    label: "Surprise Me",
+    aliases: ["surprise", "surprise-me", "recommend-me"],
+    description: "Spin the same non-autoplay surprise tray with a friendlier command",
   },
   {
     id: "settings",
@@ -467,6 +475,7 @@ function resolveCommandState(
     case "recommendation":
     case "calendar":
     case "random":
+    case "surprise":
     case "settings":
     case "presence":
     case "history":

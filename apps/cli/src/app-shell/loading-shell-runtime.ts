@@ -99,9 +99,6 @@ export function renderStageRail(
           ? "warning"
           : "info"
         : "neutral";
-    if (issue && isActive) {
-      tone = "error";
-    }
     return {
       label: stageLabel(stage),
       tone,
@@ -165,7 +162,10 @@ export function normalizeLoadingIssue(issue: string | null | undefined): string 
     normalized === "subtitle attached" ||
     normalized === "subtitles attached" ||
     normalized === "subs ready" ||
-    normalized === "subtitles ready"
+    normalized === "subtitles ready" ||
+    normalized === "recoverable provider failures retry before fallback." ||
+    normalized.includes("retry before fallback") ||
+    normalized.includes("retrying before fallback")
   ) {
     return null;
   }

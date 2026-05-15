@@ -9,6 +9,7 @@ export type ShellAction =
   | "recommendation"
   | "calendar"
   | "random"
+  | "surprise"
   | "back-to-results"
   | "settings"
   | "presence"
@@ -177,6 +178,7 @@ export function toShellAction(commandId: AppCommandId): ShellAction {
     case "recommendation":
     case "calendar":
     case "random":
+    case "surprise":
     case "settings":
     case "presence":
     case "toggle-mode":

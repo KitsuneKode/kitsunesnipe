@@ -27,7 +27,7 @@ import type { HistoryEntry } from "@/services/persistence/HistoryStore";
 
 export type SearchPhaseInput = {
   initialQuery?: string;
-  initialRoute?: "trending" | "recommendation" | "calendar" | "random";
+  initialRoute?: "trending" | "recommendation" | "calendar" | "random" | "surprise";
   preserveExistingSearch?: boolean;
   /** 1-based index into search results; skips the browse shell when in range (use with bootstrap search). */
   autoPickSearchResultIndex?: number;
@@ -40,6 +40,7 @@ export const SEARCH_BROWSE_COMMAND_IDS = [
   "recommendation",
   "calendar",
   "random",
+  "surprise",
   "downloads",
   "library",
   "toggle-mode",
@@ -379,7 +380,8 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
           if (
             outcome.action === "trending" ||
             outcome.action === "calendar" ||
-            outcome.action === "random"
+            outcome.action === "random" ||
+            outcome.action === "surprise"
           ) {
             await loadSearchRoute(outcome.action, context);
             continue;
@@ -477,7 +479,7 @@ async function loadSearchRoute(
         }
       : route === "calendar"
         ? await loadCalendarResults(container, context.signal)
-        : route === "random"
+        : route === "random" || route === "surprise"
           ? await loadRandomResults(container, { signal: context.signal })
           : await loadDiscoverResults(container);
 

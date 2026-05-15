@@ -29,6 +29,7 @@ kunai -a -S "Frieren" --jump 1
 kunai --continue
 kunai --history
 kunai --offline
+kunai --discover
 kunai --calendar
 kunai --random
 kunai --debug
@@ -154,6 +155,7 @@ kunai --setup
 kunai --download -S "Dune"
 kunai --download -S "Dune" --download-path ~/Videos/Kunai
 kunai --offline
+kunai --discover
 kunai --calendar
 kunai --random
 kunai --random -a
@@ -200,6 +202,7 @@ or `/surprise` to spin a small non-autoplaying surprise tray.
 - Use `/ export-diagnostics` to generate a redacted local JSON snapshot
 - Use `/ report-issue` to open issue triage guidance
 - Open Diagnostics/About panels to confirm startup capabilities (`mpv`, `yt-dlp`, `ffprobe`, `chafa`, image renderer)
+- Useful smoke tests from source: `bun run dev -- -S "Dune"`, `bun run dev -- -S "Attack on Titan" -a`, `bun run dev -- -S "Dune" --debug`, and `bun run dev -- --discover`
 
 ## Provider Caveats
 

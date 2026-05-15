@@ -350,6 +350,25 @@ export function buildDiagnosticsPanelLines({
     { label: "/export-diagnostics", detail: "Write redacted support bundle" },
     { label: "/report-issue", detail: "Open GitHub issue reporting" },
 
+    // ── Smoke tests ──
+    { label: "─── Smoke tests", detail: "", tone: "info" },
+    {
+      label: "Series search",
+      detail: 'bun run dev -- -S "Dune"',
+    },
+    {
+      label: "Anime autoplay",
+      detail: 'bun run dev -- -S "Attack on Titan" -a',
+    },
+    {
+      label: "Debug resolve",
+      detail: 'bun run dev -- -S "Dune" --debug',
+    },
+    {
+      label: "Discover home",
+      detail: "bun run dev -- --discover",
+    },
+
     // ── Event Log ──
     ...recentEvents.map((event) => ({
       label: `${new Date(event.timestamp).toLocaleTimeString()}  ·  ${event.category}`,
