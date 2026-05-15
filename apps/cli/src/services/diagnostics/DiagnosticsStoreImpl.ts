@@ -4,14 +4,16 @@ import type {
   DiagnosticEventInput,
   DiagnosticsStore,
 } from "@/services/diagnostics/DiagnosticsStore";
+import { redactDiagnosticValue } from "@/services/diagnostics/redaction";
 
-const MAX_EVENTS = 200;
+const MAX_EVENTS = 500;
+const MAX_MESSAGE_LENGTH = 500;
 
 export class DiagnosticsStoreImpl implements DiagnosticsStore {
   private events: DiagnosticEvent[] = [];
 
   record(event: DiagnosticEventInput): void {
-    this.events.push(normalizeDiagnosticEvent(event));
+    this.events.push(normalizeDiagnosticEvent(redactEventInput(event)));
 
     if (this.events.length > MAX_EVENTS) {
       this.events.splice(0, this.events.length - MAX_EVENTS);
@@ -29,4 +31,23 @@ export class DiagnosticsStoreImpl implements DiagnosticsStore {
   clear(): void {
     this.events = [];
   }
+}
+
+function redactEventInput(event: DiagnosticEventInput): DiagnosticEventInput {
+  const redacted = redactDiagnosticValue(event, {
+    homeDir: process.env.HOME,
+    maxStringLength: 1_000,
+  }) as DiagnosticEventInput;
+
+  return {
+    ...redacted,
+    message: truncate(redacted.message, MAX_MESSAGE_LENGTH),
+  };
+}
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength - 3)}...`;
 }

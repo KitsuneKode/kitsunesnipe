@@ -3,9 +3,9 @@ import { describe, expect, test } from "bun:test";
 import { redactDiagnosticValue } from "@/services/diagnostics/redaction";
 
 describe("diagnostics redaction", () => {
-  test("redacts urls and sensitive headers recursively", () => {
+  test("keeps URL host and path shape while redacting sensitive values", () => {
     const redacted = redactDiagnosticValue({
-      url: "https://cdn.example/stream.m3u8?token=secret",
+      url: "https://cdn.example/stream.m3u8?token=secret&quality=1080p",
       headers: {
         Referer: "https://provider.example/watch/123",
         Authorization: "Bearer secret",
@@ -18,15 +18,15 @@ describe("diagnostics redaction", () => {
     });
 
     expect(redacted).toEqual({
-      url: "[redacted-url]",
+      url: "https://cdn.example/stream.m3u8?token=[redacted]&quality=1080p",
       headers: {
-        Referer: "[redacted-url]",
+        Referer: "https://provider.example/watch/[redacted-id]",
         Authorization: "[redacted]",
         Cookie: "[redacted]",
         "User-Agent": "KunaiTest",
       },
       nested: {
-        subtitleUrl: "[redacted-url]",
+        subtitleUrl: "https://subs.example/sub.vtt?sig=[redacted]",
       },
     });
   });
@@ -42,5 +42,11 @@ describe("diagnostics redaction", () => {
     expect(redacted).toEqual({
       outputPath: "~/Videos/Kunai/Show/S01E01.mp4",
     });
+  });
+
+  test("truncates long strings to keep diagnostic bundles bounded", () => {
+    const redacted = redactDiagnosticValue({ detail: "a".repeat(1200) });
+
+    expect(redacted).toEqual({ detail: `${"a".repeat(997)}...` });
   });
 });

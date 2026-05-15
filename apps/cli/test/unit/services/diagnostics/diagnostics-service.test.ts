@@ -62,6 +62,8 @@ describe("DiagnosticsServiceImpl", () => {
 
     expect(bundle.app).toEqual({ version: "1.2.3", debug: true });
     expect(bundle.eventCount).toBe(1);
-    expect(bundle.events[0]?.context).toEqual({ streamUrl: "[redacted-url]" });
+    expect(bundle.events[0]?.context).toEqual({
+      streamUrl: "https://cdn.example/stream.m3u8?token=[redacted]",
+    });
   });
 });

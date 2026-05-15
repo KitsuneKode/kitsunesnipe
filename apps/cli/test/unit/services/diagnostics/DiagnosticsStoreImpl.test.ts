@@ -23,12 +23,31 @@ describe("DiagnosticsStoreImpl", () => {
 
   test("caps the internal buffer", () => {
     const store = new DiagnosticsStoreImpl();
-    for (let index = 0; index < 250; index += 1) {
+    for (let index = 0; index < 550; index += 1) {
       store.record({ category: "ui", message: `event-${index}` });
     }
 
-    const events = store.getRecent(250);
-    expect(events).toHaveLength(200);
+    const events = store.getRecent(550);
+    expect(events).toHaveLength(500);
     expect(events.at(-1)?.message).toBe("event-50");
+  });
+
+  test("redacts and bounds events before storing them", () => {
+    const store = new DiagnosticsStoreImpl();
+    store.record({
+      category: "provider",
+      message: "a".repeat(700),
+      context: {
+        streamUrl: "https://cdn.example/stream.m3u8?token=secret",
+        detail: "b".repeat(1_200),
+      },
+    });
+
+    const event = store.getSnapshot()[0];
+    expect(event?.message).toBe(`${"a".repeat(497)}...`);
+    expect(event?.context).toEqual({
+      streamUrl: "https://cdn.example/stream.m3u8?token=[redacted]",
+      detail: `${"b".repeat(997)}...`,
+    });
   });
 });
