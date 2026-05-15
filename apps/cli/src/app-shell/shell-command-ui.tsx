@@ -161,6 +161,9 @@ export function CommandPalette({
 
   const renderCommand = (command: ResolvedAppCommand, absoluteIndex: number) => {
     const selected = absoluteIndex === model.selectedIndex;
+    const alias = `/${command.aliases[0]}`;
+    const aliasWidth = Math.min(22, Math.max(10, Math.floor(contentWidth * 0.34)));
+    const detailWidth = Math.max(12, contentWidth - aliasWidth - 5);
     return (
       <Box key={command.id} flexDirection="column">
         <Text
@@ -168,8 +171,10 @@ export function CommandPalette({
           color={selected ? "black" : command.enabled ? palette.muted : palette.gray}
           bold={selected}
         >
-          <Text color={selected ? "black" : palette.gray}>{selected ? "❯ " : "  "}</Text>/
-          {truncateLine(`${command.aliases[0]} ${command.description}`, contentWidth - 4)}
+          <Text color={selected ? "black" : palette.gray}>{selected ? "❯ " : "  "}</Text>
+          {truncateLine(alias, aliasWidth)}
+          <Text color={selected ? "black" : palette.gray}> </Text>
+          {truncateLine(command.description, detailWidth)}
         </Text>
         {!command.enabled && command.reason ? (
           <Text color={palette.gray}>{truncateLine(`  ·  ${command.reason}`, contentWidth)}</Text>

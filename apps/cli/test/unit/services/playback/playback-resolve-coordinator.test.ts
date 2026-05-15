@@ -244,6 +244,17 @@ describe("PlaybackResolveCoordinator", () => {
           status: "recovered",
           primaryFailure: "VidKing timed out",
           failureClass: "timeout",
+          attemptTimeline: expect.arrayContaining([
+            expect.objectContaining({
+              providerId: "vidking",
+              status: "failed",
+              failureClass: "timeout",
+            }),
+            expect.objectContaining({
+              providerId: "rivestream",
+              status: "succeeded",
+            }),
+          ]),
         }),
       }),
     );

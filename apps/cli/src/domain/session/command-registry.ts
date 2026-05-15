@@ -284,7 +284,7 @@ export const COMMANDS: readonly AppCommand[] = [
     id: "recover",
     label: "Recover Playback",
     aliases: ["recover", "fix", "repair", "retry-playback"],
-    description: "Run the safest recovery action for the current playback problem",
+    description: "Refresh the current stream and resume this episode after a playback issue",
   },
   {
     id: "fallback",

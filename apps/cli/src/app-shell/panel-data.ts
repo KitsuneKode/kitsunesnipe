@@ -398,16 +398,38 @@ export function buildDiagnosticsPanelLines({
 function formatProviderTimelineEvent(event: DiagnosticEvent | undefined): string {
   if (!event) return "no provider timeline yet";
   const attempts = event.context?.attempts;
+  const attemptTimeline = formatProviderAttemptTimeline(event.context?.attemptTimeline);
   const failureClass = event.context?.failureClass;
   const primaryFailure = event.context?.primaryFailure;
   return [
     event.message,
+    attemptTimeline,
     typeof attempts === "number" ? `${attempts} attempts` : null,
     typeof failureClass === "string" && failureClass !== "none" ? failureClass : null,
     typeof primaryFailure === "string" ? primaryFailure : null,
   ]
     .filter(Boolean)
     .join("  ·  ");
+}
+
+function formatProviderAttemptTimeline(value: unknown): string | null {
+  if (!Array.isArray(value)) return null;
+  const parts = value
+    .slice(0, 4)
+    .map((attempt) => {
+      if (!attempt || typeof attempt !== "object") return null;
+      const record = attempt as Record<string, unknown>;
+      const providerId = typeof record.providerId === "string" ? record.providerId : "provider";
+      const status = typeof record.status === "string" ? record.status : "unknown";
+      const failureClass =
+        typeof record.failureClass === "string" && record.failureClass !== "none"
+          ? record.failureClass
+          : null;
+      return `${providerId} ${status}${failureClass ? ` (${failureClass})` : ""}`;
+    })
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+  return parts.join(" -> ");
 }
 
 function summarizeJson(value: unknown): string {

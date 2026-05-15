@@ -2276,6 +2276,16 @@ function BrowseShell<T>({
         {!ultraCompact && resultSubtitle ? (
           <Text color={palette.muted}>{resultSubtitle}</Text>
         ) : null}
+        {activeFilterBadges.length > 0 && !ultraCompact ? (
+          <Box marginTop={1} flexWrap="wrap">
+            <Text color={palette.gray}>Filters </Text>
+            {activeFilterBadges.map((filter) => (
+              <Box key={filter} marginRight={1}>
+                <InlineBadge label={filter} tone="info" />
+              </Box>
+            ))}
+          </Box>
+        ) : null}
         <Box marginTop={1}>
           <ContextStrip
             items={[
@@ -2300,7 +2310,7 @@ function BrowseShell<T>({
           onSubmit={handleQuerySubmit}
           placeholder={placeholder}
           focus={!commandMode}
-          hint="Tokens: type:series year:2008 rating:8 · Ctrl+W deletes a word"
+          hint="Tokens: type:series year:2008 rating:8 · /filters for guided chips"
           maxWidth={innerWidth}
           onRedraw={clearShellScreen}
         />

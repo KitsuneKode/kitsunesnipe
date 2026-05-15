@@ -43,7 +43,11 @@ type HistoryAction =
   | { type: "clear-all" }
   | { type: "back" };
 
-type DownloadJobAction = { type: "job"; id: string } | { type: "back" };
+type DownloadJobAction =
+  | { type: "job"; id: string }
+  | { type: "repair-missing" }
+  | { type: "delete-group" }
+  | { type: "back" };
 type OfflineLibraryGroupAction =
   | { type: "group"; key: string }
   | { type: "downloads" }
@@ -568,6 +572,7 @@ async function openOfflineLibraryGroupPicker(
         })),
     });
     const options: ShellOption<DownloadJobAction>[] = [
+      ...buildOfflineGroupActions(entries),
       ...entries.map((entry) => ({
         value: { type: "job" as const, id: entry.job.id },
         label: `${offlineStatusIcon(entry.status)} ${formatOfflineJobListingTitle(entry.job)}`,
@@ -587,6 +592,48 @@ async function openOfflineLibraryGroupPicker(
       options,
     });
     if (!picked || picked.type === "back") return;
+    if (picked.type === "repair-missing") {
+      const repairEntries = entries.filter((entry) => entry.status !== "ready");
+      for (const entry of repairEntries) {
+        container.downloadService.retry(entry.job.id);
+      }
+      container.stateManager.dispatch({
+        type: "SET_PLAYBACK_FEEDBACK",
+        note: `Re-download queued for ${repairEntries.length} missing ${
+          repairEntries.length === 1 ? "item" : "items"
+        }`,
+      });
+      void container.downloadService.processQueue();
+      continue;
+    }
+    if (picked.type === "delete-group") {
+      const confirmed = await chooseFromListShell<boolean>({
+        title: `Delete ${first.titleName}?`,
+        subtitle: `Remove ${entries.length} local ${
+          entries.length === 1 ? "item" : "items"
+        }, subtitles, and queue records for this title.`,
+        actionContext,
+        options: [
+          { value: false, label: "Keep title", detail: "Go back without deleting anything" },
+          {
+            value: true,
+            label: "Delete local title",
+            detail: "Remove all local files and download records in this group",
+          },
+        ],
+      });
+      if (!confirmed) continue;
+      await Promise.all(
+        entries.map((entry) =>
+          container.downloadService.deleteJob(entry.job.id, { deleteArtifact: true }),
+        ),
+      );
+      container.stateManager.dispatch({
+        type: "SET_PLAYBACK_FEEDBACK",
+        note: `Deleted offline title: ${first.titleName}`,
+      });
+      return;
+    }
     const job = container.downloadService.getJob(picked.id);
     if (!job || job.status !== "completed") continue;
 
@@ -675,6 +722,26 @@ async function openOfflineLibraryGroupPicker(
       note: action === "delete-artifact" ? "Download artifact deleted" : "Download job deleted",
     });
   }
+}
+
+function buildOfflineGroupActions(
+  entries: readonly import("@/services/offline/offline-library").OfflineLibraryEntry[],
+): ShellOption<DownloadJobAction>[] {
+  const missingCount = entries.filter((entry) => entry.status !== "ready").length;
+  const actions: ShellOption<DownloadJobAction>[] = [];
+  if (missingCount > 0) {
+    actions.push({
+      value: { type: "repair-missing" },
+      label: `Retry ${missingCount} missing ${missingCount === 1 ? "item" : "items"}`,
+      detail: "Repair this title without opening every episode one by one",
+    });
+  }
+  actions.push({
+    value: { type: "delete-group" },
+    label: "Delete this offline title",
+    detail: "Confirm before removing all local files and queue records",
+  });
+  return actions;
 }
 
 async function openStaticInfoShell({

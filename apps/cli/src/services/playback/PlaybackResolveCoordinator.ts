@@ -136,6 +136,13 @@ export class PlaybackResolveCoordinator {
         status: summary.status,
         primaryFailure: summary.primaryFailure,
         attempts: summary.attempts.length,
+        attemptTimeline: summary.attempts.slice(0, 6).map((attempt) => ({
+          reason: attempt.reason,
+          providerId: attempt.providerId,
+          status: attempt.status,
+          failureClass: attempt.failureClass ?? null,
+          summary: attempt.userSummary ?? null,
+        })),
         failureClass: failedAttempt?.failureClass ?? "none",
         truncated: result.providerTimeline.truncated,
       },

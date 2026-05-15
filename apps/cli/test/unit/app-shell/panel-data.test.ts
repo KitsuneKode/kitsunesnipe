@@ -185,6 +185,17 @@ describe("panel-data", () => {
           context: {
             status: "recovered",
             attempts: 2,
+            attemptTimeline: [
+              {
+                providerId: "vidking",
+                status: "failed",
+                failureClass: "timeout",
+              },
+              {
+                providerId: "rivestream",
+                status: "succeeded",
+              },
+            ],
             primaryFailure: "VidKing timed out",
             failureClass: "timeout",
           },
@@ -194,6 +205,9 @@ describe("panel-data", () => {
 
     expect(lines.find((line) => line.label === "Provider timeline")?.detail).toContain(
       "Recovered via Rivestream",
+    );
+    expect(lines.find((line) => line.label === "Provider timeline")?.detail).toContain(
+      "vidking failed (timeout) -> rivestream succeeded",
     );
     expect(lines.find((line) => line.label === "Provider timeline")?.tone).toBe("success");
   });
