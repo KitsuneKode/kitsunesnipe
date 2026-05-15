@@ -39,61 +39,54 @@ export function buildBrowseDetailsPanel<T>(
   const facts = getStructuredPreviewFacts(option);
   const previewFacts = option.previewFacts ?? [];
   const localFacts = previewFacts.filter((fact) => LOCAL_FACT_LABELS.has(fact.label));
+  const nonLocalFacts = previewFacts.filter(
+    (fact) =>
+      !LOCAL_FACT_LABELS.has(fact.label) && fact.label !== "Poster" && fact.label !== "Rating",
+  );
+  const quickFacts = facts.filter((fact) => fact.label !== "Poster" && fact.label !== "Rating");
   const lines: ShellPanelLine[] = [
+    { label: "─── Selection", detail: "", tone: "info" },
     {
       label: "Title",
       detail: title,
       tone: "success",
     },
-    ...localFacts,
     ...(option.previewMeta?.length
       ? [
           {
-            label: "Quick facts",
+            label: "At a glance",
             detail: option.previewMeta.join("  ·  "),
           },
         ]
       : []),
     {
+      label: "Open",
+      detail: option.previewNote ?? "Press Enter to open this title.",
+      tone: "info",
+    },
+    ...(localFacts.length > 0
+      ? [{ label: "─── Local", detail: "", tone: "info" as const }, ...localFacts]
+      : []),
+    { label: "─── Details", detail: "", tone: "info" },
+    ...quickFacts,
+    {
+      label: "Rating",
+      detail: option.previewRating ?? "Not supplied by this provider response",
+      tone: option.previewRating ? "success" : "neutral",
+    },
+    { label: "─── Synopsis", detail: "", tone: "info" },
+    {
       label: "Overview",
       detail: option.previewBody || "No overview available yet.",
     },
+    { label: "─── Availability", detail: "", tone: "info" },
     {
       label: "Artwork",
       detail: option.previewImageUrl ? POSTER_AVAILABLE : POSTER_MISSING,
       tone: option.previewImageUrl ? "success" : "warning",
     },
-    {
-      label: "Trailer",
-      detail: "Trailer links are not part of the current search contract yet.",
-      tone: "neutral",
-    },
-    ...facts.filter((fact) => fact.label !== "Poster" && fact.label !== "Rating"),
+    ...nonLocalFacts,
   ];
-
-  if (option.previewRating) {
-    lines.push({
-      label: "Rating",
-      detail: option.previewRating,
-      tone: "success",
-    });
-  } else {
-    lines.push({
-      label: "Rating",
-      detail: "Rating unavailable from this provider response",
-      tone: "neutral",
-    });
-  }
-
-  for (const fact of previewFacts) {
-    if (LOCAL_FACT_LABELS.has(fact.label)) continue;
-    lines.push(fact);
-  }
-
-  lines.push({
-    label: "Next step",
-    detail: option.previewNote ?? "Press Enter to open this title.",
-  });
 
   return {
     title: "Title overview",
@@ -182,14 +175,6 @@ function getStructuredPreviewFacts<T>(option: BrowseShellOption<T>): ShellPanelL
 function buildCompanionFacts<T>(option: BrowseShellOption<T>): ShellPanelLine[] {
   const facts: ShellPanelLine[] = [];
   const providerFacts = option.previewFacts ?? [];
-
-  if (!option.previewImageUrl) {
-    facts.push({
-      label: "Artwork",
-      detail: "Not supplied by this provider",
-      tone: "neutral",
-    });
-  }
 
   for (const fact of providerFacts) {
     if (fact.label === "Poster" || fact.label === "Rating") continue;

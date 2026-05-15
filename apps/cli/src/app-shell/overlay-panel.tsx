@@ -985,18 +985,6 @@ export function OverlayPanel({
         </Box>
       ) : isLineOverlay ? (
         <Box marginTop={1} flexDirection="column">
-          {overlay.type === "details" ? (
-            <Box marginBottom={1} flexDirection="column">
-              <Text color={overlay.imageUrl ? palette.green : palette.amber}>
-                {overlay.imageUrl ? "Artwork available" : "Artwork unavailable"}
-              </Text>
-              <Text color={palette.gray}>
-                {overlay.imageUrl
-                  ? "Companion preview can show this artwork when the terminal supports it."
-                  : "This provider did not expose artwork for the selected title."}
-              </Text>
-            </Box>
-          ) : null}
           {overlay.lines
             .slice(overlay.scrollIndex ?? 0, (overlay.scrollIndex ?? 0) + maxLines)
             .map((line: ShellPanelLine) => (
