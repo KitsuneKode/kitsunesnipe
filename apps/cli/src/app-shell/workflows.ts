@@ -10,18 +10,17 @@ import {
 import { describePlaybackSubtitleStatus } from "@/app/subtitle-status";
 import type { Container } from "@/container";
 import { effectiveFooterHints } from "@/container";
+import { createContinuationEngine } from "@/domain/continuation/ContinuationEngine";
+import { createOfflineLibraryEngine } from "@/domain/offline/OfflineLibraryEngine";
 import type { EpisodePickerOption } from "@/domain/types";
 import { writeAtomicJson } from "@/infra/fs/atomic-write";
 import { revealPathInOsFileManager } from "@/infra/os/reveal-in-file-manager";
 import { DownloadEnqueueRejectedError } from "@/services/download/DownloadService";
 import {
-  formatOfflineLibraryGroupDetail,
-  formatOfflineLibraryGroupLabel,
   formatOfflineJobListingTitle,
   formatOfflineShelfBadge,
   formatOfflineShelfDetail,
   formatOfflineSecondaryLine,
-  groupOfflineLibraryEntries,
   offlineStatusIcon,
 } from "@/services/offline/offline-library";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
@@ -487,12 +486,12 @@ export async function openCompletedDownloadsPicker(
 ): Promise<void> {
   while (true) {
     const completed = await container.offlineLibraryService.listCompletedEntries(60);
-    const groups = groupOfflineLibraryEntries(completed);
+    const shelf = createOfflineLibraryEngine().buildShelf(completed);
     const options: ShellOption<OfflineLibraryGroupAction>[] = [
-      ...groups.map((group) => ({
+      ...shelf.groups.map((group) => ({
         value: { type: "group" as const, key: group.key },
-        label: formatOfflineLibraryGroupLabel(group),
-        detail: formatOfflineLibraryGroupDetail(group),
+        label: group.label,
+        detail: group.detail,
       })),
       { value: { type: "back" as const }, label: "Back" },
     ];
@@ -500,15 +499,19 @@ export async function openCompletedDownloadsPicker(
       title: "Offline library",
       subtitle:
         completed.length > 0
-          ? `${groups.length} title(s) · ${completed.length} local item(s) · choose a title`
-          : "No completed local videos yet. Use /downloads to manage the queue.",
+          ? `${shelf.summary} · choose a title`
+          : `${shelf.summary}. Use /downloads to manage the queue.`,
       actionContext,
       options,
     });
     if (!picked || picked.type === "back") return;
-    const group = groups.find((candidate) => candidate.key === picked.key);
+    const group = shelf.groups.find((candidate) => candidate.key === picked.key);
     if (!group) continue;
-    await openOfflineLibraryGroupPicker(container, group.entries, actionContext);
+    const entryById = new Map(completed.map((entry) => [entry.job.id, entry]));
+    const entries = group.entries
+      .map((entry) => entryById.get(entry.jobId))
+      .filter((entry): entry is (typeof completed)[number] => Boolean(entry));
+    await openOfflineLibraryGroupPicker(container, entries, actionContext);
   }
 }
 
@@ -520,6 +523,24 @@ async function openOfflineLibraryGroupPicker(
   while (true) {
     const first = entries[0]?.job;
     if (!first) return;
+    const historyEntries = await container.historyStore.listByTitle(first.titleId);
+    const continuation = createContinuationEngine().decide({
+      titleName: first.titleName,
+      networkAvailable: true,
+      localEpisodes: entries
+        .filter((entry) => entry.job.season !== undefined && entry.job.episode !== undefined)
+        .map((entry) => ({
+          season: entry.job.season ?? 1,
+          episode: entry.job.episode ?? 1,
+          playable: entry.status === "ready",
+          completed: historyEntries.some(
+            (history) =>
+              history.season === entry.job.season &&
+              history.episode === entry.job.episode &&
+              isFinished(history),
+          ),
+        })),
+    });
     const options: ShellOption<DownloadJobAction>[] = [
       ...entries.map((entry) => ({
         value: { type: "job" as const, id: entry.job.id },
@@ -533,7 +554,9 @@ async function openOfflineLibraryGroupPicker(
     ];
     const picked = await chooseFromListShell({
       title: first.titleName,
-      subtitle: `${entries.length} local ${entries.length === 1 ? "item" : "items"} · play, reveal folder, re-download, delete`,
+      subtitle: `${entries.length} local ${
+        entries.length === 1 ? "item" : "items"
+      } · ${continuation.note} · play, reveal folder, re-download, delete`,
       actionContext,
       options,
     });
