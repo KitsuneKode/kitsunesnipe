@@ -32,6 +32,8 @@ export function providerResolveResultToStreamInfo(
   const pickedSubtitle =
     subtitlePreference === "none" ? null : selectSubtitle(subtitleList, subtitlePreference);
 
+  const subtitleSource = resolveSubtitleSource(result.subtitles, subtitleList);
+
   return {
     url: selected.url,
     headers: selected.headers ?? {},
@@ -39,7 +41,7 @@ export function providerResolveResultToStreamInfo(
     hardSubLanguage: selected.hardSubLanguage,
     subtitle: pickedSubtitle?.url,
     subtitleList,
-    subtitleSource: subtitleList.length > 0 ? "provider" : "none",
+    subtitleSource,
     subtitleEvidence: {
       directSubtitleObserved: subtitleList.length > 0,
       wyzieSearchObserved: false,
@@ -62,8 +64,7 @@ export function subtitleCandidateToTrack(candidate: SubtitleCandidate): Subtitle
     display: displayName ?? candidate.label,
     language: normalizedLang ?? candidate.language,
     release: candidate.syncEvidence,
-    sourceKind:
-      candidate.source === "provider" || candidate.source === "embedded" ? "embedded" : "external",
+    sourceKind: candidate.source === "provider" ? "external" : "embedded",
     sourceName: candidate.source,
     isHearingImpaired: looksLikeHiSubtitle(
       candidate.label,
@@ -71,4 +72,13 @@ export function subtitleCandidateToTrack(candidate: SubtitleCandidate): Subtitle
       candidate.language,
     ),
   };
+}
+
+function resolveSubtitleSource(
+  candidates: readonly SubtitleCandidate[],
+  tracks: readonly SubtitleTrack[],
+): "direct" | "wyzie" | "provider" | "none" {
+  if (tracks.length === 0) return "none";
+  const hasEmbedded = candidates.some((c) => c.source === "embedded");
+  return hasEmbedded ? "direct" : "provider";
 }

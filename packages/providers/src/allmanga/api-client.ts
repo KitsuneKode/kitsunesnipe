@@ -33,6 +33,8 @@ export type StreamLink = {
   readonly quality: string;
   readonly referer?: string;
   readonly subtitle?: string;
+  /** All subtitles from the API response with language metadata. */
+  readonly subtitles?: readonly { lang: string; src: string }[];
 };
 
 const ALLMANGA_KEY_RAW = "Xot36i3lK3:v1";
@@ -592,6 +594,7 @@ async function fetchStreamLinks(
     const subtitle = parsed.subtitles?.find((entry) =>
       entry.lang?.toLowerCase().startsWith("en"),
     )?.src;
+    const allSubtitles = parsed.subtitles;
 
     if (parsed.links?.length) {
       for (const link of parsed.links) {
@@ -608,10 +611,16 @@ async function fetchStreamLinks(
               url: base.replace(/,[^/]*/, quality),
               quality,
               subtitle,
+              subtitles: allSubtitles,
             });
           }
           if (variants.length === 0) {
-            links.push({ url: link.link, quality: link.resolutionStr ?? "", subtitle });
+            links.push({
+              url: link.link,
+              quality: link.resolutionStr ?? "",
+              subtitle,
+              subtitles: allSubtitles,
+            });
           }
           continue;
         }

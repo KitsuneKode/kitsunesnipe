@@ -25,6 +25,9 @@ export const RIVESTREAM_API_BASE = "https://www.rivestream.app/api/backendfetch"
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
+/** Memoize secretKey per tmdbId — deterministic, expensive to recompute. */
+const secretKeyCache = new Map<string, string>();
+
 type RivestreamProviderServicesResponse = {
   readonly data?: unknown;
 };
@@ -258,7 +261,13 @@ export const rivestreamProviderModule: CoreProviderModule = {
     });
 
     try {
-      const secretKey = generateSecretKey(tmdbId);
+      const secretKey =
+        secretKeyCache.get(tmdbId) ??
+        (() => {
+          const key = generateSecretKey(tmdbId);
+          secretKeyCache.set(tmdbId, key);
+          return key;
+        })();
       const typeStr = input.mediaKind === "series" ? "tv" : "movie";
       const season = input.episode?.season ?? 1;
       const episode = input.episode?.episode ?? 1;

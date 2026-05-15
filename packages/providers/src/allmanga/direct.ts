@@ -14,6 +14,7 @@ import type {
 } from "@kunai/types";
 
 import { createExhaustedResult, emitTraceEvent } from "../shared/resolve-helpers";
+import { normalizeSubtitleLanguage, subtitleLanguageDisplayName } from "../shared/subtitle-helpers";
 import {
   loadAvailableEpisodesDetail,
   resolveAnimeEpisodeString,
@@ -28,6 +29,10 @@ const DEFAULT_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0";
 const ALLANIME_API_URL = "https://api.allanime.day/api";
 const ALLANIME_REFERER = "https://youtu-chan.com";
+
+/** Cache episode catalog per showId+mode to avoid re-fetching on every resolve. */
+const episodeCatalogCache = new Map<string, { at: number; data: string[] }>();
+const EPISODE_CATALOG_CACHE_TTL_MS = 30 * 60 * 1000;
 
 export const allmangaProviderModule: CoreProviderModule = {
   providerId: ALLANIME_PROVIDER_ID,
@@ -85,13 +90,22 @@ export const allmangaProviderModule: CoreProviderModule = {
       const episodeNum = input.episode?.absoluteEpisode ?? input.episode?.episode ?? 1;
 
       // Load the catalog to find the exact episode string (e.g. "01" or "1.5")
-      const detail = await loadAvailableEpisodesDetail(
-        ALLANIME_API_URL,
-        ALLANIME_REFERER,
-        DEFAULT_UA,
-        showId,
-      );
-      const episodes = (detail[mode] ?? []) as string[];
+      // Cache per showId+mode like Miruro does, with 30min TTL
+      const cacheKey = `${showId}:${mode}`;
+      const cached = episodeCatalogCache.get(cacheKey);
+      let episodes: string[];
+      if (cached && Date.now() - cached.at < EPISODE_CATALOG_CACHE_TTL_MS) {
+        episodes = cached.data;
+      } else {
+        const detail = await loadAvailableEpisodesDetail(
+          ALLANIME_API_URL,
+          ALLANIME_REFERER,
+          DEFAULT_UA,
+          showId,
+        );
+        episodes = (detail[mode] ?? []) as string[];
+        episodeCatalogCache.set(cacheKey, { at: Date.now(), data: episodes });
+      }
 
       if (episodes.length === 0) {
         throw new Error(`No ${mode} episodes found for show ${showId}`);
@@ -163,19 +177,46 @@ export const allmangaProviderModule: CoreProviderModule = {
         });
 
         if (link.subtitle) {
+          const subSrc = link.subtitles?.find((s) => s.src === link.subtitle);
+          const subLang = subSrc?.lang ?? "en";
+          const normalizedLang = normalizeSubtitleLanguage(subLang);
           const subId = `subtitle:${ALLANIME_PROVIDER_ID}:${Bun.hash(link.subtitle).toString(36)}`;
           subtitles.push({
             id: subId,
             providerId: ALLANIME_PROVIDER_ID,
             sourceId,
             url: link.subtitle,
-            language: "en",
-            label: "English",
+            language: normalizedLang ?? subLang,
+            label: normalizedLang
+              ? (subtitleLanguageDisplayName(normalizedLang) ?? subLang)
+              : subLang,
             format: "vtt",
             source: "embedded",
             confidence: 0.9,
             cachePolicy: { ...cachePolicy, ttlClass: "subtitle-list" },
           });
+        }
+
+        // Add any additional subtitles that weren't the primary picked one
+        if (link.subtitles) {
+          for (const extra of link.subtitles) {
+            if (extra.src === link.subtitle) continue;
+            if (!extra.src) continue;
+            const normLang = normalizeSubtitleLanguage(extra.lang);
+            const extraId = `subtitle:${ALLANIME_PROVIDER_ID}:${Bun.hash(extra.src).toString(36)}`;
+            subtitles.push({
+              id: extraId,
+              providerId: ALLANIME_PROVIDER_ID,
+              sourceId,
+              url: extra.src,
+              language: normLang ?? extra.lang,
+              label: normLang ? (subtitleLanguageDisplayName(normLang) ?? extra.lang) : extra.lang,
+              format: "vtt",
+              source: "embedded",
+              confidence: 0.85,
+              cachePolicy: { ...cachePolicy, ttlClass: "subtitle-list" },
+            });
+          }
         }
       }
 
