@@ -110,6 +110,12 @@ export interface SearchResult {
   readonly metadataSource?: string;
   readonly rating?: number | null;
   readonly popularity?: number | null;
+  /** Optional browse-list grouping label, used by schedule-style result sets. */
+  readonly displayGroup?: string;
+  /** Optional leading browse-list column, such as a release time. */
+  readonly displayTime?: string;
+  /** Optional trailing browse-list badge, such as an episode number. */
+  readonly displayBadge?: string;
   readonly episodeCount?: number;
   readonly availableAudioModes?: readonly ("sub" | "dub")[];
   readonly subtitleAvailability?: "hardsub" | "softsub" | "unknown";

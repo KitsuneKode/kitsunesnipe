@@ -44,6 +44,8 @@ function toCalendarSearchResult(item: CatalogScheduleItem): SearchResult {
   const source = item.source === "anilist" ? "AniList" : "TMDB";
   const year = item.releaseAt ? String(new Date(item.releaseAt).getFullYear()) : "";
   const dayLabel = describeCalendarDay(item.releaseAt);
+  const groupLabel = describeCalendarGroup(item.releaseAt);
+  const timeLabel = describeCalendarTime(item);
   const badgeLabel = describeCalendarBadge(item, dayLabel);
   const episodeLabel =
     typeof item.episode === "number"
@@ -60,6 +62,9 @@ function toCalendarSearchResult(item: CatalogScheduleItem): SearchResult {
     metadataSource: `${source} calendar · ${dayLabel} · ${badgeLabel} · ${item.releasePrecision}`,
     rating: typeof item.averageScore === "number" ? item.averageScore / 10 : undefined,
     popularity: item.popularity,
+    displayGroup: groupLabel,
+    displayTime: timeLabel,
+    displayBadge: typeof item.episode === "number" ? `EP ${item.episode}` : undefined,
     episodeCount: item.episode,
   };
 }
@@ -123,6 +128,28 @@ function describeCalendarDay(releaseAt: string | null): string {
     month: "short",
     day: "numeric",
   }).format(release);
+}
+
+function describeCalendarGroup(releaseAt: string | null): string {
+  if (!releaseAt) return "DATE TBA";
+  const release = new Date(releaseAt);
+  const weekday = new Intl.DateTimeFormat(undefined, { weekday: "short" })
+    .format(release)
+    .toUpperCase();
+  const day = new Intl.DateTimeFormat(undefined, { day: "2-digit" }).format(release);
+  const relative = describeCalendarDay(releaseAt);
+  return relative === "Today" || relative === "Tomorrow"
+    ? `${weekday} ${day} · ${relative}`
+    : `${weekday} ${day}`;
+}
+
+function describeCalendarTime(item: CatalogScheduleItem): string | undefined {
+  if (!item.releaseAt || item.releasePrecision !== "timestamp") return undefined;
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(item.releaseAt));
 }
 
 function formatReleaseDayPhrase(dayLabel: string): string {

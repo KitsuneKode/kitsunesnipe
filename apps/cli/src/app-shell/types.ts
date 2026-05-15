@@ -136,6 +136,9 @@ export type BrowseShellOption<T> = {
   detail?: string;
   previewTitle?: string;
   previewMeta?: readonly string[];
+  previewGroup?: string;
+  previewTime?: string;
+  previewBadge?: string;
   previewFacts?: readonly ShellPanelLine[];
   previewImageUrl?: string;
   previewRating?: string;

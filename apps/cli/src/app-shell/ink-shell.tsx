@@ -2401,29 +2401,49 @@ function BrowseShell<T>({
               {visibleOptions.map((option, index) => {
                 const optionIndex = windowStart + index;
                 const selected = optionIndex === selectedIndex;
-                const metaText = option.previewMeta?.[0];
+                const previousGroup =
+                  optionIndex > 0 ? options[optionIndex - 1]?.previewGroup : null;
+                const showGroupHeader =
+                  option.previewGroup && option.previewGroup !== previousGroup;
+                const metaText = option.previewBadge ?? option.previewMeta?.[0];
                 const metaWidth = metaText ? Math.min(12, Math.max(6, metaText.length)) : 0;
-                const titleBudget = Math.max(12, rowWidth - metaWidth - 4);
+                const timeText = option.previewTime ?? "";
+                const timeWidth = option.previewTime ? 6 : 0;
+                const titleBudget = Math.max(12, rowWidth - metaWidth - timeWidth - 6);
                 const titleText = truncateLine(option.label, titleBudget);
                 const metaSegment = metaText ? truncateLine(metaText, metaWidth) : "";
-                const rowText = metaText
-                  ? `${titleText.padEnd(titleBudget)} ${metaSegment.padStart(metaWidth)}`
+                const titleSegment = timeText
+                  ? `${timeText.padEnd(timeWidth)}  ${titleText}`
                   : titleText;
+                const rowText = metaText
+                  ? `${titleSegment.padEnd(titleBudget + timeWidth + (timeText ? 2 : 0))} ${metaSegment.padStart(metaWidth)}`
+                  : titleSegment;
 
                 return (
-                  <Box key={`${option.label}-${option.detail ?? ""}`} width={rowWidth}>
-                    <Text
-                      backgroundColor={selected ? palette.teal : undefined}
-                      color={selected ? "black" : "white"}
-                      bold={selected}
-                      dimColor={!selected}
-                      wrap="truncate"
-                    >
-                      <Text color={selected ? "black" : palette.gray}>
-                        {selected ? "❯ " : "  "}
+                  <Box
+                    key={`${option.label}-${option.detail ?? ""}`}
+                    flexDirection="column"
+                    width={rowWidth}
+                  >
+                    {showGroupHeader ? (
+                      <Text color={palette.amber} bold>
+                        {`  ${option.previewGroup}`}
                       </Text>
-                      {truncateLine(rowText, rowWidth - 2).padEnd(rowWidth - 2)}
-                    </Text>
+                    ) : null}
+                    <Box width={rowWidth}>
+                      <Text
+                        backgroundColor={selected ? palette.teal : undefined}
+                        color={selected ? "black" : "white"}
+                        bold={selected}
+                        dimColor={!selected}
+                        wrap="truncate"
+                      >
+                        <Text color={selected ? "black" : palette.gray}>
+                          {selected ? "❯ " : "  "}
+                        </Text>
+                        {truncateLine(rowText, rowWidth - 2).padEnd(rowWidth - 2)}
+                      </Text>
+                    </Box>
                   </Box>
                 );
               })}

@@ -65,6 +65,9 @@ export function toBrowseResultOption(
     }${historyBadge ? ` · ${historyBadge}` : ""}${result.overview ? ` · ${result.overview}` : ""}`,
     previewTitle: displayTitle,
     previewMeta: meta,
+    previewGroup: result.displayGroup,
+    previewTime: result.displayTime,
+    previewBadge: result.displayBadge,
     previewFacts: [
       ...buildLocalEnrichmentFacts(enrichment),
       ...(historyEntry

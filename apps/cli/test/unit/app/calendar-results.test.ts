@@ -4,6 +4,13 @@ import { loadCalendarResults } from "@/app/calendar-results";
 
 test("loadCalendarResults maps releasing-today items into playable browse candidates", async () => {
   let requestedDays = 0;
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const todayIso = today.toISOString();
+  const tomorrowIso = tomorrow.toISOString();
+  const todayYear = String(today.getFullYear());
   const results = await loadCalendarResults({
     stateManager: { getState: () => ({ mode: "anime" }) },
     timelineService: {
@@ -16,7 +23,7 @@ test("loadCalendarResults maps releasing-today items into playable browse candid
             titleName: "Popular Tomorrow",
             type: "anime",
             episode: 6,
-            releaseAt: "2026-05-16T12:00:00.000Z",
+            releaseAt: tomorrowIso,
             releasePrecision: "timestamp",
             status: "upcoming",
             posterPath: null,
@@ -29,7 +36,7 @@ test("loadCalendarResults maps releasing-today items into playable browse candid
             type: "anime",
             episode: 29,
             episodeTitle: "A new journey",
-            releaseAt: "2026-05-15T12:00:00.000Z",
+            releaseAt: todayIso,
             releasePrecision: "timestamp",
             status: "upcoming",
             posterPath: "https://img.example/frieren.jpg",
@@ -46,7 +53,7 @@ test("loadCalendarResults maps releasing-today items into playable browse candid
           type: "anime",
           episode: 29,
           episodeTitle: "A new journey",
-          releaseAt: "2026-05-15T12:00:00.000Z",
+          releaseAt: todayIso,
           releasePrecision: "timestamp",
           status: "upcoming",
           posterPath: "https://img.example/frieren.jpg",
@@ -61,12 +68,15 @@ test("loadCalendarResults maps releasing-today items into playable browse candid
     id: "21",
     type: "series",
     title: "Frieren",
-    year: "2026",
+    year: todayYear,
     metadataSource: "AniList calendar · Today · airs today · timestamp",
     episodeCount: 29,
     posterPath: "https://img.example/frieren.jpg",
     rating: 9.2,
     popularity: 1000,
+    displayGroup: expect.stringContaining("Today"),
+    displayTime: expect.any(String),
+    displayBadge: "EP 29",
   });
   expect(results.results[0]?.overview).toContain("Today. Episode 29 · A new journey");
   expect(results.results[0]?.overview).toContain("airs today at");
@@ -77,6 +87,8 @@ test("loadCalendarResults maps releasing-today items into playable browse candid
 });
 
 test("loadCalendarResults distinguishes already released rows from timed upcoming rows", async () => {
+  const today = new Date();
+  const todayDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const results = await loadCalendarResults({
     stateManager: { getState: () => ({ mode: "series" }) },
     timelineService: {
@@ -89,7 +101,7 @@ test("loadCalendarResults distinguishes already released rows from timed upcomin
           season: 5,
           episode: 3,
           episodeTitle: "Signals",
-          releaseAt: "2026-05-15",
+          releaseAt: todayDate,
           releasePrecision: "date",
           status: "released",
           posterPath: null,
