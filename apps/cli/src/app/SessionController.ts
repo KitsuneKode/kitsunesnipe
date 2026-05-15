@@ -92,6 +92,8 @@ export class SessionController {
             new (await import("./PlaybackPhase")).PlaybackPhase(),
           );
 
+          void this.container.presence.clearPlayback("playback-exited");
+
           if (this.abortController.signal.aborted) break;
 
           if (playbackResult.status === "quit") break;

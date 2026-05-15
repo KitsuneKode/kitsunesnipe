@@ -2104,7 +2104,12 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "finished" });
       return result;
     } finally {
-      void context.container.presence.clearPlayback("playback-ended");
+      // Don't clear presence here — between autoplay-chain episodes we want
+      // continuous "watching" presence like Netflix/Crunchyroll. The
+      // updatePlayback at the start of the next episode will seamlessly
+      // transition the activity. Presence is cleared only when the user
+      // explicitly navigates away from playback (back_to_search or
+      // back_to_results outcomes above).
     }
   }
 

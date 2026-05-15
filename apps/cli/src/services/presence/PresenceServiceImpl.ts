@@ -44,6 +44,8 @@ export class PresenceServiceImpl implements PresenceService {
   private unavailableRetryAtMs = 0;
   private unavailableBackoffMs = 1_000;
   private lastActivityHash: string | null = null;
+  private lastActivityPayload: Record<string, unknown> | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly deps: {
@@ -133,8 +135,10 @@ export class PresenceServiceImpl implements PresenceService {
       await client.setActivity(payload);
       this.status = "ready";
       this.lastActivityHash = activityHash;
+      this.lastActivityPayload = payload;
       this.unavailableRetryAtMs = 0;
       this.unavailableBackoffMs = 1_000;
+      this.startHeartbeat();
     } catch (error) {
       this.markUnavailable("Discord presence update failed", error, {
         suspectedDuplicateDiscordConsumer: true,
@@ -143,6 +147,8 @@ export class PresenceServiceImpl implements PresenceService {
   }
 
   async clearPlayback(reason: string): Promise<void> {
+    this.stopHeartbeat();
+    this.lastActivityPayload = null;
     if (!this.discordClient) return;
     try {
       await this.discordClient.clearActivity();
@@ -159,6 +165,7 @@ export class PresenceServiceImpl implements PresenceService {
   }
 
   async shutdown(): Promise<void> {
+    this.stopHeartbeat();
     const client = this.discordClient;
     this.discordClient = null;
     this.connectPromise = null;
@@ -167,6 +174,7 @@ export class PresenceServiceImpl implements PresenceService {
     this.unavailableRetryAtMs = 0;
     this.unavailableBackoffMs = 1_000;
     this.lastActivityHash = null;
+    this.lastActivityPayload = null;
     if (!client) return;
     await client.destroy().catch(() => undefined);
     this.status = this.deps.config.presenceProvider === "off" ? "disabled" : "idle";
@@ -259,6 +267,29 @@ export class PresenceServiceImpl implements PresenceService {
           : {}),
       },
     });
+  }
+
+  private startHeartbeat(): void {
+    if (this.heartbeatTimer) return;
+    this.heartbeatTimer = setInterval(() => {
+      void this.sendHeartbeat();
+    }, 15_000);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private async sendHeartbeat(): Promise<void> {
+    if (!this.discordClient || !this.lastActivityPayload) return;
+    try {
+      await this.discordClient.setActivity(this.lastActivityPayload);
+    } catch {
+      // Heartbeat failures are best-effort; don't spam diagnostics.
+    }
   }
 }
 
