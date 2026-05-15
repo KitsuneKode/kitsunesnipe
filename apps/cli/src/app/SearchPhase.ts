@@ -8,6 +8,7 @@
 import { routeSearchShellAction } from "@/app-shell/command-router";
 import { resolveCommands } from "@/app-shell/commands";
 import { openBrowseShell } from "@/app-shell/ink-shell";
+import { chooseFromListShell } from "@/app-shell/pickers";
 import { buildShellRuntimeBindings } from "@/app-shell/runtime-bindings";
 import { mapAnimeDiscoveryResultToProviderNative } from "@/app/anime-provider-mapping";
 import { chooseSearchResultTitle, toBrowseResultOption } from "@/app/browse-option-mappers";
@@ -353,10 +354,20 @@ export class SearchPhase implements Phase<SearchPhaseInput | void, TitleInfo> {
 
         if (outcome.type === "action") {
           if (outcome.action === "filters") {
+            const chip = await chooseSearchFilterChip(stateManager.getState().searchQuery);
+            if (chip) {
+              const nextQuery = appendSearchFilterChip(stateManager.getState().searchQuery, chip);
+              stateManager.dispatch({ type: "SET_SEARCH_QUERY", query: nextQuery });
+              stateManager.dispatch({
+                type: "SET_PLAYBACK_FEEDBACK",
+                note: `Filter added: ${chip}`,
+              });
+            }
             diagnosticsStore.record({
               category: "search",
-              message: "Search filter help opened",
+              message: chip ? "Search filter chip added" : "Search filter help opened",
               context: {
+                chip,
                 supported: "mode, provider, downloaded, watched, year, release, sort, type, rating",
               },
             });
@@ -527,6 +538,61 @@ async function loadSearchRoute(
       count: results.length,
     },
   });
+}
+
+async function chooseSearchFilterChip(currentQuery: string): Promise<string | null> {
+  const picked = await chooseFromListShell<string | null>({
+    title: "Search filters",
+    subtitle: currentQuery.trim()
+      ? `Current query: ${currentQuery}`
+      : "Pick a chip, then edit it in the search box if needed.",
+    options: [
+      {
+        value: "mode:anime",
+        label: "Anime mode",
+        detail: "Search anime catalogs/providers",
+      },
+      {
+        value: "mode:series",
+        label: "Series mode",
+        detail: "Search TV catalogs/providers",
+      },
+      {
+        value: "downloaded:true",
+        label: "Downloaded",
+        detail: "Prefer local/downloaded facts when results are loaded",
+      },
+      {
+        value: "watched:watching",
+        label: "Continue watching",
+        detail: "Show intent for in-progress titles",
+      },
+      {
+        value: "release:today",
+        label: "Released today",
+        detail: "Use cached release facts where available",
+      },
+      {
+        value: "year:2021",
+        label: "Year",
+        detail: "Edit the year after insertion",
+      },
+      {
+        value: "sort:recent",
+        label: "Sort recent",
+        detail: "Prefer recent/local activity ordering where supported",
+      },
+      { value: null, label: "Cancel" },
+    ],
+  });
+  return picked ?? null;
+}
+
+function appendSearchFilterChip(query: string, chip: string): string {
+  const trimmed = query.trim();
+  if (!trimmed) return chip;
+  if (trimmed.split(/\s+/).includes(chip)) return trimmed;
+  return `${trimmed} ${chip}`;
 }
 
 type BrowseDisplayContext = {

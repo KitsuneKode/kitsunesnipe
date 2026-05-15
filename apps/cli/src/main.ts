@@ -44,6 +44,7 @@ export function parseArgs(argv: string[]): {
   anime: boolean;
   debug: boolean;
   debugJson: boolean;
+  zen: boolean;
   mpv: MpvRuntimeOptions;
   minimal: boolean;
   quick: boolean;
@@ -64,6 +65,7 @@ export function parseArgs(argv: string[]): {
     anime: boolean;
     debug: boolean;
     debugJson: boolean;
+    zen: boolean;
     mpv: MpvRuntimeOptions;
     minimal: boolean;
     quick: boolean;
@@ -79,6 +81,7 @@ export function parseArgs(argv: string[]): {
     anime: false,
     debug: false,
     debugJson: false,
+    zen: false,
     mpv: {},
     minimal: false,
     quick: false,
@@ -100,6 +103,10 @@ export function parseArgs(argv: string[]): {
       args.anime = true;
     } else if (arg === "-m" || arg === "--minimal") {
       args.minimal = true;
+    } else if (arg === "-z" || arg === "--zen") {
+      args.zen = true;
+      args.minimal = true;
+      args.quick = true;
     } else if (arg === "-q" || arg === "--quick") {
       args.quick = true;
     } else if (arg === "--jump") {
@@ -142,7 +149,8 @@ export function parseArgs(argv: string[]): {
       if (value) args.mpv = { ...args.mpv, logFile: value };
     }
   }
-  const shellChrome: ShellChrome = args.minimal ? "minimal" : args.quick ? "quick" : "default";
+  const shellChrome: ShellChrome =
+    args.minimal || args.zen ? "minimal" : args.quick ? "quick" : "default";
   return { ...args, shellChrome };
 }
 

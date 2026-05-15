@@ -34,3 +34,12 @@ test("parseArgs supports structured debug traces", () => {
   expect(args.debug).toBe(true);
   expect(args.debugJson).toBe(true);
 });
+
+test("parseArgs supports zen startup as minimal quick playback", () => {
+  const args = parseArgs(["--zen", "-S", "Dune"]);
+
+  expect(args.zen).toBe(true);
+  expect(args.minimal).toBe(true);
+  expect(args.quick).toBe(true);
+  expect(args.shellChrome).toBe("minimal");
+});

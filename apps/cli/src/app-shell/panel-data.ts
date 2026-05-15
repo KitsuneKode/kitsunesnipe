@@ -227,6 +227,9 @@ export function buildDiagnosticsPanelLines({
   const seekStallEvent = findRecentMpvEvent(recentEvents, "seek-stalled");
   const ipcStallEvent = findRecentMpvEvent(recentEvents, "ipc-stalled");
   const presenceEvent = recentEvents.find((event) => event.category === "presence");
+  const providerTimelineEvent = recentEvents.find(
+    (event) => event.operation === "provider.resolve.timeline",
+  );
   const runtimeHealth = buildRuntimeHealthSnapshot({
     recentEvents,
     currentProvider: state.provider,
@@ -243,6 +246,19 @@ export function buildDiagnosticsPanelLines({
     { label: "─── Provider", detail: "", tone: "info" },
     runtimeHealth.provider,
     runtimeHealth.network,
+    {
+      label: "Provider timeline",
+      detail: formatProviderTimelineEvent(providerTimelineEvent),
+      tone:
+        providerTimelineEvent?.context?.status === "failed"
+          ? "error"
+          : providerTimelineEvent?.context?.status === "recovered" ||
+              providerTimelineEvent?.context?.status === "resolved"
+            ? "success"
+            : providerTimelineEvent
+              ? "info"
+              : "neutral",
+    },
     {
       label: "Playback problem",
       detail: state.playbackProblem
@@ -377,6 +393,21 @@ export function buildDiagnosticsPanelLines({
         : event.message,
     })),
   ];
+}
+
+function formatProviderTimelineEvent(event: DiagnosticEvent | undefined): string {
+  if (!event) return "no provider timeline yet";
+  const attempts = event.context?.attempts;
+  const failureClass = event.context?.failureClass;
+  const primaryFailure = event.context?.primaryFailure;
+  return [
+    event.message,
+    typeof attempts === "number" ? `${attempts} attempts` : null,
+    typeof failureClass === "string" && failureClass !== "none" ? failureClass : null,
+    typeof primaryFailure === "string" ? primaryFailure : null,
+  ]
+    .filter(Boolean)
+    .join("  ·  ");
 }
 
 function summarizeJson(value: unknown): string {

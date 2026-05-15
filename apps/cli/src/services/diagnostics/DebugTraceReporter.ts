@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import type { DiagnosticCategory, DiagnosticEventInput } from "./diagnostic-event";
 import { normalizeDiagnosticEvent } from "./diagnostic-event";
 import { redactDiagnosticValue } from "./redaction";
+import { pruneOldDiagnosticFiles } from "./retention";
 
 export type DebugTraceReporterOptions = {
   readonly filePath: string;
@@ -12,7 +13,9 @@ export type DebugTraceReporterOptions = {
 
 export class DebugTraceReporter {
   constructor(private readonly options: DebugTraceReporterOptions) {
-    mkdirSync(dirname(options.filePath), { recursive: true });
+    const traceDir = dirname(options.filePath);
+    mkdirSync(traceDir, { recursive: true });
+    void pruneOldDiagnosticFiles({ dir: traceDir, prefix: "kunai-trace-", maxFiles: 10 });
   }
 
   record(event: DiagnosticEventInput): void {

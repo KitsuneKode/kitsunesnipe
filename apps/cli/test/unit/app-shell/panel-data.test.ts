@@ -166,6 +166,38 @@ describe("panel-data", () => {
     expect(lines.some((line) => line.detail === "bun run dev -- --discover")).toBe(true);
   });
 
+  test("buildDiagnosticsPanelLines renders provider timeline summaries", () => {
+    const lines = buildDiagnosticsPanelLines({
+      state: createInitialState("vidking", "allanime", {
+        anime: { audio: "original", subtitle: "en" },
+        series: { audio: "original", subtitle: "none" },
+        movie: { audio: "original", subtitle: "en" },
+      }),
+      recentEvents: [
+        {
+          timestamp: 1,
+          level: "info",
+          category: "provider",
+          operation: "provider.resolve.timeline",
+          message: "Recovered via Rivestream",
+          traceId: "provider:abc",
+          providerId: "rivestream",
+          context: {
+            status: "recovered",
+            attempts: 2,
+            primaryFailure: "VidKing timed out",
+            failureClass: "timeout",
+          },
+        },
+      ],
+    });
+
+    expect(lines.find((line) => line.label === "Provider timeline")?.detail).toContain(
+      "Recovered via Rivestream",
+    );
+    expect(lines.find((line) => line.label === "Provider timeline")?.tone).toBe("success");
+  });
+
   test("buildHistoryPanelLines sorts newest entries first", () => {
     const lines = buildHistoryPanelLines([
       [

@@ -15,6 +15,7 @@ import { createOfflineLibraryEngine } from "@/domain/offline/OfflineLibraryEngin
 import type { EpisodePickerOption } from "@/domain/types";
 import { writeAtomicJson } from "@/infra/fs/atomic-write";
 import { revealPathInOsFileManager } from "@/infra/os/reveal-in-file-manager";
+import { pruneOldDiagnosticFiles } from "@/services/diagnostics/retention";
 import { DownloadEnqueueRejectedError } from "@/services/download/DownloadService";
 import {
   formatOfflineJobListingTitle,
@@ -43,7 +44,11 @@ type HistoryAction =
   | { type: "back" };
 
 type DownloadJobAction = { type: "job"; id: string } | { type: "back" };
-type OfflineLibraryGroupAction = { type: "group"; key: string } | { type: "back" };
+type OfflineLibraryGroupAction =
+  | { type: "group"; key: string }
+  | { type: "downloads" }
+  | { type: "online" }
+  | { type: "back" };
 type CompletedDownloadAction =
   | "play"
   | "reveal"
@@ -493,6 +498,16 @@ export async function openCompletedDownloadsPicker(
         label: group.label,
         detail: group.detail,
       })),
+      {
+        value: { type: "downloads" as const },
+        label: "Open download queue",
+        detail: "Retry, delete, or inspect queued and failed offline jobs",
+      },
+      {
+        value: { type: "online" as const },
+        label: "Search online instead",
+        detail: "Leave offline intentionally and go back to search",
+      },
       { value: { type: "back" as const }, label: "Back" },
     ];
     const picked = await chooseFromListShell({
@@ -505,6 +520,17 @@ export async function openCompletedDownloadsPicker(
       options,
     });
     if (!picked || picked.type === "back") return;
+    if (picked.type === "downloads") {
+      container.stateManager.dispatch({ type: "OPEN_OVERLAY", overlay: { type: "downloads" } });
+      return;
+    }
+    if (picked.type === "online") {
+      container.stateManager.dispatch({
+        type: "SET_PLAYBACK_FEEDBACK",
+        note: "Offline library closed. Search online when you are ready.",
+      });
+      return;
+    }
     const group = shelf.groups.find((candidate) => candidate.key === picked.key);
     if (!group) continue;
     const entryById = new Map(completed.map((entry) => [entry.job.id, entry]));
@@ -1120,6 +1146,11 @@ export async function handleShellAction({
       capabilities: container.capabilitySnapshot as unknown as Record<string, unknown> | null,
     });
     await writeAtomicJson(path, bundle);
+    await pruneOldDiagnosticFiles({
+      dir: process.cwd(),
+      prefix: "kunai-diagnostics-export-",
+      maxFiles: 10,
+    });
     container.diagnosticsService.record({
       category: "ui",
       operation: "export-diagnostics",
@@ -1158,6 +1189,11 @@ export async function handleShellAction({
         capabilities: container.capabilitySnapshot as unknown as Record<string, unknown> | null,
       });
       await writeAtomicJson(path, bundle);
+      await pruneOldDiagnosticFiles({
+        dir: process.cwd(),
+        prefix: "kunai-diagnostics-report-",
+        maxFiles: 10,
+      });
       diagnosticsStore.record({
         category: "ui",
         message: "Diagnostics report bundle exported",
