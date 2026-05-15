@@ -140,7 +140,7 @@ export const allmangaProviderModule: CoreProviderModule = {
           url: link.url,
           protocol,
           container: protocol === "hls" ? "m3u8" : "mp4",
-          audioLanguages: [mode],
+          audioLanguages: mode === "sub" ? ["ja"] : mode === "dub" ? ["en"] : [],
           hardSubLanguage: mode === "sub" ? "en" : undefined,
           qualityLabel: qualityStr,
           qualityRank: parseInt(qualityStr) || 0,

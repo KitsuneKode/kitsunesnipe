@@ -328,6 +328,9 @@ export const rivestreamProviderModule: CoreProviderModule = {
                 url: s.url,
                 protocol,
                 container: protocol === "hls" ? "m3u8" : "mp4",
+                audioLanguages: input.preferredAudioLanguage
+                  ? [input.preferredAudioLanguage]
+                  : undefined,
                 qualityLabel: qualityStr,
                 qualityRank: parseInt(qualityStr) || 0,
                 headers: { referer: RIVESTREAM_REFERER, "user-agent": USER_AGENT },

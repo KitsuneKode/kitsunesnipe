@@ -35,6 +35,8 @@ export function providerResolveResultToStreamInfo(
   return {
     url: selected.url,
     headers: selected.headers ?? {},
+    audioLanguages: selected.audioLanguages ? [...selected.audioLanguages] : undefined,
+    hardSubLanguage: selected.hardSubLanguage,
     subtitle: pickedSubtitle?.url,
     subtitleList,
     subtitleSource: subtitleList.length > 0 ? "provider" : "none",

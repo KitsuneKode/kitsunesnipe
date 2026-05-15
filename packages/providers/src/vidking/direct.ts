@@ -35,6 +35,12 @@ const USER_AGENT =
 
 const VIDKING_SERVERS = ["mb-flix", "cdn", "downloader2", "1movies"] as const;
 
+/** Normalize audio language codes to ISO 639-1. Delegates to the shared language
+ *  normalizer which handles both subtitle and audio language code formats. */
+function normalizeLanguageCode(value: string | undefined): string | undefined {
+  return normalizeSubtitleLanguage(value);
+}
+
 /** Track server health with 60s cooldown after 2 consecutive failures. */
 const vidkingHealth = new HealthTracker(60_000, 2);
 
@@ -134,7 +140,8 @@ export async function resolveVidkingDirect(
     message: "Started VidKing direct Videasy resolution",
   });
 
-  // Tier 1: Fire all healthy servers in parallel, pick first success
+  // Tier 1: Fire all healthy servers in parallel, merge all successful results
+  // so multi-audio streams from different servers are all available to the user.
   const activeServers = VIDKING_SERVERS.filter((s) => vidkingHealth.shouldTry(s));
   if (activeServers.length === 0) {
     emitTraceEvent(events, context, {
@@ -175,11 +182,10 @@ export async function resolveVidkingDirect(
     ),
   );
 
-  for (const settled of serverResults) {
-    if (settled.status === "fulfilled" && settled.value) return settled.value;
-  }
+  const tier1Merged = mergeVidkingResults(serverResults);
+  if (tier1Merged) return tier1Merged;
 
-  // Tier 2: Retry failed servers with embed page referer (parallel)
+  // Tier 2: Retry all servers with embed page referer, merge results
   const embedReferer = buildEmbedReferer({
     tmdbId,
     mediaKind: input.mediaKind as "movie" | "series",
@@ -202,9 +208,8 @@ export async function resolveVidkingDirect(
         }),
       ),
     );
-    for (const settled of embedResults) {
-      if (settled.status === "fulfilled" && settled.value) return settled.value;
-    }
+    const tier2Merged = mergeVidkingResults(embedResults);
+    if (tier2Merged) return tier2Merged;
   }
 
   return createExhaustedResult(
@@ -224,6 +229,50 @@ export async function resolveVidkingDirect(
       startedAt,
     },
   );
+}
+
+function mergeVidkingResults(
+  serverResults: PromiseSettledResult<ProviderResolveResult | null>[],
+): ProviderResolveResult | null {
+  const successes = serverResults
+    .filter(
+      (s): s is PromiseFulfilledResult<ProviderResolveResult> =>
+        s.status === "fulfilled" && s.value !== null,
+    )
+    .map((s) => s.value);
+
+  if (successes.length === 0) return null;
+  if (successes.length === 1) return successes[0]!;
+
+  const seenStreamUrls = new Set<string>();
+  const mergedStreams = [];
+  const seenSubtitleUrls = new Set<string>();
+  const mergedSubtitles = [];
+
+  for (const result of successes) {
+    for (const stream of result.streams) {
+      if (stream.url && !seenStreamUrls.has(stream.url)) {
+        seenStreamUrls.add(stream.url);
+        mergedStreams.push(stream);
+      }
+    }
+    for (const subtitle of result.subtitles) {
+      if (subtitle.url && !seenSubtitleUrls.has(subtitle.url)) {
+        seenSubtitleUrls.add(subtitle.url);
+        mergedSubtitles.push(subtitle);
+      }
+    }
+  }
+
+  const bestStream = mergedStreams.sort((a, b) => (b.qualityRank ?? 0) - (a.qualityRank ?? 0))[0];
+
+  const first = successes[0]!;
+  return {
+    ...first,
+    streams: mergedStreams,
+    subtitles: mergedSubtitles,
+    selectedStreamId: bestStream?.id ?? first.selectedStreamId,
+  };
 }
 
 export function createVidkingResultFromPayload({
@@ -658,8 +707,8 @@ function normalizeStreamCandidates({
               ? "mp4"
               : "unknown",
       audioLanguages:
-        source.language && normalizeSubtitleLanguage(source.language)
-          ? [normalizeSubtitleLanguage(source.language) as string]
+        source.language && normalizeLanguageCode(source.language)
+          ? [normalizeLanguageCode(source.language) as string]
           : undefined,
       qualityLabel: source.quality,
       qualityRank,

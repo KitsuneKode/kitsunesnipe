@@ -275,7 +275,8 @@ export const miruroProviderModule: CoreProviderModule = {
           url: raw.url,
           protocol: "hls",
           container: "m3u8",
-          audioLanguages: [targetAudio],
+          audioLanguages: targetAudio === "sub" ? ["ja"] : targetAudio === "dub" ? ["en"] : [],
+          hardSubLanguage: targetAudio === "sub" ? "en" : undefined,
           qualityLabel: qualityStr,
           qualityRank: parseInt(qualityStr) || 0,
           headers: {
@@ -294,7 +295,8 @@ export const miruroProviderModule: CoreProviderModule = {
           qualityRank: parseInt(qualityStr) || 0,
           protocol: "hls",
           container: "m3u8",
-          audioLanguages: [targetAudio],
+          audioLanguages: targetAudio === "sub" ? ["ja"] : targetAudio === "dub" ? ["en"] : [],
+          hardSubLanguage: targetAudio === "sub" ? "en" : undefined,
           streamIds: [streamId],
           confidence: 0.95,
         });
