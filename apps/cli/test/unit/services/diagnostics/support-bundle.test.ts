@@ -35,10 +35,10 @@ describe("buildDiagnosticsSupportBundle", () => {
     expect(bundle.capabilities).toEqual({
       mpv: true,
       ytDlp: false,
-      notes: ["[redacted-url]"],
+      notes: ["https://example.com/internal"],
     });
     expect(bundle.events[0]?.context).toEqual({
-      url: "[redacted-url]",
+      url: "https://cdn.example/stream.m3u8?token=[redacted]",
       status: 200,
     });
   });

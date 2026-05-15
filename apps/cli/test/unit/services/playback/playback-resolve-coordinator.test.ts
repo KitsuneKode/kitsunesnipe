@@ -114,7 +114,6 @@ function createProviderResultAfterFallback(): ProviderEngineResolveOutput {
     attempts: [
       {
         providerId: "vidking" as ProviderId,
-        stream: null,
         failure: {
           providerId: "vidking" as ProviderId,
           code: "timeout",
@@ -123,7 +122,7 @@ function createProviderResultAfterFallback(): ProviderEngineResolveOutput {
           at: "2026-05-15T00:00:00.000Z",
         },
       },
-      { providerId: "rivestream" as ProviderId, stream: null, result: undefined },
+      { providerId: "rivestream" as ProviderId, result: undefined },
     ],
   };
 }

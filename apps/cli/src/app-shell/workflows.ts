@@ -1130,6 +1130,40 @@ export async function handleShellAction({
   }
 
   if (action === "report-issue") {
+    const reportAction = await chooseFromListShell({
+      title: "Report an issue",
+      subtitle:
+        "Preview-first: export a redacted diagnostics bundle, then open GitHub when you are ready.",
+      options: [
+        {
+          value: "export-and-open" as const,
+          label: "Export diagnostics and open GitHub",
+          detail: "Writes a redacted local JSON bundle, then opens the issue chooser",
+        },
+        {
+          value: "open-only" as const,
+          label: "Open GitHub only",
+          detail: "No files are written by this action",
+        },
+        { value: "cancel" as const, label: "Cancel" },
+      ],
+    });
+    if (!reportAction || reportAction === "cancel") return "handled";
+    if (reportAction === "export-and-open") {
+      const fileName = `kunai-diagnostics-report-${new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")}.json`;
+      const path = join(process.cwd(), fileName);
+      const bundle = container.diagnosticsService.buildSupportBundle({
+        capabilities: container.capabilitySnapshot as unknown as Record<string, unknown> | null,
+      });
+      await writeAtomicJson(path, bundle);
+      diagnosticsStore.record({
+        category: "ui",
+        message: "Diagnostics report bundle exported",
+        context: { path: fileName },
+      });
+    }
     await openIssueUrl();
     diagnosticsStore.record({
       category: "ui",

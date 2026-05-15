@@ -12,7 +12,11 @@ import { buildApiStreamResolveCacheKey } from "@/services/cache/stream-resolve-c
 import type { CacheStore } from "@/services/persistence/CacheStore";
 import { providerResolveResultToStreamInfo } from "@/services/providers/provider-result-adapter";
 import { streamRequestToResolveInput } from "@/services/providers/stream-request-adapter";
-import { type ProviderEngine, type ResolveAttempt } from "@kunai/core";
+import {
+  type ProviderEngine,
+  type ProviderEngineResolveAttempt,
+  type ResolveAttempt,
+} from "@kunai/core";
 import type { ProviderHealthRepository } from "@kunai/storage";
 import type { ProviderHealthDelta } from "@kunai/types";
 
@@ -315,7 +319,7 @@ function buildProviderTimeline(
   engineResult: {
     readonly providerId?: string | null;
     readonly result?: unknown;
-    readonly attempts: readonly ResolveAttempt<StreamInfo>[];
+    readonly attempts: readonly ProviderEngineResolveAttempt[];
   },
   primaryProviderId: string,
 ): ProviderAttemptTimelineSnapshot {
@@ -349,7 +353,6 @@ function buildProviderTimeline(
 
     const resolvedProviderId = engineResult.providerId ?? null;
     const succeeded =
-      Boolean(attempt.stream) ||
       Boolean(attempt.result?.streams.length) ||
       (resolvedProviderId !== null && attempt.providerId === resolvedProviderId);
 

@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import { initLogger } from "@/logger";
 import { createProviderEngine, type ProviderEngine } from "@kunai/core";
@@ -52,6 +53,10 @@ import {
 } from "./services/catalog/CatalogScheduleService";
 import { ResultEnrichmentService } from "./services/catalog/ResultEnrichmentService";
 import { TimelineService } from "./services/catalog/TimelineService";
+import {
+  DebugTraceReporter,
+  parseTraceCategories,
+} from "./services/diagnostics/DebugTraceReporter";
 import type { DiagnosticsService } from "./services/diagnostics/DiagnosticsService";
 import { DiagnosticsServiceImpl } from "./services/diagnostics/DiagnosticsServiceImpl";
 import type { DiagnosticsStore } from "./services/diagnostics/DiagnosticsStore";
@@ -157,6 +162,7 @@ export interface ContainerOptions {
   shellChrome?: ShellChrome;
   capabilitySnapshot?: CapabilitySnapshot | null;
   appVersion?: string;
+  debugJson?: boolean;
 }
 
 /**
@@ -192,11 +198,18 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   const scheduleCache = new ScheduleCacheRepository(cacheDb);
   const downloadJobs = new DownloadJobsRepository(dataDb);
   const diagnosticsStore = new DiagnosticsStoreImpl();
+  const traceReporter = options?.debugJson
+    ? new DebugTraceReporter({
+        filePath: join(paths.dataDir, "traces", `kunai-trace-${Date.now()}.jsonl`),
+        categories: parseTraceCategories(process.env.KUNAI_TRACE),
+      })
+    : undefined;
   const diagnosticsService = new DiagnosticsServiceImpl({
     store: diagnosticsStore,
     logger,
     appVersion: options?.appVersion,
     debug,
+    traceReporter,
   });
 
   // Load config

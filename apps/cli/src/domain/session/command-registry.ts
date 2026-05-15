@@ -478,6 +478,7 @@ function resolveCommandState(
   switch (id) {
     case "setup":
     case "search":
+    case "filters":
     case "trending":
     case "recommendation":
     case "calendar":

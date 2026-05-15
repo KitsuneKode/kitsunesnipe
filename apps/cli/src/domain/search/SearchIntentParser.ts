@@ -28,7 +28,13 @@ const SEARCH_SORTS = new Set<SearchSort>(["relevance", "progress", "recent"]);
 export function parseSearchIntentText(text: string): ParsedSearchIntentText {
   const terms: string[] = [];
   const errors: SearchIntentParseError[] = [];
-  const filters: SearchIntentFilters = {};
+  const filters: {
+    provider?: string;
+    downloaded?: boolean;
+    watched?: WatchFilter;
+    year?: SearchIntentFilters["year"];
+    release?: ReleaseFilter;
+  } = {};
   let mode: SearchIntentMode | undefined;
   let sort: SearchSort | undefined;
 

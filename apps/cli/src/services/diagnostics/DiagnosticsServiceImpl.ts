@@ -1,9 +1,10 @@
 import type { Logger } from "@/infra/logger/Logger";
 
+import type { DebugTraceReporter } from "./DebugTraceReporter";
 import type { DiagnosticEvent, DiagnosticEventInput } from "./diagnostic-event";
+import { buildDiagnosticsBundle } from "./DiagnosticsBundleBuilder";
 import type { DiagnosticsService } from "./DiagnosticsService";
 import type { DiagnosticsStore } from "./DiagnosticsStore";
-import { buildDiagnosticsSupportBundle } from "./support-bundle";
 
 export type DiagnosticsServiceDeps = {
   readonly store: DiagnosticsStore;
@@ -11,6 +12,7 @@ export type DiagnosticsServiceDeps = {
   readonly appVersion?: string;
   readonly debug?: boolean;
   readonly now?: () => Date;
+  readonly traceReporter?: DebugTraceReporter;
 };
 
 export class DiagnosticsServiceImpl implements DiagnosticsService {
@@ -19,6 +21,7 @@ export class DiagnosticsServiceImpl implements DiagnosticsService {
   record(event: DiagnosticEventInput): void {
     this.deps.store.record(event);
     this.log(event);
+    this.deps.traceReporter?.record(event);
   }
 
   getRecent(limit?: number): readonly DiagnosticEvent[] {
@@ -34,7 +37,7 @@ export class DiagnosticsServiceImpl implements DiagnosticsService {
   }
 
   buildSupportBundle(input?: { readonly capabilities?: Record<string, unknown> | null }) {
-    return buildDiagnosticsSupportBundle({
+    return buildDiagnosticsBundle({
       appVersion: this.deps.appVersion ?? "unknown",
       debug: this.deps.debug ?? false,
       capabilities: input?.capabilities ?? {},

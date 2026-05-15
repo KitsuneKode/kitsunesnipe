@@ -27,3 +27,10 @@ test("parseArgs supports startup entry routes", () => {
   expect(random.initialRoute).toBe("random");
   expect(discover.initialRoute).toBe("recommendation");
 });
+
+test("parseArgs supports structured debug traces", () => {
+  const args = parseArgs(["--debug-json"]);
+
+  expect(args.debug).toBe(true);
+  expect(args.debugJson).toBe(true);
+});

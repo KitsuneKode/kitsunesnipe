@@ -20,6 +20,16 @@ Open the in-app diagnostics panel with `/diagnostics` to see the current session
 
 Export a redacted support bundle with `/export-diagnostics`. The exported JSON includes app/runtime metadata, startup capability checks, and the bounded diagnostics event buffer. Stream URLs, auth headers, cookies, tokens, and local home-directory prefixes are redacted before writing the file.
 
+For long local debugging sessions, use structured JSONL traces:
+
+```sh
+KUNAI_TRACE=provider,playback bun run dev -- -S "Dune" --debug-json
+```
+
+`--debug-json` also enables `--debug` and writes newline-delimited redacted diagnostic events under the Kunai state `traces/` directory. `KUNAI_TRACE` is optional; when present it is a comma-separated category allowlist such as `provider,playback,cache`. URL redaction keeps host/path shape and non-sensitive query keys, but redacts tokens, signatures, cookies, authorization headers, and private home-directory prefixes.
+
+Use `/report-issue` for a preview-first issue flow. It asks before writing a redacted diagnostics report bundle and then opens the GitHub issue chooser. Use `/export-diagnostics` when you only want the bundle and do not want to open a browser.
+
 To test Vidking without the Ink shell, run the live provider smoke test:
 
 ```sh
@@ -63,6 +73,7 @@ Current provider behavior:
 - Log provider-owned milestones with `dbg("provider-id", "...", context)`.
 - Record user-facing runtime facts through `DiagnosticsService` when you need both structured logs and the diagnostics buffer. Use `DiagnosticsStore` directly only for low-level code that has not been migrated yet.
 - Include `category`, `operation`, failure stage, provider id, title id, and timing/provenance context when available.
+- Provider fallback should emit a provider timeline summary. Retry/fallback progress is informational while work continues; final failure copy should appear only after all configured attempts are exhausted.
 - Preserve the distinction between “source had no data” and “our scraper did not observe data”.
 - Do not print noisy `console.log` output inside Ink render paths; use debug logs or diagnostics events instead.
 

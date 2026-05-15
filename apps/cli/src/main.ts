@@ -43,6 +43,7 @@ export function parseArgs(argv: string[]): {
   type?: string;
   anime: boolean;
   debug: boolean;
+  debugJson: boolean;
   mpv: MpvRuntimeOptions;
   minimal: boolean;
   quick: boolean;
@@ -62,6 +63,7 @@ export function parseArgs(argv: string[]): {
     type?: string;
     anime: boolean;
     debug: boolean;
+    debugJson: boolean;
     mpv: MpvRuntimeOptions;
     minimal: boolean;
     quick: boolean;
@@ -76,6 +78,7 @@ export function parseArgs(argv: string[]): {
   } = {
     anime: false,
     debug: false,
+    debugJson: false,
     mpv: {},
     minimal: false,
     quick: false,
@@ -107,6 +110,9 @@ export function parseArgs(argv: string[]): {
       }
     } else if (arg === "--debug") {
       args.debug = true;
+    } else if (arg === "--debug-json") {
+      args.debug = true;
+      args.debugJson = true;
     } else if (arg === "--setup") {
       args.setup = true;
     } else if (arg === "--offline") {
@@ -324,6 +330,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
   // Bootstrap the DI container
   const container = await createContainer({
     debug: args.debug,
+    debugJson: args.debugJson,
     mpv: args.mpv,
     shellChrome: args.shellChrome,
     capabilitySnapshot,
