@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { selectContinueHistoryEntry, titleFromHistorySelection } from "@/app/launch-entry";
+import {
+  selectContinueHistoryEntry,
+  selectLocalContinueCandidate,
+  titleFromHistorySelection,
+} from "@/app/launch-entry";
 import type { HistoryEntry } from "@/services/persistence/HistoryStore";
 
 function history(patch: Partial<HistoryEntry> = {}): HistoryEntry {
@@ -53,5 +57,86 @@ describe("launch entry helpers", () => {
       type: "series",
       name: "Game of Thrones",
     });
+  });
+
+  test("selectLocalContinueCandidate only picks an exact ready local episode", () => {
+    const selection = {
+      titleId: "solo",
+      entry: history({ title: "Solo Leveling", season: 1, episode: 4 }),
+    };
+
+    const picked = selectLocalContinueCandidate(selection, [
+      {
+        status: "ready",
+        job: {
+          id: "wrong-episode",
+          titleId: "solo",
+          titleName: "Solo Leveling",
+          mediaKind: "series",
+          providerId: "allanime",
+          streamUrl: "https://example/wrong.m3u8",
+          headers: {},
+          status: "completed",
+          progressPercent: 100,
+          outputPath: "/downloads/solo-s01e03.mp4",
+          tempPath: "/downloads/solo.tmp",
+          retryCount: 0,
+          attempt: 1,
+          maxAttempts: 3,
+          createdAt: "2026-05-01T00:00:00.000Z",
+          updatedAt: "2026-05-01T00:00:00.000Z",
+          season: 1,
+          episode: 3,
+        },
+      },
+      {
+        status: "missing",
+        job: {
+          id: "broken",
+          titleId: "solo",
+          titleName: "Solo Leveling",
+          mediaKind: "series",
+          providerId: "allanime",
+          streamUrl: "https://example/broken.m3u8",
+          headers: {},
+          status: "completed",
+          progressPercent: 100,
+          outputPath: "/downloads/solo-s01e04.mp4",
+          tempPath: "/downloads/solo.tmp",
+          retryCount: 0,
+          attempt: 1,
+          maxAttempts: 3,
+          createdAt: "2026-05-01T00:00:00.000Z",
+          updatedAt: "2026-05-01T00:00:00.000Z",
+          season: 1,
+          episode: 4,
+        },
+      },
+      {
+        status: "ready",
+        job: {
+          id: "ready",
+          titleId: "solo",
+          titleName: "Solo Leveling",
+          mediaKind: "series",
+          providerId: "allanime",
+          streamUrl: "https://example/ready.m3u8",
+          headers: {},
+          status: "completed",
+          progressPercent: 100,
+          outputPath: "/downloads/solo-s01e04-ready.mp4",
+          tempPath: "/downloads/solo.tmp",
+          retryCount: 0,
+          attempt: 1,
+          maxAttempts: 3,
+          createdAt: "2026-05-01T00:00:00.000Z",
+          updatedAt: "2026-05-01T00:00:00.000Z",
+          season: 1,
+          episode: 4,
+        },
+      },
+    ]);
+
+    expect(picked?.job.id).toBe("ready");
   });
 });

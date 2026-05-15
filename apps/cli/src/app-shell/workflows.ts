@@ -525,7 +525,9 @@ export async function openCompletedDownloadsPicker(
       ...shelf.groups.map((group) => ({
         value: { type: "group" as const, key: group.key },
         label: group.label,
-        detail: group.detail,
+        detail: [group.actionSummary, group.artifactSummary, group.detail]
+          .filter(Boolean)
+          .join(" · "),
         previewImageUrl: group.previewImageUrl,
       })),
       {
@@ -567,7 +569,10 @@ export async function openCompletedDownloadsPicker(
     const entries = group.entries
       .map((entry) => entryById.get(entry.jobId))
       .filter((entry): entry is (typeof completed)[number] => Boolean(entry));
-    await openOfflineLibraryGroupPicker(container, entries, actionContext);
+    await openOfflineLibraryGroupPicker(container, entries, actionContext, {
+      actionSummary: group.actionSummary,
+      artifactSummary: group.artifactSummary,
+    });
   }
 }
 
@@ -575,6 +580,7 @@ async function openOfflineLibraryGroupPicker(
   container: Container,
   entries: readonly import("@/services/offline/offline-library").OfflineLibraryEntry[],
   actionContext?: ListShellActionContext,
+  groupSummary?: { readonly actionSummary: string; readonly artifactSummary: string },
 ): Promise<void> {
   while (true) {
     const first = entries[0]?.job;
@@ -612,9 +618,14 @@ async function openOfflineLibraryGroupPicker(
     ];
     const picked = await chooseFromListShell({
       title: first.titleName,
-      subtitle: `${entries.length} local ${
-        entries.length === 1 ? "item" : "items"
-      } · ${continuation.note} · play, reveal folder, re-download, delete`,
+      subtitle: [
+        groupSummary?.actionSummary ?? `${entries.length} local item(s)`,
+        groupSummary?.artifactSummary,
+        continuation.note,
+        "play, reveal folder, re-download, delete",
+      ]
+        .filter(Boolean)
+        .join(" · "),
       actionContext,
       options,
     });

@@ -60,6 +60,13 @@ describe("OfflineLibraryEngine", () => {
     expect(shelf.summary).toBe("1 title · 2 local items · local-only");
     expect(shelf.groups[0]?.label).toBe("Solo Leveling");
     expect(shelf.groups[0]?.detail).toContain("1 ready");
+    expect(shelf.groups[0]?.nextPlayableEpisodeLabel).toBe("S01E01");
+    expect(shelf.groups[0]?.actionSummary).toBe(
+      "Play S01E01 · inspect 2 episodes · repair 1 issue",
+    );
+    expect(shelf.groups[0]?.artifactSummary).toBe(
+      "artwork ready · subtitles missing · timing missing",
+    );
     expect(shelf.groups[0]?.previewImageUrl).toBe("/downloads/solo-s01e01.thumbnail.jpg");
     expect(shelf.groups[0]?.entries.map((entry) => entry.episodeLabel)).toEqual([
       "S01E01",

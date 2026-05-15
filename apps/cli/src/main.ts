@@ -25,10 +25,12 @@
 import {
   applyHistorySelectionProvider,
   selectContinueHistoryEntry,
+  selectLocalContinueCandidate,
   titleFromHistorySelection,
 } from "@/app/launch-entry";
 import { SessionController } from "@/app/SessionController";
 import { createContainer, type ShellChrome } from "@/container";
+import { createSourceSelectionEngine } from "@/domain/playback-source/SourceSelectionEngine";
 import type { TitleInfo } from "@/domain/types";
 import type { MpvRuntimeOptions } from "@/infra/player/mpv-runtime-options";
 import { selectDownloadCleanupCandidates } from "@/services/download/download-cleanup-policy";
@@ -227,7 +229,44 @@ async function maybeResolveContinueTitle(
     return null;
   }
   applyHistorySelectionProvider(container, selection);
+  await recordLocalContinueDecision(container, selection);
   return titleFromHistorySelection(selection);
+}
+
+async function recordLocalContinueDecision(
+  container: Awaited<ReturnType<typeof createContainer>>,
+  selection: NonNullable<ReturnType<typeof selectContinueHistoryEntry>>,
+): Promise<void> {
+  const localCandidate = selectLocalContinueCandidate(
+    selection,
+    await container.offlineLibraryService.listCompletedEntries(120).catch(() => []),
+  );
+  if (!localCandidate) return;
+
+  const decision = createSourceSelectionEngine().decide({
+    entrypoint: "continue",
+    local: { status: "ready", jobId: localCandidate.job.id },
+    networkAvailable: true,
+    preference: "ask",
+  });
+  container.diagnosticsStore.record({
+    category: "playback",
+    message: "Continue target has an exact ready local artifact",
+    context: {
+      titleId: selection.titleId,
+      titleName: selection.entry.title,
+      season: selection.entry.season,
+      episode: selection.entry.episode,
+      jobId: localCandidate.job.id,
+      outputPath: localCandidate.job.outputPath,
+      sourceDecision: decision.reason,
+      shouldResolveOnline: decision.shouldResolveOnline,
+    },
+  });
+  container.stateManager.dispatch({
+    type: "SET_PLAYBACK_FEEDBACK",
+    note: "Downloaded copy is ready for this episode. Use /offline for local playback, or continue online from history.",
+  });
 }
 
 async function maybeRunDownloadMode(

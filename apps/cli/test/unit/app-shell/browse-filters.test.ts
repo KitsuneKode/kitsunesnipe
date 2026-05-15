@@ -26,6 +26,27 @@ const OPTIONS: readonly BrowseShellOption<string>[] = [
     previewMeta: ["Series", "2015"],
     previewRating: "9.0/10 TMDB",
   },
+  {
+    value: "solo-leveling",
+    label: "Solo Leveling",
+    detail: "Series · downloaded · release today",
+    previewMeta: ["Series", "2024", "downloaded", "release today"],
+    previewFacts: [
+      { label: "Offline", detail: "downloaded", tone: "success" },
+      { label: "Local progress", detail: "continue S01E04 · 12:00", tone: "warning" },
+      { label: "Metadata source", detail: "allanime search", tone: "success" },
+    ],
+  },
+  {
+    value: "frieren",
+    label: "Frieren",
+    detail: "Series · watched · release upcoming",
+    previewMeta: ["Series", "2023", "watched", "release upcoming"],
+    previewFacts: [
+      { label: "Local progress", detail: "watched", tone: "success" },
+      { label: "Metadata source", detail: "anilist trending", tone: "success" },
+    ],
+  },
 ];
 
 describe("browse filters", () => {
@@ -82,5 +103,37 @@ describe("browse filters", () => {
       "release this-week",
       "sort recent",
     ]);
+  });
+
+  test("filters loaded results by cached local facts without provider calls", () => {
+    expect(
+      applyBrowseResultFilters(OPTIONS, parseBrowseFilterQuery("downloaded:true").filters).map(
+        (option) => option.value,
+      ),
+    ).toEqual(["solo-leveling"]);
+
+    expect(
+      applyBrowseResultFilters(OPTIONS, parseBrowseFilterQuery("watched:watching").filters).map(
+        (option) => option.value,
+      ),
+    ).toEqual(["solo-leveling"]);
+
+    expect(
+      applyBrowseResultFilters(OPTIONS, parseBrowseFilterQuery("watched:completed").filters).map(
+        (option) => option.value,
+      ),
+    ).toEqual(["frieren"]);
+
+    expect(
+      applyBrowseResultFilters(OPTIONS, parseBrowseFilterQuery("release:today").filters).map(
+        (option) => option.value,
+      ),
+    ).toEqual(["solo-leveling"]);
+
+    expect(
+      applyBrowseResultFilters(OPTIONS, parseBrowseFilterQuery("provider:allanime").filters).map(
+        (option) => option.value,
+      ),
+    ).toEqual(["solo-leveling"]);
   });
 });

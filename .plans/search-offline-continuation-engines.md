@@ -27,14 +27,19 @@ Implemented:
 - `/offline` uses the read-model engine and shows continuation guidance from local history/artifact facts.
 - Offline play actions record the source decision in diagnostics and local playback uses the same
   autoskip flags as online playback.
+- Browse filters now apply cached local facts for `downloaded`, `watched`, `release`, and `provider`
+  across already-loaded options without issuing provider or metadata requests.
+- Offline shelf groups expose title-level action and artifact summaries so the library feels grouped,
+  inspectable, and repairable instead of like a raw download job table.
+- `--continue` now checks for an exact ready local artifact and records a source-selection decision
+  without silently hijacking normal online continuation.
 
 Follow-up hardening still worth doing:
 
 - Build a guided `/filters` picker that inserts chips into the search box instead of only registering the command.
-- Apply cached local filter semantics for `downloaded`, `watched`, and `release` across already-loaded browse results when the data is present.
-- Add a richer offline title detail surface with batch actions, pin/protect, and explicit online/download continuation actions.
-- Thread `SourceSelectionEngine` through future `--continue` and history-launch source pickers;
-  keep normal search online-first unless the user changes a future source preference setting.
+- Add pin/protect and explicit online/download continuation actions to offline title details.
+- Extend the same `SourceSelectionEngine` note to history-launch source pickers; keep normal search
+  online-first unless the user changes a future source preference setting.
 
 ## Decisions Locked By Grill Session
 

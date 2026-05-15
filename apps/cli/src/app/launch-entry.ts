@@ -1,5 +1,6 @@
 import type { Container } from "@/container";
 import type { TitleInfo } from "@/domain/types";
+import type { OfflineLibraryEntry } from "@/services/offline/offline-library";
 import type { HistoryEntry } from "@/services/persistence/HistoryStore";
 import { isFinished } from "@/services/persistence/HistoryStore";
 
@@ -27,6 +28,24 @@ export function titleFromHistorySelection(selection: HistoryLaunchSelection): Ti
     type: selection.entry.type,
     name: selection.entry.title,
   };
+}
+
+export function selectLocalContinueCandidate(
+  selection: HistoryLaunchSelection,
+  entries: readonly OfflineLibraryEntry[],
+): OfflineLibraryEntry | null {
+  return (
+    entries.find((entry) => {
+      if (entry.status !== "ready") return false;
+      if (entry.job.titleId !== selection.titleId) return false;
+      if (selection.entry.type === "movie") return entry.job.mediaKind === "movie";
+      return (
+        entry.job.mediaKind !== "movie" &&
+        entry.job.season === selection.entry.season &&
+        entry.job.episode === selection.entry.episode
+      );
+    }) ?? null
+  );
 }
 
 export function applyHistorySelectionProvider(
