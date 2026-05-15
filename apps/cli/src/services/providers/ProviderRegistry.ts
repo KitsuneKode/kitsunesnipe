@@ -15,7 +15,7 @@ export interface ProviderRegistry {
 }
 
 const ALLMANGA_API_URL = "https://api.allanime.day/api";
-const ALLMANGA_REFERER = "https://allmanga.to";
+const ALLMANGA_REFERER = "https://youtu-chan.com";
 const ALLMANGA_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0";
 

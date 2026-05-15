@@ -30,7 +30,7 @@ export { ALLANIME_PROVIDER_ID };
 const DEFAULT_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0";
 const ALLANIME_API_URL = "https://api.allanime.day/api";
-const ALLANIME_REFERER = "https://allmanga.to";
+const ALLANIME_REFERER = "https://youtu-chan.com";
 
 export const allmangaProviderModule: CoreProviderModule = {
   providerId: ALLANIME_PROVIDER_ID,

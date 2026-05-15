@@ -342,7 +342,7 @@ export async function resolveEpisodeSources(opts: {
 
   // Two-tier request matching ani-cli commit 6803b8a:
   //   Tier 1 — GET with persisted query hash + youtu-chan.com Origin
-  //   Tier 2 — POST fallback with allmanga.to referer
+  //   Tier 2 — POST fallback with caller-provided referer
   const queryHash = "d405d0edd690624b66baba3068e0edc3ac90f1597d898a1ec8db4e5c43c00fec";
   const vars = { showId, translationType: mode, episodeString: epStr };
   const getUrl = `${apiUrl}?variables=${encodeURIComponent(JSON.stringify(vars))}&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: queryHash } }))}`;
@@ -368,7 +368,7 @@ export async function resolveEpisodeSources(opts: {
         signal: AbortSignal.timeout(15_000),
         headers: {
           "Content-Type": "application/json",
-          Referer: "https://allmanga.to",
+          Referer: referer,
           "User-Agent": ua,
         },
         body: JSON.stringify({ query, variables: vars }),
