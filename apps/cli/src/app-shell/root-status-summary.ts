@@ -61,6 +61,31 @@ function headerTone(rootStatus: string, subtitle: RootStatusBadge | null): Shell
   return "neutral";
 }
 
+function humanReadableRootStatus(raw: string): string {
+  switch (raw) {
+    case "playing":
+      return "Playing";
+    case "buffering":
+      return "Buffering...";
+    case "stalled":
+      return "Stream stalled";
+    case "seeking":
+      return "Seeking...";
+    case "loading":
+      return "Loading...";
+    case "error":
+      return "Playback error";
+    case "idle":
+      return "Ready";
+    case "resolving":
+      return "Resolving...";
+    case "paused":
+      return "Paused";
+    default:
+      return raw;
+  }
+}
+
 export function buildRootStatusSummary({
   state,
   currentViewLabel,
@@ -77,8 +102,8 @@ export function buildRootStatusSummary({
   const title = state.currentTitle?.name;
   const headerLabel =
     subtitle && (rootStatus === "playing" || rootStatus === "buffering" || rootStatus === "stalled")
-      ? `${rootStatus} · ${subtitle.label}`
-      : rootStatus;
+      ? `${humanReadableRootStatus(rootStatus)} · ${subtitle.label}`
+      : humanReadableRootStatus(rootStatus);
 
   const badges: RootStatusBadge[] = [
     { label: state.mode, tone: "info" },

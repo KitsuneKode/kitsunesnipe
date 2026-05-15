@@ -23,28 +23,65 @@ export async function checkStreamPreflight(
   headers?: Record<string, string>,
   timeoutMs = 3_000,
 ): Promise<StreamPreflightResult> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const deadline = Date.now() + timeoutMs;
+
+  const remaining = () => Math.max(100, deadline - Date.now());
+
+  const tryHead = async (): Promise<StreamPreflightResult> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), remaining());
+    try {
+      const response = await fetch(url, {
+        method: "HEAD",
+        headers: headers ?? {},
+        signal: controller.signal,
+      });
+      if (response.status >= 200 && response.status < 300) {
+        return { status: "reachable" };
+      }
+      // 403/405 on HEAD often means the server rejects HEAD but GET works.
+      if (response.status === 403 || response.status === 405) {
+        throw new Error(`HEAD ${response.status}`);
+      }
+      const definitive = response.status >= 400 && response.status < 500;
+      return { status: "unreachable", reason: `HTTP ${response.status}`, definitive };
+    } catch (err) {
+      if (controller.signal.aborted) return { status: "timeout" };
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  const tryRangeGet = async (): Promise<StreamPreflightResult> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), remaining());
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { ...headers, Range: "bytes=0-0" },
+        signal: controller.signal,
+      });
+      if ((response.status >= 200 && response.status < 300) || response.status === 206) {
+        return { status: "reachable" };
+      }
+      const definitive = response.status >= 400 && response.status < 500;
+      return { status: "unreachable", reason: `HTTP ${response.status}`, definitive };
+    } catch (err) {
+      if (controller.signal.aborted) return { status: "timeout" };
+      const message = err instanceof Error ? err.message : String(err);
+      const definitive = isDefinitiveNetworkError(message);
+      return { status: "unreachable", reason: message, definitive };
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
   try {
-    const response = await fetch(url, {
-      method: "HEAD",
-      headers: headers ?? {},
-      signal: controller.signal,
-    });
-    if (response.status >= 200 && response.status < 300) {
-      return { status: "reachable" };
-    }
-    const definitive = response.status >= 400 && response.status < 500;
-    return { status: "unreachable", reason: `HTTP ${response.status}`, definitive };
-  } catch (err) {
-    if (controller.signal.aborted) {
-      return { status: "timeout" };
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    const definitive = isDefinitiveNetworkError(message);
-    return { status: "unreachable", reason: message, definitive };
-  } finally {
-    clearTimeout(timeout);
+    return await tryHead();
+  } catch {
+    if (Date.now() >= deadline) return { status: "timeout" };
+    return await tryRangeGet();
   }
 }
 

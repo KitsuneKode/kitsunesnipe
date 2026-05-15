@@ -143,19 +143,28 @@ function useRuntimeHealthLine(
   return healthLine;
 }
 
-function BufferHealthBadge({ health }: { health?: "healthy" | "buffering" | "stalled" }) {
+const BufferHealthBadge = React.memo(function BufferHealthBadge({
+  health,
+}: {
+  health?: "healthy" | "buffering" | "stalled";
+}) {
   if (!health) return null;
   const color =
     health === "healthy" ? palette.green : health === "buffering" ? palette.amber : palette.red;
-  const label = health === "healthy" ? "● buffer healthy" : `● ${health}`;
+  const label =
+    health === "healthy"
+      ? "● buffer healthy"
+      : health === "buffering"
+        ? "● buffer building"
+        : "● buffer stalled";
   return (
     <Text color={color} bold>
       {label}
     </Text>
   );
-}
+});
 
-export function LoadingShell({
+export const LoadingShell = React.memo(function LoadingShell({
   state,
   onCancel,
   onStop,
@@ -664,4 +673,4 @@ export function LoadingShell({
       </Box>
     </ShellFrame>
   );
-}
+});

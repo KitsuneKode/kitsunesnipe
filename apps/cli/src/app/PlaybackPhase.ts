@@ -196,12 +196,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             ? `${event.cacheAheadSeconds.toFixed(1)}s cached ahead`
             : null;
         const percent = typeof event.percent === "number" ? `${Math.round(event.percent)}%` : null;
-        const recovery = recoveryForPlaybackFailure(classifyPlaybackFailureFromEvent(event));
-        const status =
-          [percent, cacheAhead].filter(Boolean).join(" / ") || "mpv is filling HLS cache";
+        const status = [percent, cacheAhead].filter(Boolean).join(" / ") || "Filling demuxer cache";
         return {
-          detail: "Network buffering",
-          note: `${status} · ${recovery.label}`,
+          detail: "Building playback buffer",
+          note: `${status}`,
         };
       }
       case "network-sample":
@@ -387,6 +385,10 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
       let pendingPrefetchedStream: import("@/domain/types").StreamInfo | null = null;
       let pendingPrefetchedProviderId: string | null = null;
 
+      // In-memory cache of recently played episode streams so backward navigation
+      // (P key) reuses the exact same StreamInfo without provider resolve or cache lookup.
+      const recentEpisodeStreams = new Map<string, import("@/domain/types").StreamInfo>();
+
       // Inner playback loop
       while (true) {
         const currentEpisode = stateManager.getState().currentEpisode;
@@ -542,7 +544,28 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             });
           }
 
-          if (!consumedPrefetch) {
+          // Check in-memory cache for recently played episodes (backward navigation).
+          // This lets P-navigation reuse the exact same StreamInfo without any
+          // provider resolve, cache lookup, or health check.
+          if (!stream) {
+            const recentKey = `${title.id}:${currentEpisode.season}:${currentEpisode.episode}`;
+            const recent = recentEpisodeStreams.get(recentKey);
+            if (recent) {
+              stream = recent;
+              resolvedProviderId = currentProvider.metadata.id;
+              diagnosticsStore.record({
+                category: "provider",
+                message: "Using in-memory recent episode stream (backward navigation)",
+                context: {
+                  titleId: title.id,
+                  season: currentEpisode.season,
+                  episode: currentEpisode.episode,
+                },
+              });
+            }
+          }
+
+          if (!stream) {
             const playbackResolver = new PlaybackResolveCoordinator({
               engine,
               cacheStore,
@@ -748,6 +771,13 @@ export class PlaybackPhase implements Phase<TitleInfo, PlaybackOutcome> {
             context,
           );
           stateManager.dispatch({ type: "SET_STREAM", stream: preparedStream });
+
+          const episodeKey = `${title.id}:${currentEpisode.season}:${currentEpisode.episode}`;
+          recentEpisodeStreams.set(episodeKey, preparedStream);
+          if (recentEpisodeStreams.size > 5) {
+            const first = recentEpisodeStreams.keys().next().value;
+            if (first !== undefined) recentEpisodeStreams.delete(first);
+          }
           stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "ready" });
 
           // Play in MPV — consume the pending resume position on the first play only.

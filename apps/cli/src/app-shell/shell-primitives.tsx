@@ -133,7 +133,7 @@ export function selectFooterActions(
   return result;
 }
 
-export function InlineBadge({
+export const InlineBadge = React.memo(function InlineBadge({
   label,
   tone = "neutral",
 }: {
@@ -156,7 +156,7 @@ export function InlineBadge({
       <Text color={color}>{truncateLine(label, 28)}</Text>
     </Box>
   );
-}
+});
 
 export function Footer({
   taskLabel,
@@ -234,7 +234,7 @@ export function ShellFooter({
   return <Footer taskLabel={taskLabel} actions={actions} mode={mode} commandMode={commandMode} />;
 }
 
-export function ResizeBlocker({
+export const ResizeBlocker = React.memo(function ResizeBlocker({
   minColumns,
   minRows,
   message = "Terminal too small",
@@ -262,9 +262,9 @@ export function ResizeBlocker({
       <Text color={palette.gray}>Zoom out or resize the terminal window.</Text>
     </Box>
   );
-}
+});
 
-export function LocalSection({
+export const LocalSection = React.memo(function LocalSection({
   title,
   tone = "neutral",
   children,
@@ -297,9 +297,15 @@ export function LocalSection({
       </Box>
     </Box>
   );
-}
+});
 
-export function Badge({ label, tone = "neutral" }: { label: string; tone?: BadgeTone }) {
+export const Badge = React.memo(function Badge({
+  label,
+  tone = "neutral",
+}: {
+  label: string;
+  tone?: BadgeTone;
+}) {
   const color =
     tone === "success"
       ? palette.green
@@ -320,9 +326,13 @@ export function Badge({ label, tone = "neutral" }: { label: string; tone?: Badge
       </Text>
     </Box>
   );
-}
+});
 
-export function ContextStrip({ items }: { items: readonly ContextStripItem[] }) {
+export const ContextStrip = React.memo(function ContextStrip({
+  items,
+}: {
+  items: readonly ContextStripItem[];
+}) {
   const visibleItems = items.filter((item) => item.label.trim().length > 0);
   if (visibleItems.length === 0) return null;
 
@@ -349,9 +359,9 @@ export function ContextStrip({ items }: { items: readonly ContextStripItem[] }) 
       })}
     </Box>
   );
-}
+});
 
-export function DetailLine({
+export const DetailLine = React.memo(function DetailLine({
   label,
   value,
   tone = "neutral",
@@ -380,21 +390,21 @@ export function DetailLine({
       <Text color={valueColor}>{value}</Text>
     </Box>
   );
-}
+});
 
-export function BrowseTitle({ mode }: { mode: "series" | "anime" }) {
+export const BrowseTitle = React.memo(function BrowseTitle({ mode }: { mode: "series" | "anime" }) {
   return (
     <Text bold color="white">
       {mode === "anime" ? "Browse your favorite anime" : "Browse your favorite movies and series"}
     </Text>
   );
-}
+});
 
 /**
  * Designed empty state for panels with no data.
  * Provides a consistent visual treatment across the shell instead of raw dim text.
  */
-export function EmptyState({
+export const EmptyState = React.memo(function EmptyState({
   icon = "○",
   title,
   subtitle,
@@ -420,4 +430,4 @@ export function EmptyState({
       ) : null}
     </Box>
   );
-}
+});

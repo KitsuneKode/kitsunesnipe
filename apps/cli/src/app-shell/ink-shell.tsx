@@ -24,7 +24,7 @@ import { isKittyCompatible } from "@/image";
 import { buildRuntimeHealthSnapshot } from "@/services/diagnostics/runtime-health";
 import type { KitsuneConfig } from "@/services/persistence/ConfigService";
 import { Box, Text, render, useInput, useStdout } from "ink";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   applyBrowseResultFilters,
@@ -604,6 +604,188 @@ function AppRoot({ container }: { container: Container }) {
           .find((candidate) => candidate.metadata.id !== state.provider)
       : undefined;
 
+  const onCommandAction = useCallback(
+    (action: ShellAction) => {
+      if (action === "command-mode") return;
+      if (action === "next" && canGoNext) {
+        void container.playerControl.nextCurrentPlayback("playback-loading-command-next");
+        return;
+      }
+      if (action === "previous" && canGoPrevious) {
+        void container.playerControl.previousCurrentPlayback("playback-loading-command-previous");
+        return;
+      }
+      if (action === "toggle-autoplay" && canToggleAutoplay) {
+        container.stateManager.dispatch({
+          type: "SET_SESSION_AUTOPLAY_PAUSED",
+          paused: !container.stateManager.getState().autoplaySessionPaused,
+        });
+        return;
+      }
+      if (action === "toggle-autoskip") {
+        container.stateManager.dispatch({
+          type: "SET_SESSION_AUTOSKIP_PAUSED",
+          paused: !container.stateManager.getState().autoskipSessionPaused,
+        });
+        return;
+      }
+      if (action === "search") {
+        void container.playerControl.returnToSearchFromPlayback("playback-loading-command-search");
+        return;
+      }
+      if (action === "back-to-search") {
+        void container.playerControl.returnToSearchFromPlayback("playback-loading-command-search");
+        return;
+      }
+      if (action === "recover") {
+        void container.playerControl.recoverCurrentPlayback("playback-loading-command-recover");
+        return;
+      }
+      if (action === "fallback") {
+        const cancelledWork = container.workControl.cancelActive(
+          "playback-loading-command-fallback",
+        );
+        if (!cancelledWork) {
+          void container.playerControl.fallbackCurrentPlayback("playback-loading-command-fallback");
+        }
+        return;
+      }
+      if (action === "streams") {
+        void openPlaybackStreamSelectionPicker(
+          container,
+          "streams",
+          "playback-loading-command-streams",
+        );
+        return;
+      }
+      if (action === "pick-episode") {
+        void openActivePlaybackEpisodePicker(container, "playback-loading-command-episode");
+        return;
+      }
+      if (action === "source") {
+        void openPlaybackStreamSelectionPicker(
+          container,
+          "source",
+          "playback-loading-command-source",
+        );
+        return;
+      }
+      if (action === "quality") {
+        void openPlaybackStreamSelectionPicker(
+          container,
+          "quality",
+          "playback-loading-command-quality",
+        );
+        return;
+      }
+      if (action === "download") {
+        void (async () => {
+          const { enqueueCurrentPlaybackDownload } = await import("./workflows");
+          await enqueueCurrentPlaybackDownload({
+            container,
+            reason: "active-playback-command",
+          });
+        })();
+        return;
+      }
+      if (action === "quit") {
+        void container.playerControl.stopCurrentPlayback("playback-loading-command-stop");
+        return;
+      }
+      if (action === "toggle-mode") {
+        switchSessionMode(container.stateManager);
+        return;
+      }
+      void (async () => {
+        const { routeSearchShellAction } = await import("./command-router");
+        const routed = await routeSearchShellAction({ action, container });
+        if (routed === "quit") {
+          requestHardExit(0);
+        }
+      })();
+    },
+    [container, canGoNext, canGoPrevious, canToggleAutoplay],
+  );
+
+  const onCancel = useCallback(() => {
+    const cancelledWork = container.workControl.cancelActive("playback-loading-esc");
+    if (!cancelledWork) {
+      void container.playerControl.stopCurrentPlayback("playback-loading-esc");
+    }
+  }, [container]);
+
+  const onStop = useCallback(() => {
+    void container.playerControl.stopCurrentPlayback("playback-shell-q");
+  }, [container]);
+
+  const onNextHandler = useCallback(() => {
+    void container.playerControl.nextCurrentPlayback("playback-shell-n");
+  }, [container]);
+
+  const onPreviousHandler = useCallback(() => {
+    void container.playerControl.previousCurrentPlayback("playback-shell-p");
+  }, [container]);
+
+  const onRecover = useCallback(() => {
+    void container.playerControl.recoverCurrentPlayback("playback-shell-r");
+  }, [container]);
+
+  const onFallback = useCallback(() => {
+    const cancelledWork = container.workControl.cancelActive("playback-shell-fallback");
+    if (!cancelledWork) {
+      void container.playerControl.fallbackCurrentPlayback("playback-shell-fallback");
+    }
+  }, [container]);
+
+  const onPickStreams = useCallback(() => {
+    void openPlaybackStreamSelectionPicker(container, "streams", "playback-shell-k");
+  }, [container]);
+
+  const onPickEpisode = useCallback(() => {
+    void openActivePlaybackEpisodePicker(container, "playback-shell-e");
+  }, [container]);
+
+  const onReloadSubtitles = useCallback(() => {
+    void container.playerControl.reloadCurrentSubtitles("playback-shell-s");
+  }, [container]);
+
+  const onSkipSegment = useCallback(() => {
+    void container.playerControl.skipCurrentSegment("playback-shell-i");
+  }, [container]);
+
+  const onToggleAutoplay = useCallback(() => {
+    container.stateManager.dispatch({
+      type: "SET_SESSION_AUTOPLAY_PAUSED",
+      paused: !container.stateManager.getState().autoplaySessionPaused,
+    });
+  }, [container]);
+
+  const onToggleAutoskip = useCallback(() => {
+    container.stateManager.dispatch({
+      type: "SET_SESSION_AUTOSKIP_PAUSED",
+      paused: !container.stateManager.getState().autoskipSessionPaused,
+    });
+  }, [container]);
+
+  const onStopAfterCurrent = useCallback(() => {
+    container.stateManager.dispatch({
+      type: "SET_SESSION_STOP_AFTER_CURRENT",
+      enabled: !container.stateManager.getState().stopAfterCurrent,
+    });
+  }, [container]);
+
+  const onPickSource = useCallback(() => {
+    void openPlaybackStreamSelectionPicker(container, "source", "playback-shell-o");
+  }, [container]);
+
+  const onPickQuality = useCallback(() => {
+    void openPlaybackStreamSelectionPicker(container, "quality", "playback-shell-v");
+  }, [container]);
+
+  const onReturnToSearch = useCallback(() => {
+    void container.playerControl.returnToSearchFromPlayback("playback-shell-shift-s");
+  }, [container]);
+
   return (
     <Box
       flexDirection="column"
@@ -754,207 +936,24 @@ function AppRoot({ container }: { container: Container }) {
                   previousEpisodeLabel: state.episodeNavigation.previousLabel,
                   hasNextEpisode: state.episodeNavigation.hasNext,
                   hasPreviousEpisode: state.episodeNavigation.hasPrevious,
-                  onCommandAction: (action) => {
-                    if (action === "command-mode") return;
-                    if (action === "next" && canGoNext) {
-                      void container.playerControl.nextCurrentPlayback(
-                        "playback-loading-command-next",
-                      );
-                      return;
-                    }
-                    if (action === "previous" && canGoPrevious) {
-                      void container.playerControl.previousCurrentPlayback(
-                        "playback-loading-command-previous",
-                      );
-                      return;
-                    }
-                    if (action === "toggle-autoplay" && canToggleAutoplay) {
-                      container.stateManager.dispatch({
-                        type: "SET_SESSION_AUTOPLAY_PAUSED",
-                        paused: !container.stateManager.getState().autoplaySessionPaused,
-                      });
-                      return;
-                    }
-                    if (action === "toggle-autoskip") {
-                      container.stateManager.dispatch({
-                        type: "SET_SESSION_AUTOSKIP_PAUSED",
-                        paused: !container.stateManager.getState().autoskipSessionPaused,
-                      });
-                      return;
-                    }
-                    if (action === "search") {
-                      void container.playerControl.returnToSearchFromPlayback(
-                        "playback-loading-command-search",
-                      );
-                      return;
-                    }
-                    if (action === "back-to-search") {
-                      void container.playerControl.returnToSearchFromPlayback(
-                        "playback-loading-command-search",
-                      );
-                      return;
-                    }
-                    if (action === "recover") {
-                      void container.playerControl.recoverCurrentPlayback(
-                        "playback-loading-command-recover",
-                      );
-                      return;
-                    }
-                    if (action === "fallback") {
-                      const cancelledWork = container.workControl.cancelActive(
-                        "playback-loading-command-fallback",
-                      );
-                      if (!cancelledWork) {
-                        void container.playerControl.fallbackCurrentPlayback(
-                          "playback-loading-command-fallback",
-                        );
-                      }
-                      return;
-                    }
-                    if (action === "streams") {
-                      void openPlaybackStreamSelectionPicker(
-                        container,
-                        "streams",
-                        "playback-loading-command-streams",
-                      );
-                      return;
-                    }
-                    if (action === "pick-episode") {
-                      void openActivePlaybackEpisodePicker(
-                        container,
-                        "playback-loading-command-episode",
-                      );
-                      return;
-                    }
-                    if (action === "source") {
-                      void openPlaybackStreamSelectionPicker(
-                        container,
-                        "source",
-                        "playback-loading-command-source",
-                      );
-                      return;
-                    }
-                    if (action === "quality") {
-                      void openPlaybackStreamSelectionPicker(
-                        container,
-                        "quality",
-                        "playback-loading-command-quality",
-                      );
-                      return;
-                    }
-                    if (action === "download") {
-                      void (async () => {
-                        const { enqueueCurrentPlaybackDownload } = await import("./workflows");
-                        await enqueueCurrentPlaybackDownload({
-                          container,
-                          reason: "active-playback-command",
-                        });
-                      })();
-                      return;
-                    }
-                    if (action === "quit") {
-                      void container.playerControl.stopCurrentPlayback(
-                        "playback-loading-command-stop",
-                      );
-                      return;
-                    }
-                    if (action === "toggle-mode") {
-                      switchSessionMode(container.stateManager);
-                      return;
-                    }
-                    void (async () => {
-                      const { routeSearchShellAction } = await import("./command-router");
-                      const routed = await routeSearchShellAction({ action, container });
-                      if (routed === "quit") {
-                        requestHardExit(0);
-                      }
-                    })();
-                  },
+                  onCommandAction: onCommandAction,
                 }}
-                onCancel={() => {
-                  const cancelledWork = container.workControl.cancelActive("playback-loading-esc");
-                  if (!cancelledWork) {
-                    void container.playerControl.stopCurrentPlayback("playback-loading-esc");
-                  }
-                }}
-                onStop={() => {
-                  void container.playerControl.stopCurrentPlayback("playback-shell-q");
-                }}
-                onNext={
-                  canGoNext
-                    ? () => {
-                        void container.playerControl.nextCurrentPlayback("playback-shell-n");
-                      }
-                    : undefined
-                }
-                onPrevious={
-                  canGoPrevious
-                    ? () => {
-                        void container.playerControl.previousCurrentPlayback("playback-shell-p");
-                      }
-                    : undefined
-                }
-                onRecover={() => {
-                  void container.playerControl.recoverCurrentPlayback("playback-shell-r");
-                }}
-                onFallback={() => {
-                  const cancelledWork =
-                    container.workControl.cancelActive("playback-shell-fallback");
-                  if (!cancelledWork) {
-                    void container.playerControl.fallbackCurrentPlayback("playback-shell-fallback");
-                  }
-                }}
-                onPickStreams={() => {
-                  void openPlaybackStreamSelectionPicker(container, "streams", "playback-shell-k");
-                }}
-                onPickEpisode={
-                  state.currentTitle?.type === "series"
-                    ? () => {
-                        void openActivePlaybackEpisodePicker(container, "playback-shell-e");
-                      }
-                    : undefined
-                }
-                onReloadSubtitles={() => {
-                  void container.playerControl.reloadCurrentSubtitles("playback-shell-s");
-                }}
-                onSkipSegment={() => {
-                  void container.playerControl.skipCurrentSegment("playback-shell-i");
-                }}
-                onToggleAutoplay={
-                  canToggleAutoplay
-                    ? () => {
-                        container.stateManager.dispatch({
-                          type: "SET_SESSION_AUTOPLAY_PAUSED",
-                          paused: !container.stateManager.getState().autoplaySessionPaused,
-                        });
-                      }
-                    : undefined
-                }
-                onToggleAutoskip={() => {
-                  container.stateManager.dispatch({
-                    type: "SET_SESSION_AUTOSKIP_PAUSED",
-                    paused: !container.stateManager.getState().autoskipSessionPaused,
-                  });
-                }}
-                onStopAfterCurrent={
-                  canStopAfterCurrent
-                    ? () => {
-                        container.stateManager.dispatch({
-                          type: "SET_SESSION_STOP_AFTER_CURRENT",
-                          enabled: !container.stateManager.getState().stopAfterCurrent,
-                        });
-                      }
-                    : undefined
-                }
-                onPickSource={() => {
-                  void openPlaybackStreamSelectionPicker(container, "source", "playback-shell-o");
-                }}
-                onPickQuality={() => {
-                  void openPlaybackStreamSelectionPicker(container, "quality", "playback-shell-v");
-                }}
-                onReturnToSearch={() => {
-                  void container.playerControl.returnToSearchFromPlayback("playback-shell-shift-s");
-                }}
+                onCancel={onCancel}
+                onStop={onStop}
+                onNext={canGoNext ? onNextHandler : undefined}
+                onPrevious={canGoPrevious ? onPreviousHandler : undefined}
+                onRecover={onRecover}
+                onFallback={onFallback}
+                onPickStreams={onPickStreams}
+                onPickEpisode={state.currentTitle?.type === "series" ? onPickEpisode : undefined}
+                onReloadSubtitles={onReloadSubtitles}
+                onSkipSegment={onSkipSegment}
+                onToggleAutoplay={canToggleAutoplay ? onToggleAutoplay : undefined}
+                onToggleAutoskip={onToggleAutoskip}
+                onStopAfterCurrent={canStopAfterCurrent ? onStopAfterCurrent : undefined}
+                onPickSource={onPickSource}
+                onPickQuality={onPickQuality}
+                onReturnToSearch={onReturnToSearch}
               />
             ) : rootSurface === "root-content" && rootContent ? (
               <Box key={rootContent.id} flexGrow={1}>

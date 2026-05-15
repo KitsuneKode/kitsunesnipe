@@ -38,7 +38,7 @@ describe("buildRootStatusSummary", () => {
       rootStatus: "playing",
     });
 
-    expect(summary.header.label).toBe("playing · subs ready");
+    expect(summary.header.label).toBe("Playing · subs ready");
     expect(summary.header.tone).toBe("success");
     expect(summary.badges.map((badge) => badge.label)).toEqual([
       "anime",
@@ -118,7 +118,7 @@ describe("buildRootStatusSummary", () => {
       rootStatus: "playing",
     });
 
-    expect(summary.header.label).toBe("playing · hardsub en");
+    expect(summary.header.label).toBe("Playing · hardsub en");
     expect(summary.header.tone).toBe("success");
     expect(summary.badges.map((badge) => badge.label)).toContain("hardsub en");
   });

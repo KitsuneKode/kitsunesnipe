@@ -117,9 +117,15 @@ export async function launchMpv(opts: {
     if (!activeSkip || !ipcSession || skippedSegments.has(activeSkip.key)) {
       return false;
     }
-    skippedSegments.add(activeSkip.key);
-    void ipcSession.send(["seek", activeSkip.endSeconds, "absolute"]);
-    emitPlaybackEvent({ type: "segment-skipped", kind: activeSkip.kind, automatic });
+    void ipcSession
+      .send(["seek", activeSkip.endSeconds, "absolute"])
+      .then((result) => {
+        if (result.ok) {
+          skippedSegments.add(activeSkip.key);
+          emitPlaybackEvent({ type: "segment-skipped", kind: activeSkip.kind, automatic });
+        }
+      })
+      .catch(() => {});
     return true;
   };
   const control: ActivePlayerControl = {
@@ -222,7 +228,18 @@ export async function launchMpv(opts: {
       emitPlaybackEvent({ type: "subtitle-inventory-ready", trackCount });
       emitPlaybackEvent({ type: "subtitle-attached", trackCount });
     }
-  })().catch(() => {});
+  })().catch((err) => {
+    dbg("mpv-ipc", "ipc-bootstrap-failed", {
+      endpoint: ipcServerCliArg(ipcEndpoint),
+      error: String(err),
+      mode: "launchMpv",
+    });
+    emitPlaybackEvent({
+      type: "ipc-command-failed",
+      command: "bootstrap",
+      error: String(err),
+    });
+  });
 
   const exit = await exitPromise;
   recordPlayerExit(telemetry, exit);

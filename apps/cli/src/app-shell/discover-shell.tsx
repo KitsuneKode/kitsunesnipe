@@ -17,7 +17,7 @@ export type DiscoverShellResult = { type: "open"; result: SearchResult } | { typ
  * The focused section shows the ❯ cursor indicator. Rating and year are rendered
  * as right-aligned metadata when available.
  */
-function DiscoverSectionView({
+const DiscoverSectionView = React.memo(function DiscoverSectionView({
   section,
   isFocused,
   focusedIndex,
@@ -74,7 +74,7 @@ function DiscoverSectionView({
       )}
     </Box>
   );
-}
+});
 
 export function DiscoverShell({
   sections,

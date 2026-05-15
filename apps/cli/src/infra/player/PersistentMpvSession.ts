@@ -64,12 +64,7 @@ const IN_PROCESS_RECONNECT_MAX_BACKOFF_MS = 16_000;
 type InProcessReconnectTrigger = "network-read-dead" | "premature-eof" | "error";
 import type { LateSubtitleAttachment, PlayerPlaybackEvent } from "./PlayerService";
 
-type MpvProcess = {
-  readonly exited: Promise<number>;
-  readonly killed: boolean;
-  readonly exitCode: number | null;
-  kill(signal?: string | number): void;
-};
+type MpvProcess = Pick<Bun.Subprocess, "exited" | "killed" | "exitCode" | "kill">;
 
 type PlayerCycleOptions = {
   displayTitle: string;
@@ -307,7 +302,12 @@ export class PersistentMpvSession {
     options.onPlaybackEvent?.({ type: "resolving-playback" });
     this.queueReadyWork(options, { armFallback: false });
 
-    const preflightPromise = checkStreamPreflight(stream.url, stream.headers, 3_000);
+    const isFreshCached = (stream.timestamp ?? 0) > Date.now() - 5 * 60 * 1000;
+    const preflightPromise = isFreshCached
+      ? Promise.resolve<Awaited<ReturnType<typeof checkStreamPreflight>>>({
+          status: "reachable" as const,
+        })
+      : checkStreamPreflight(stream.url, stream.headers, 3_000);
 
     const loadResult = await this.ipcSession?.send(
       buildPersistentLoadfileCommand(stream.url, options.startAt),
@@ -830,14 +830,24 @@ export class PersistentMpvSession {
       // Ensure playback is not paused when a new file loads. With --keep-open=no this is
       // normally a no-op, but guards against pause=yes persisting from a previous cycle
       // (e.g. user paused mid-episode then pressed N, or a keep-open edge case).
-      await this.ipcSession.send(["set_property", "pause", false], 500);
+      const unpauseResult = await this.ipcSession.send(["set_property", "pause", false], 500);
+      if (!unpauseResult.ok) {
+        dbg("mpv-ipc", "unpause-failed", {
+          error: unpauseResult.error,
+        });
+      }
 
       // Always push the display title for this episode so the mpv window title and
       // OSD stay correct across persistent-session episode transitions.
-      await this.ipcSession.send(
+      const titleResult = await this.ipcSession.send(
         ["set_property", "force-media-title", options.displayTitle],
         1_000,
       );
+      if (!titleResult.ok) {
+        dbg("mpv-ipc", "set-title-failed", {
+          error: titleResult.error,
+        });
+      }
 
       let choice: PersistentResumeStartChoice | undefined;
       const resumePromptAt = options.resumePromptAt ?? 0;
@@ -1072,9 +1082,10 @@ export class PersistentMpvSession {
     if (!this.ipcSession || this.skippedSegments.has(segment.key)) {
       return false;
     }
-    this.skippedSegments.add(segment.key);
     this.clearSkipPromptState();
-    await this.ipcSession.send(["seek", segment.endSeconds, "absolute"], 1_000);
+    const seekResult = await this.ipcSession.send(["seek", segment.endSeconds, "absolute"], 1_000);
+    if (!seekResult.ok) return false;
+    this.skippedSegments.add(segment.key);
     options.onPlaybackEvent?.({ type: "segment-skipped", kind: segment.kind, automatic });
     return true;
   }
@@ -1412,7 +1423,13 @@ export class PersistentMpvSession {
         detail: trigger,
       });
 
+      const savedEndReason = active.telemetry.endReason;
+      const savedMaxTrusted = active.telemetry.maxTrustedProgressSeconds;
+      const savedLastReliable = active.telemetry.lastReliableProgressSeconds;
       active.telemetry = createPlayerTelemetryState(this.ipcEndpoint.path);
+      active.telemetry.endReason = savedEndReason;
+      active.telemetry.maxTrustedProgressSeconds = savedMaxTrusted;
+      active.telemetry.lastReliableProgressSeconds = savedLastReliable;
       this.pendingInProcessReconnect = { seekSeconds, shouldSeek, trigger };
       this.clearReadyWorkFallback();
       this.pendingReadyWork = null;
