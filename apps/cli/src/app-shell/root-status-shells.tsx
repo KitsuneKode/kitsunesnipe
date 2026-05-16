@@ -63,8 +63,8 @@ export function RootIdleShell({ state }: { state: SessionState }) {
       </Box>
 
       <Box marginTop={2}>
-        <Text color={palette.gray} dimColor italic>
-          Preparing the next fullscreen panel…
+        <Text color={palette.dim} dimColor>
+          Ready · Type / for commands
         </Text>
       </Box>
     </Box>

@@ -397,6 +397,22 @@ function AppRoot({ container }: { container: Container }) {
   const rootContent = useRootContentSession();
   const { stdout } = useStdout();
   const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
+
+  // Clear terminal artifacts when the terminal shrinks to prevent stale content
+  // from lingering outside the new bounds.
+  const prevDimensionsRef = useRef({ cols: stdout.columns ?? 80, rows: stdout.rows ?? 24 });
+  useEffect(() => {
+    const cols = stdout.columns ?? 80;
+    const rows = stdout.rows ?? 24;
+    const prev = prevDimensionsRef.current;
+    if (cols < prev.cols || rows < prev.rows) {
+      if (process.stdout.isTTY) {
+        // Clear visible screen only (not scrollback) and move cursor home
+        process.stdout.write("\x1b[2J\x1b[H");
+      }
+    }
+    prevDimensionsRef.current = { cols, rows };
+  }, [stdout.columns, stdout.rows]);
   const [playbackTelemetrySnapshot, setPlaybackTelemetrySnapshot] =
     useState<PlaybackTelemetrySnapshot | null>(null);
   const presenceBootTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -171,6 +171,11 @@ export function InputField({
             maxWidth={textWidth}
           />
         </Box>
+        <Box>
+          <Text color={focus ? palette.teal : palette.dim} dimColor>
+            {"─".repeat(Math.max(4, fieldWidth))}
+          </Text>
+        </Box>
       </Box>
       {renderedHint && !wideField ? (
         <Box marginTop={1}>
