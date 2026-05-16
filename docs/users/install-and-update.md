@@ -47,6 +47,7 @@ Every published package should include:
 - `bun run typecheck`, `bun run lint`, `bun run fmt:check`, and `bun run test` passing locally
 - `bun run pkg:check` passing before publish
 - `bun run release:dry-run` passing before the final `bun run release`
+- one opt-in live provider smoke pass for the provider paths the release depends on, using the isolated `test/live` profile output as evidence
 
 For support reports after an update, run `/report-issue` from Kunai. For developer reproduction, launch with `--debug-session`, reproduce the issue, then run `/export-diagnostics`.
 

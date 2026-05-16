@@ -24,6 +24,10 @@ export type ProviderSmokePayload = {
   readonly runtime: string | null;
   readonly cacheHit: boolean | null;
   readonly failureCodes: readonly string[];
+  readonly failureMessages?: readonly string[];
+  readonly streamCandidates?: number;
+  readonly isolatedProfile?: boolean;
+  readonly profileRoot?: string;
   readonly error?: string;
 };
 
@@ -52,6 +56,15 @@ export function createProviderSmokeProfile(label: string): ProviderSmokeProfile 
   });
 
   return profile;
+}
+
+export function providerSmokeProfilePayload(
+  profile: ProviderSmokeProfile,
+): Pick<ProviderSmokePayload, "isolatedProfile" | "profileRoot"> {
+  return {
+    isolatedProfile: true,
+    profileRoot: profile.rootDir,
+  };
 }
 
 export function buildProviderSmokePayload({

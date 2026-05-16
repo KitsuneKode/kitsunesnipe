@@ -4,10 +4,11 @@ import {
   buildProviderSmokePayload,
   createProviderSmokeProfile,
   providerSmokeError,
+  providerSmokeProfilePayload,
   resolveProviderSmokeStream,
 } from "./provider-smoke";
 
-createProviderSmokeProfile("allanime");
+const profile = createProviderSmokeProfile("allanime");
 
 const { createContainer } = await import("@/container");
 const container = await createContainer({ debug: true });
@@ -29,6 +30,7 @@ const search = await searchTitles(query, {
         stage: "search",
         query,
         provider: config.animeProvider,
+        ...providerSmokeProfilePayload(profile),
         ...providerSmokeError(error),
       },
       null,
@@ -45,7 +47,17 @@ const selected =
 
 if (!selected) {
   console.error(
-    JSON.stringify({ ok: false, stage: "search", query, reason: "no_results" }, null, 2),
+    JSON.stringify(
+      {
+        ok: false,
+        stage: "search",
+        query,
+        reason: "no_results",
+        ...providerSmokeProfilePayload(profile),
+      },
+      null,
+      2,
+    ),
   );
   process.exit(1);
 }
@@ -59,6 +71,7 @@ if (!provider) {
         stage: "provider",
         provider: config.animeProvider,
         reason: "missing_provider",
+        ...providerSmokeProfilePayload(profile),
       },
       null,
       2,
@@ -80,6 +93,8 @@ const title = {
 const episodes = provider.listEpisodes ? await provider.listEpisodes({ title }) : null;
 let resolveError: unknown = null;
 let failureCodes: readonly string[] = [];
+let failureMessages: readonly string[] = [];
+let streamCandidates = 0;
 const { stream } = await resolveProviderSmokeStream({
   container,
   providerId: provider.metadata.id,
@@ -93,6 +108,8 @@ const { stream } = await resolveProviderSmokeStream({
 })
   .then((resolved) => {
     failureCodes = resolved.result.failures.map((failure) => failure.code);
+    failureMessages = resolved.result.failures.map((failure) => failure.message);
+    streamCandidates = resolved.result.streams.length;
     return resolved;
   })
   .catch((error) => {
@@ -115,6 +132,9 @@ const payload = {
   firstEpisodes: episodes?.slice(0, 3).map((episode) => episode.label) ?? [],
   ...(resolveError ? providerSmokeError(resolveError) : {}),
   failureCodes,
+  failureMessages,
+  streamCandidates,
+  ...providerSmokeProfilePayload(profile),
   subtitleUrl: stream?.subtitle ?? null,
 };
 

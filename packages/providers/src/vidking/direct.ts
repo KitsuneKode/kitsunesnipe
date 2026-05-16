@@ -89,6 +89,7 @@ type WasmExports = {
 };
 
 let wasmExportsPromise: Promise<WasmExports> | null = null;
+let wasmDecodeQueue: Promise<void> = Promise.resolve();
 
 export const vidkingProviderModule: CoreProviderModule = {
   providerId: VIDKING_PROVIDER_ID,
@@ -682,14 +683,32 @@ export async function decodeVidkingPayload(
   payload: string,
   tmdbId: number,
 ): Promise<VidkingPayload> {
-  const wasm = await loadWasmExports();
-  const payloadPtr = wasm.__newString(payload);
-  const decryptedPtr = wasm.decrypt(payloadPtr, tmdbId);
-  const wasmDecryptedBase64 = wasm.__getString(decryptedPtr);
-  const { default: CryptoJS } = await import("crypto-js");
-  const decryptedBytes = CryptoJS.AES.decrypt(wasmDecryptedBase64, "");
-  const finalJson = decryptedBytes.toString(CryptoJS.enc.Utf8);
-  return JSON.parse(finalJson) as VidkingPayload;
+  return await withWasmDecodeLock(async () => {
+    const wasm = await loadWasmExports();
+    const payloadPtr = wasm.__newString(payload);
+    const decryptedPtr = wasm.decrypt(payloadPtr, tmdbId);
+    const wasmDecryptedBase64 = wasm.__getString(decryptedPtr);
+    const { default: CryptoJS } = await import("crypto-js");
+    const decryptedBytes = CryptoJS.AES.decrypt(wasmDecryptedBase64, "");
+    const finalJson = decryptedBytes.toString(CryptoJS.enc.Utf8);
+    return JSON.parse(finalJson) as VidkingPayload;
+  });
+}
+
+async function withWasmDecodeLock<T>(operation: () => Promise<T>): Promise<T> {
+  const previous = wasmDecodeQueue;
+  let release!: () => void;
+  wasmDecodeQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await previous;
+
+  try {
+    return await operation();
+  } finally {
+    release();
+  }
 }
 
 function normalizeStreamCandidates({

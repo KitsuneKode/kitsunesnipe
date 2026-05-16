@@ -73,13 +73,15 @@ Use `--debug-json` when you need an artifact to compare between runs. Use `/diag
 Provider live checks are opt-in. They are for provider drift, CDN behavior, and release-candidate checks, not default CI.
 
 ```sh
-KITSUNE_CLEAR_CACHE=1 KITSUNE_DEBUG=1 bun run test:live:vidking 1 2 2> debug.log
-KITSUNE_CLEAR_CACHE=1 KITSUNE_DEBUG=1 bun run test:live:rivestream
-KITSUNE_CLEAR_CACHE=1 KITSUNE_DEBUG=1 bun run test:live:allanime
-KITSUNE_CLEAR_CACHE=1 KITSUNE_DEBUG=1 bun run test:live:miruro
+bun run test:live:vidking 1 2 2> debug.log
+bun run test:live:rivestream
+bun run test:live:allanime
+bun run test:live:miruro
 ```
 
-Compare live smoke output against the provider attempt timeline and cache provenance before changing provider code.
+Each live smoke creates a temporary XDG config/data/cache profile and prints `isolatedProfile: true` plus a `/tmp/kunai-live-*` `profileRoot`. Do not run live smokes in a loop while debugging. Use fixture tests, mocked fetch ports, and structured traces for iteration, then run the relevant live smoke once when you need provider reality.
+
+Use `KITSUNE_CLEAR_CACHE=1` only for a cold-cache proof. Compare live smoke output against the provider attempt timeline and cache provenance before changing provider code.
 
 ## Breakpoints
 
