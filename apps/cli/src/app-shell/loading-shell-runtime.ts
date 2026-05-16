@@ -15,7 +15,7 @@ export function shouldShowLoadingElapsed(
   operation: LoadingShellState["operation"],
   elapsedSeconds: number,
 ): boolean {
-  return !isPlaybackSupervisionOperation(operation) && elapsedSeconds >= 10;
+  return !isPlaybackSupervisionOperation(operation) && elapsedSeconds >= 2;
 }
 
 export function getLoadingShellTimerPolicy(input: {
