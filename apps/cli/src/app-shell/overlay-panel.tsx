@@ -83,6 +83,7 @@ type SettingsAction =
   | "showMemory"
   | "autoNext"
   | "autoDownload"
+  | "recoveryMode"
   | "autoCleanupWatched"
   | "resumeStartChoicePrompt"
   | "quitNearEndBehavior"
@@ -233,6 +234,24 @@ const AUTO_CLEANUP_GRACE_DAY_OPTIONS: readonly ShellPickerOption<string>[] = [
       ? "Show watched downloads as cleanup candidates immediately"
       : `Wait ${days} day${days === 1 ? "" : "s"} after watch completion`,
 }));
+
+const RECOVERY_MODE_OPTIONS: readonly ShellPickerOption<KitsuneConfig["recoveryMode"]>[] = [
+  {
+    value: "guided",
+    label: "Balanced recovery",
+    detail: "Retry once, then recover when the issue is clear.",
+  },
+  {
+    value: "fallback-first",
+    label: "Fast fallback",
+    detail: "Switch providers faster after slow or failed resolves.",
+  },
+  {
+    value: "manual",
+    label: "Ask before switching",
+    detail: "Never switch providers without asking.",
+  },
+];
 
 const PRESENCE_PROVIDER_OPTIONS: readonly ShellPickerOption<KitsuneConfig["presenceProvider"]>[] = [
   {
@@ -399,6 +418,11 @@ export function buildSettingsOptions(
       value: "showMemory",
       label: `Memory panel  ·  ${config.showMemory ? "opens on playback" : "on demand"}`,
       detail: "Press m during playback for fresh app, mpv, total, heap, and swap usage",
+    },
+    {
+      value: "recoveryMode",
+      label: `▸ Recovery mode  ·  ${config.recoveryMode}`,
+      detail: "Choose how aggressively Kunai retries and switches providers",
     },
     {
       value: "autoDownload",
@@ -677,6 +701,13 @@ export function buildSettingsChoiceOverlay({
     options = AUTO_DOWNLOAD_OPTIONS.map((option) => ({
       ...option,
       label: option.value === config.autoDownload ? `${option.label}  ·  current` : option.label,
+    })) as readonly ShellPickerOption<string>[];
+  } else if (setting === "recoveryMode") {
+    title = "Recovery mode";
+    subtitle = `Current ${config.recoveryMode}`;
+    options = RECOVERY_MODE_OPTIONS.map((option) => ({
+      ...option,
+      label: option.value === config.recoveryMode ? `${option.label}  ·  current` : option.label,
     })) as readonly ShellPickerOption<string>[];
   } else if (setting === "autoDownloadNextCount") {
     title = "Auto-download next count";

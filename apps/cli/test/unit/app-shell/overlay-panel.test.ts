@@ -74,6 +74,7 @@ test("settings expose discover and offline controls that already exist in config
     autoCleanupWatched: true,
     autoCleanupGraceDays: 14,
     downloadPath: "/tmp/kunai-downloads",
+    recoveryMode: "manual",
   });
   const values = options.map((option) => option.value);
 
@@ -82,6 +83,7 @@ test("settings expose discover and offline controls that already exist in config
   expect(values).toContain("discoverItemLimit");
   expect(values).toContain("downloadsEnabled");
   expect(values).toContain("autoDownloadNextCount");
+  expect(values).toContain("recoveryMode");
   expect(values).toContain("autoCleanupGraceDays");
   expect(values).toContain("downloadPath");
   expect(options.find((option) => option.value === "discoverMode")?.label).toContain("anime-only");
@@ -89,6 +91,7 @@ test("settings expose discover and offline controls that already exist in config
     "3 episodes",
   );
   expect(options.find((option) => option.value === "downloadPath")?.label).toContain("configured");
+  expect(options.find((option) => option.value === "recoveryMode")?.label).toContain("manual");
 });
 
 test("discover and offline settings provide bounded choice overlays", () => {
@@ -117,6 +120,14 @@ test("discover and offline settings provide bounded choice overlays", () => {
       animeProviderOptions: [],
     }).options.map((option) => option.value),
   ).toContain("48");
+  expect(
+    buildSettingsChoiceOverlay({
+      config,
+      setting: "recoveryMode",
+      seriesProviderOptions: [],
+      animeProviderOptions: [],
+    }).options.map((option) => option.value),
+  ).toEqual(["guided", "fallback-first", "manual"]);
   expect(
     buildSettingsChoiceOverlay({
       config,

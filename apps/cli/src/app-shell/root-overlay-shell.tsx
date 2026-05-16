@@ -8,6 +8,7 @@ import type {
   KitsuneConfig,
   QuitNearEndBehavior,
   QuitNearEndThresholdMode,
+  RecoveryMode,
 } from "@/services/persistence/ConfigService";
 import { Box, useInput, useStdout } from "ink";
 import { useEffect, useState } from "react";
@@ -479,6 +480,8 @@ export function RootOverlayShell({
             next.discoverItemLimit = Number(picked.value);
           } else if (settingsChoice === "autoDownload") {
             next.autoDownload = picked.value as AutoDownloadMode;
+          } else if (settingsChoice === "recoveryMode") {
+            next.recoveryMode = picked.value as RecoveryMode;
           } else if (settingsChoice === "autoDownloadNextCount") {
             next.autoDownloadNextCount = Number(picked.value);
           } else if (settingsChoice === "autoCleanupGraceDays") {
