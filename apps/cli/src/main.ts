@@ -464,6 +464,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
     });
 
     logger.info("Kunai exited normally");
+    await globalContainer?.downloadService.pauseActiveJobsForShutdown("normal exit");
     await globalController.shutdown();
     await shutdownShell();
     if (process.stdin.isTTY) process.stdin.unref();
@@ -514,16 +515,26 @@ function setupSignalHandlers(): void {
 
   process.on("uncaughtException", (e) => {
     console.error("Uncaught exception:", e);
-    void shutdownShell();
-    if (process.stdin.isTTY) process.stdin.unref();
-    process.exit(1);
+    void (async () => {
+      await globalContainer?.downloadService.pauseActiveJobsForShutdown("uncaught exception");
+      await globalController?.shutdown().catch(() => {});
+      await shutdownShell();
+    })().finally(() => {
+      if (process.stdin.isTTY) process.stdin.unref();
+      process.exit(1);
+    });
   });
 
   process.on("unhandledRejection", (e) => {
     console.error("Unhandled rejection:", e);
-    void shutdownShell();
-    if (process.stdin.isTTY) process.stdin.unref();
-    process.exit(1);
+    void (async () => {
+      await globalContainer?.downloadService.pauseActiveJobsForShutdown("unhandled rejection");
+      await globalController?.shutdown().catch(() => {});
+      await shutdownShell();
+    })().finally(() => {
+      if (process.stdin.isTTY) process.stdin.unref();
+      process.exit(1);
+    });
   });
 }
 

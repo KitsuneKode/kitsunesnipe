@@ -35,7 +35,7 @@ import type { ResolvedAppCommand } from "./commands";
 import { COMMAND_CONTEXTS, resolveCommandContext } from "./commands";
 import { buildBrowseCompanionPanel, buildBrowseDetailsPanel } from "./details-panel";
 import { DiscoverShell, type DiscoverShellResult } from "./discover-shell";
-import { registerBeforeHardExit, requestHardExit } from "./graceful-exit";
+import { registerExitHandler, requestHardExit } from "./graceful-exit";
 import { deleteAllKittyImages } from "./image-pane";
 import { LoadingShell, useSpinner } from "./loading-shell";
 import { OverlayPanel } from "./overlay-panel";
@@ -408,16 +408,23 @@ function AppRoot({ container }: { container: Container }) {
 
   // Global Ctrl+C handler. Ink normalizes control characters to their
   // letter name with key.ctrl=true, so we check both forms for safety.
+  // Instead of calling requestHardExit (which skips presence/mpv cleanup),
+  // emit SIGINT to self so the signal handler in main.ts runs the full
+  // cleanup sequence (pause downloads, disconnect Discord, kill mpv,
+  // clean socket files, unmount Ink).
   useInput((input, key) => {
     if ((input === "c" && key.ctrl) || input === "\x03") {
       stdinManager.cleanup();
-      requestHardExit(0);
+      process.kill(process.pid, "SIGINT");
     }
   });
 
+  // Register download pause as a pre-exit handler for the /quit path.
+  // The OS signal handler (SIGINT/SIGTERM) pauses downloads separately,
+  // so this handler covers only requestHardExit callers (e.g. /quit).
   useEffect(
     () =>
-      registerBeforeHardExit(async () => {
+      registerExitHandler(async () => {
         await container.downloadService.pauseActiveJobsForShutdown("download paused by exit");
       }),
     [container],
