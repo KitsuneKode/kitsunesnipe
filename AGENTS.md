@@ -102,6 +102,7 @@ bun run lint
 bun run fmt
 ```
 
+Use `bun run build` after completed a full feature or before release so we have well defined build steps and can catch any build-only errors.
 Use `bun run test` if tests are relevant and available. Do not use `bun test` directly.
 Unit tests live under `apps/cli/test/unit/`, integration tests under `apps/cli/test/integration/`, and live provider checks under `apps/cli/test/live/`.
 
