@@ -5,6 +5,7 @@ import type { PlayerPlaybackEvent } from "./PlayerService";
 export type PlaybackFailureClass =
   | "none"
   | "network-buffering"
+  | "slow-stream"
   | "expired-stream"
   | "seek-stuck"
   | "ipc-stuck"
@@ -23,6 +24,8 @@ export function classifyPlaybackFailureFromEvent(event: PlayerPlaybackEvent): Pl
         return "expired-stream";
       }
       return "network-buffering";
+    case "stream-slow":
+      return event.state === "slow-network-suspected" ? "slow-stream" : "network-buffering";
     case "seek-stalled":
       return "seek-stuck";
     case "ipc-stalled":
@@ -59,6 +62,12 @@ export function recoveryForPlaybackFailure(
       return {
         action: "wait",
         label: "Wait briefly; if cache speed stays flat, refresh the source.",
+      };
+    case "slow-stream":
+      return {
+        action: "wait",
+        label:
+          "Playback is buffering slowly. Keep waiting, or refresh the source if it keeps starving.",
       };
     case "expired-stream":
       return {

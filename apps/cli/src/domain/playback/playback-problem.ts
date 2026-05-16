@@ -105,6 +105,15 @@ export function buildPlayerFailureProblem(failureClass: PlaybackFailureClass): P
         recommendedAction: "wait",
         secondaryActions: ["refresh", "diagnostics"],
       };
+    case "slow-stream":
+      return {
+        stage: "mpv",
+        severity: "info",
+        cause: "network-buffering",
+        userMessage: "The stream is playing slowly while mpv waits for more data.",
+        recommendedAction: "wait",
+        secondaryActions: ["refresh", "diagnostics"],
+      };
     case "expired-stream":
       return {
         stage: "mpv",
@@ -158,6 +167,15 @@ export function buildPlayerFailureProblem(failureClass: PlaybackFailureClass): P
         userMessage: "No playback problem detected.",
         recommendedAction: "wait",
         secondaryActions: [],
+      };
+    default:
+      return {
+        stage: "mpv",
+        severity: "recoverable",
+        cause: "unknown",
+        userMessage: "Playback ended for an unclear reason.",
+        recommendedAction: "diagnostics",
+        secondaryActions: ["refresh", "relaunch"],
       };
   }
 }

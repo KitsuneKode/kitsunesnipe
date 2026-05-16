@@ -35,6 +35,13 @@ export type PlayerPlaybackEvent =
       pausedForCache?: boolean;
       underrun?: boolean;
     }
+  | {
+      type: "stream-slow";
+      state: "buffering-observed" | "slow-network-suspected";
+      secondsBuffering: number;
+      cacheAheadSeconds?: number;
+      cacheSpeed?: number;
+    }
   | { type: "subtitle-inventory-ready"; trackCount: number }
   | { type: "subtitle-attached"; trackCount: number }
   | { type: "late-subtitles-attached"; trackCount: number }

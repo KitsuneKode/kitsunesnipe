@@ -144,6 +144,51 @@ describe("playback-watchdog", () => {
 
     const bufferingEvents = events.filter((event) => event.type === "network-buffering");
     expect(bufferingEvents.length).toBeGreaterThan(0);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "stream-slow",
+        state: "buffering-observed",
+      }),
+    );
+
+    watchdog.stop();
+  });
+
+  test("emits slow-network-suspected before treating buffering as a dead stream", () => {
+    const events: PlayerPlaybackEvent[] = [];
+    const watchdog = createPlaybackWatchdog((event) => events.push(event), {
+      intervalMs: 100,
+      stallAfterMs: 10_000,
+      seekStallAfterMs: 700,
+      cacheStallAfterMs: 5_000,
+      networkReadDeadAfterMs: 5_000,
+      slowNetworkAfterMs: 500,
+    });
+
+    watchdog.observe({
+      source: "ipc",
+      observedAt: 0,
+      positionSeconds: 50,
+      durationSeconds: 200,
+      pausedForCache: true,
+      demuxerViaNetwork: true,
+      demuxerCacheUnderrun: true,
+      demuxerRawInputRate: 128,
+      demuxerCacheDurationSeconds: 0.1,
+      cacheSpeedBytesPerSecond: 128,
+    });
+
+    nowMs = 600;
+    runTimers();
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "stream-slow",
+        state: "slow-network-suspected",
+        secondsBuffering: 1,
+      }),
+    );
+    expect(events.filter((event) => event.type === "stream-stalled")).toHaveLength(0);
 
     watchdog.stop();
   });

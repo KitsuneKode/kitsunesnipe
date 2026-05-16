@@ -15,6 +15,7 @@ export function createPlaybackWatchdog(
     cacheStallAfterMs?: number;
     networkReadDeadAfterMs?: number;
     networkSampleEveryMs?: number;
+    slowNetworkAfterMs?: number;
   },
 ): PlaybackWatchdog {
   const intervalMs = options?.intervalMs ?? 2_500;
@@ -24,6 +25,7 @@ export function createPlaybackWatchdog(
   /** Demuxer reports underrun + zero read rate while waiting for cache (see mpv demuxer-cache-state). */
   const networkReadDeadAfterMs = options?.networkReadDeadAfterMs ?? 8_000;
   const networkSampleEveryMs = options?.networkSampleEveryMs ?? 2_500;
+  const slowNetworkAfterMs = options?.slowNetworkAfterMs ?? 6_000;
   let latest: PlayerTelemetrySample | null = null;
   let lastPosition = 0;
   let lastProgressAt = Date.now();
@@ -35,6 +37,8 @@ export function createPlaybackWatchdog(
   let pausedOrIdle = false;
   let networkReadDeadSince: number | null = null;
   let emittedNetworkReadDead = false;
+  let bufferingSince: number | null = null;
+  let emittedSlowNetwork = false;
   let lastNetworkSampleAt = 0;
 
   const resetProgressClock = (observedAt: number, positionSeconds: number) => {
@@ -57,6 +61,8 @@ export function createPlaybackWatchdog(
       emittedSeekStall = false;
       networkReadDeadSince = null;
       emittedNetworkReadDead = false;
+      bufferingSince = null;
+      emittedSlowNetwork = false;
       return;
     }
 
@@ -67,6 +73,8 @@ export function createPlaybackWatchdog(
       emittedSeekStall = false;
       networkReadDeadSince = null;
       emittedNetworkReadDead = false;
+      bufferingSince = null;
+      emittedSlowNetwork = false;
     }
 
     if (latest.seeking) {
@@ -83,6 +91,8 @@ export function createPlaybackWatchdog(
     emittedSeekStall = false;
 
     if (latest.pausedForCache) {
+      bufferingSince ??= now;
+      const bufferingForMs = now - bufferingSince;
       const rawRate = latest.demuxerRawInputRate;
       const networkReadDead =
         latest.demuxerViaNetwork === true && latest.demuxerCacheUnderrun === true && rawRate === 0;
@@ -112,6 +122,17 @@ export function createPlaybackWatchdog(
       }
       lastCacheAheadSeconds = cacheAhead;
 
+      if (bufferingForMs >= slowNetworkAfterMs && !emittedSlowNetwork && !emittedNetworkReadDead) {
+        emittedSlowNetwork = true;
+        emit({
+          type: "stream-slow",
+          state: "slow-network-suspected",
+          secondsBuffering: Math.round(bufferingForMs / 1000),
+          cacheAheadSeconds: latest.demuxerCacheDurationSeconds,
+          cacheSpeed: latest.cacheSpeedBytesPerSecond,
+        });
+      }
+
       const cacheStalledForMs = now - lastCacheProgressAt;
       if (cacheStalledForMs >= cacheStallAfterMs && !emittedStreamStall) {
         emittedStreamStall = true;
@@ -125,6 +146,8 @@ export function createPlaybackWatchdog(
 
     networkReadDeadSince = null;
     emittedNetworkReadDead = false;
+    bufferingSince = null;
+    emittedSlowNetwork = false;
 
     const stalledForMs = now - lastProgressAt;
     if (stalledForMs >= stallAfterMs && !emittedStreamStall) {
@@ -162,6 +185,8 @@ export function createPlaybackWatchdog(
         emittedStreamStall = false;
         networkReadDeadSince = null;
         emittedNetworkReadDead = false;
+        bufferingSince = null;
+        emittedSlowNetwork = false;
       }
 
       const userPausedOrIdle = Boolean(sample.paused || sample.idleActive || sample.coreIdle);
@@ -171,6 +196,7 @@ export function createPlaybackWatchdog(
       }
 
       if (sample.pausedForCache) {
+        bufferingSince ??= sample.observedAt;
         const cacheAhead = sample.demuxerCacheDurationSeconds ?? 0;
         const cacheSpeed = sample.cacheSpeedBytesPerSecond ?? 0;
         if (cacheAhead > lastCacheAheadSeconds + 0.25 || cacheSpeed > 0) {
@@ -181,6 +207,13 @@ export function createPlaybackWatchdog(
         emit({
           type: "network-buffering",
           percent: sample.cacheBufferingState,
+          cacheAheadSeconds: sample.demuxerCacheDurationSeconds,
+          cacheSpeed: sample.cacheSpeedBytesPerSecond,
+        });
+        emit({
+          type: "stream-slow",
+          state: "buffering-observed",
+          secondsBuffering: Math.max(0, Math.round((sample.observedAt - bufferingSince) / 1000)),
           cacheAheadSeconds: sample.demuxerCacheDurationSeconds,
           cacheSpeed: sample.cacheSpeedBytesPerSecond,
         });

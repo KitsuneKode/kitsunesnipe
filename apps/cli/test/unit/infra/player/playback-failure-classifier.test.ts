@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  classifyPlaybackFailureFromEvent,
   classifyPlaybackFailureFromResult,
   recoveryForPlaybackFailure,
 } from "@/infra/player/playback-failure-classifier";
@@ -16,6 +17,19 @@ describe("playback recovery guidance", () => {
 
   test("expired stream recommends refresh", () => {
     expect(recoveryForPlaybackFailure("expired-stream").action).toBe("refresh");
+  });
+
+  test("slow stream evidence recommends waiting before fallback", () => {
+    const failure = classifyPlaybackFailureFromEvent({
+      type: "stream-slow",
+      state: "slow-network-suspected",
+      secondsBuffering: 8,
+      cacheAheadSeconds: 0.2,
+      cacheSpeed: 256,
+    });
+
+    expect(failure).toBe("slow-stream");
+    expect(recoveryForPlaybackFailure(failure).action).toBe("wait");
   });
 
   test("suspected dead stream results are treated as expired streams", () => {
