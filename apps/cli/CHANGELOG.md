@@ -1,8 +1,8 @@
 # @kitsunekode/kunai
 
-## 0.2.0
+## 0.1.4
 
-### Minor Changes
+### Patch Changes
 
 - Ship the production-readiness playback and diagnostics pass.
 
