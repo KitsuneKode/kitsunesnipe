@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 
 import { resolveCommandContext } from "./commands";
 import { DownloadManagerContent } from "./download-manager-shell";
+import { LibraryShell } from "./library-shell";
 import {
   buildSettingsChoiceOverlay,
   buildSettingsOptions,
@@ -673,6 +674,9 @@ export function RootOverlayShell({
         });
         return;
       }
+      if (overlay.type === "downloads" || overlay.type === "library") {
+        return;
+      }
       container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" });
       return;
     }
@@ -836,6 +840,37 @@ export function RootOverlayShell({
           ) : null}
           <ShellFooter
             taskLabel="Download queue  ·  x cancel/remove, r retry, Esc closes"
+            actions={footerActions}
+            mode="detailed"
+            commandMode={commandMode}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (overlay.type === "library") {
+    return (
+      <Box flexDirection="column" flexGrow={1} justifyContent="space-between">
+        <Box flexDirection="column" flexGrow={1}>
+          <LibraryShell
+            container={container}
+            onClose={() => container.stateManager.dispatch({ type: "CLOSE_TOP_OVERLAY" })}
+            initialView={overlay.view ?? "library"}
+          />
+        </Box>
+
+        <Box flexDirection="column">
+          {commandMode ? (
+            <CommandPalette
+              input={commandInput}
+              cursor={commandCursor}
+              commands={commands}
+              highlightedIndex={highlightedIndex}
+            />
+          ) : null}
+          <ShellFooter
+            taskLabel="Library  ·  1 library  2 queue  ·  d toggle downloads  ·  Esc closes"
             actions={footerActions}
             mode="detailed"
             commandMode={commandMode}
