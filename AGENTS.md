@@ -60,6 +60,7 @@ Kunai is a terminal-first Bun CLI that finds playable direct-provider video stre
 - Read [.docs/download-offline-onboarding.md](.docs/download-offline-onboarding.md) before changing download, offline library, setup, or onboarding behavior
 - Read [.docs/poster-image-rendering.md](.docs/poster-image-rendering.md) before changing terminal poster previews, chafa or Kitty image output, or image capability detection
 - Read [.docs/quickstart.md](.docs/quickstart.md) only for setup, local run flow, and troubleshooting
+- Read [.plans/plan-implementation-truth.md](.plans/plan-implementation-truth.md) when a plan's `Status:` disagrees with the codebase (code wins unless the truth index says otherwise)
 - Read `.plans/*` only when you are actively working on that tracked change
 
 ## Fast Map
@@ -128,6 +129,7 @@ Unit tests live under `apps/cli/test/unit/`, integration tests under `apps/cli/t
 
 ## Active Planning Docs
 
+- [.plans/plan-implementation-truth.md](.plans/plan-implementation-truth.md): reconciled plan vs code status (update when landing plan work)
 - [.plans/roadmap.md](.plans/roadmap.md): current status and what is next
 - [.plans/kunai-beta-v1-scope-and-contracts.md](.plans/kunai-beta-v1-scope-and-contracts.md): locked beta v1 scope, architecture seams, telemetry posture
 - [.plans/kunai-execution-passes-and-cli-modes.md](.plans/kunai-execution-passes-and-cli-modes.md): execution passes, CLI modes, autoskip notes

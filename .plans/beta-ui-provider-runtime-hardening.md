@@ -1,5 +1,9 @@
 # Beta UI And Provider Runtime Hardening Implementation Plan
 
+Status: **In progress** (Tasks 1–7 largely complete; Tasks 8–10 open)
+
+Last reconciled: 2026-05-16 — see [plan-implementation-truth.md](./plan-implementation-truth.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make Kunai beta playback and shell UX deterministic by unifying picker/modal state, provider source inventory caching, provider-internal retry, provider fallback, catalog/trending cache policy, and hardsub/source/quality/language display.
@@ -76,6 +80,7 @@ Expected files to modify:
 ## Task 1: Session Selector Hook
 
 **Files:**
+
 - Create: `apps/cli/src/app-shell/use-session-selector.ts`
 - Test: `apps/cli/test/unit/app-shell/use-session-selector.test.tsx`
 
@@ -91,7 +96,7 @@ Use `useSyncExternalStore` with:
 export function useSessionSelector<T>(
   stateManager: SessionStateManager,
   selector: (state: SessionState) => T,
-): T
+): T;
 ```
 
 The hook should subscribe to `stateManager.subscribe`, read `stateManager.getState()`, and return the selected value.
@@ -112,6 +117,7 @@ bun run test -- apps/cli/test/unit/app-shell/use-session-selector.test.tsx
 ## Task 2: Unified Picker Model
 
 **Files:**
+
 - Create: `apps/cli/src/app-shell/picker-controller.ts`
 - Create: `apps/cli/src/app-shell/picker-overlay.tsx`
 - Test: `apps/cli/test/unit/app-shell/picker-controller.test.ts`
@@ -160,6 +166,7 @@ bun run test -- apps/cli/test/unit/app-shell/picker-controller.test.ts
 ## Task 3: Remove Promise Picker Bridge
 
 **Files:**
+
 - Modify: `apps/cli/src/app-shell/root-picker-bridge.ts`
 - Modify: `apps/cli/src/app-shell/workflows.ts`
 - Modify: `apps/cli/src/app-shell/root-overlay-shell.tsx`
@@ -170,11 +177,11 @@ bun run test -- apps/cli/test/unit/app-shell/picker-controller.test.ts
 Add state transitions equivalent to:
 
 ```ts
-OPEN_PICKER
-UPDATE_PICKER_FILTER
-MOVE_PICKER_SELECTION
-RESOLVE_PICKER
-CANCEL_PICKER
+OPEN_PICKER;
+UPDATE_PICKER_FILTER;
+MOVE_PICKER_SELECTION;
+RESOLVE_PICKER;
+CANCEL_PICKER;
 ```
 
 Use existing `activeModals` if possible; do not add a second overlay stack.
@@ -205,6 +212,7 @@ bun run test -- apps/cli/test/unit/app-shell
 ## Task 4: Input Ownership Router
 
 **Files:**
+
 - Create: `apps/cli/src/app-shell/input-router.ts`
 - Modify: `apps/cli/src/app-shell/shell-command-ui.tsx`
 - Modify: `apps/cli/src/app-shell/shell-frame.tsx`
@@ -238,6 +246,7 @@ bun run test -- apps/cli/test/unit/app-shell/input-router.test.ts
 ## Task 5: Source Inventory Cache Service
 
 **Files:**
+
 - Create: `apps/cli/src/services/playback/SourceInventoryService.ts`
 - Modify: `apps/cli/src/container.ts`
 - Test: `apps/cli/test/unit/services/playback/source-inventory-service.test.ts`
@@ -272,6 +281,7 @@ bun run test -- apps/cli/test/unit/services/playback/source-inventory-service.te
 ## Task 6: Playback Resolve Service
 
 **Files:**
+
 - Create: `apps/cli/src/services/playback/PlaybackResolveService.ts`
 - Modify: `apps/cli/src/app/PlaybackPhase.ts`
 - Test: `apps/cli/test/unit/services/playback/playback-resolve-service.test.ts`
@@ -308,6 +318,7 @@ bun run test -- apps/cli/test/unit/app
 ## Task 7: Provider-Internal Source Retry Contract
 
 **Files:**
+
 - Modify: `packages/types/src/index.ts`
 - Modify: `packages/core/src/resolver.ts`
 - Modify: `packages/providers/src/vidking/direct.ts`
@@ -340,6 +351,7 @@ bun run test -- packages/core/test/core.test.ts packages/providers/test/provider
 ## Task 8: Source, Quality, Subtitle, And Hardsub UI
 
 **Files:**
+
 - Modify: `apps/cli/src/app/source-quality.ts`
 - Modify: `apps/cli/src/app/PlaybackPhase.ts`
 - Modify: `apps/cli/src/app-shell/panel-data.ts`
@@ -377,6 +389,7 @@ bun run test -- apps/cli/test/unit/app/source-quality.test.ts
 ## Task 9: Catalog, Anime Aliases, And Trending Determinism
 
 **Files:**
+
 - Create: `apps/cli/src/services/catalog/CatalogDiscoveryService.ts`
 - Modify: `apps/cli/src/app/discovery-lists.ts`
 - Modify: `apps/cli/src/app/anime-metadata.ts`
@@ -388,8 +401,8 @@ bun run test -- apps/cli/test/unit/app/source-quality.test.ts
 Keep current TMDB/AniList implementation, but expose deterministic service methods:
 
 ```ts
-loadTrending(mode, signal)
-clearTrendingCache()
+loadTrending(mode, signal);
+clearTrendingCache();
 ```
 
 - [x] **Step 2: Preserve in-flight dedupe**
@@ -415,6 +428,7 @@ bun run test -- apps/cli/test/unit/services/catalog/catalog-discovery-service.te
 ## Task 10: Persistent Modal UI And Layout Bounds
 
 **Files:**
+
 - Modify: `apps/cli/src/app-shell/ink-shell.tsx`
 - Modify: `apps/cli/src/app-shell/root-overlay-shell.tsx`
 - Modify: `apps/cli/src/app-shell/shell-frame.tsx`
@@ -463,6 +477,7 @@ bun run --cwd apps/cli test:vhs:help
 ## Task 11: README And Onboarding
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `.docs/quickstart.md`
 - Modify: `.docs/cli-reference.md`
@@ -491,6 +506,7 @@ Include mpv missing, provider exhausted, subtitle unavailable, hardsub-only, and
 ## Task 12: Verification And Regression Gate
 
 **Files:**
+
 - Modify tests as needed under `apps/cli/test/unit/`, `packages/core/test/`, `packages/providers/test/`, and `packages/storage/test/`.
 
 - [ ] **Step 1: Run focused tests after each task**

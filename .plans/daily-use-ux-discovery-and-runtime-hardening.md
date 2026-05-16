@@ -1,8 +1,10 @@
 # Kunai — Daily-Use UX, Discovery, And Runtime Hardening
 
-Status: implementation pass complete, pending manual smoke
+Status: implementation pass complete, pending manual smoke + plan/doc sync
 
-Last updated: 2026-05-15
+Last updated: 2026-05-16
+
+**Doc drift:** Milestones 2, 4, and parts of 3 are implemented in code; Milestone 1 (recommendation cache stale-on-error) may still be open — verify in `RecommendationServiceImpl` before closing. See [plan-implementation-truth.md](./plan-implementation-truth.md).
 
 This is the current active plan produced from the product grill session around daily-use experience,
 release calendars, recommendations, language handling, offline visibility, fullscreen TUI behavior,

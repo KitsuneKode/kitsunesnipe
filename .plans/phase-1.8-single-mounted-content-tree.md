@@ -1,8 +1,10 @@
 # Kunai — Phase 1.8 Single Mounted Content Tree
 
-Status: Planned
+Status: **In progress**
 
-Last updated: 2026-04-29
+Last updated: 2026-05-16
+
+Reconciled against [plan-implementation-truth.md](./plan-implementation-truth.md). Phase 1.5 root host, overlays, and pickers are landed; this phase is the remaining seam (phase loops vs one content tree).
 
 ## Why This Phase Exists
 

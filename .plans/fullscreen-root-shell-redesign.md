@@ -2,7 +2,15 @@
 
 Status: In Progress
 
-Last updated: 2026-04-28
+Last updated: 2026-05-16
+
+## Implementation checkpoint (2026-05-16)
+
+**Landed:** viewport fill, per-shell `layout-policy` minimums, debounced resize, `ResizeBlocker`, companion pane conditional on width, task-first footers, root overlay host.
+
+**Not done:** slice 1–2 (single root-owned outer frame, remove nested full-width borders in child shells), browse 68/32 rebalance, root-owned footer, image-pane flicker ownership.
+
+Reconcile with [plan-implementation-truth.md](./plan-implementation-truth.md) before starting a slice.
 
 This plan defines the target fullscreen TUI architecture for the new runtime. It is the implementation companion to:
 

@@ -1,6 +1,14 @@
 # Plan: UI/UX Polish + Terminal Image Protocol
 
-## Status: pending
+## Status: **Partially implemented**
+
+Last reconciled: 2026-05-16
+
+See also: [.docs/poster-image-rendering.md](../.docs/poster-image-rendering.md), [plan-implementation-truth.md](./plan-implementation-truth.md).
+
+**Shipped:** `apps/cli/src/app-shell/image-pane.ts`, `poster-renderer.ts`, `use-poster-preview.ts`, Kitty/text placeholders in browse/playback companions, capability detection in `apps/cli/src/image/`.
+
+**Remaining:** flicker control on resize/shell transitions, browse/shell-frame polish, post-playback exit motion, split `ink-shell.tsx`.
 
 ---
 
@@ -25,9 +33,10 @@ Four areas of work, ordered by risk and dependency:
 sequences to stdout outside the Ink render cycle. This causes flicker: Ink doesn't know the cursor
 has moved, so its next differential render lands in the wrong place.
 
-The existing code is used by the old legacy flow and not wired into the Ink browse shell at all.
-The `OverlayPanel` code currently says `"Inline Kitty/Ghostty rendering is kept behind the
-image-pane path"` — that path does not exist yet.
+Legacy `displayPoster()` paths still exist for non-shell flows. The Ink browse/playback
+companions use `image-pane.ts` / `use-poster-preview.ts`. Remaining work is flicker-safe
+layout ownership on terminal shrink and tighter integration with fullscreen shell slices —
+not creating the image-pane from scratch.
 
 ### 1b. Solution: Kitty Unicode Placeholders
 

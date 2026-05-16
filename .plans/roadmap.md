@@ -1,8 +1,10 @@
 # Kunai — Roadmap
 
-Last updated: 2026-05-14
+Last updated: 2026-05-16
 
 Use this file as the planning index. It should stay short. Put implementation detail in the linked plan files, not here.
+
+**Plan vs code:** When a linked plan disagrees with the repo, read [.plans/plan-implementation-truth.md](.plans/plan-implementation-truth.md) first, then update the plan in the same change set.
 
 ## Current State
 
@@ -50,11 +52,10 @@ Use this file as the planning index. It should stay short. Put implementation de
 - Phase 3 storage foundation is implemented with `@kunai/storage`.
 - Phase 4F Provider SDK contracts are landed; Phase 4G provider package migration is active, with VidKing already moved into `@kunai/providers`.
 - CLI history and stream cache now use SQLite-backed stores.
-- Fullscreen shell convergence so the UI stops reading like stacked full-width cards and stays inside the viewport
-- Fullscreen root-shell redesign spec is now tracked in [.plans/fullscreen-root-shell-redesign.md](.plans/fullscreen-root-shell-redesign.md)
-- Overlay-driven settings, provider, history, diagnostics, season, episode, and subtitle workflows
-- Settings, season, starting episode, and subtitle overlay migration so those flows stop falling back to helper shells
-- `Esc` and back-stack correctness for the remaining shell helpers
+- Fullscreen shell convergence (flatten nested borders, root-owned chrome): [.plans/fullscreen-root-shell-redesign.md](.plans/fullscreen-root-shell-redesign.md)
+- Phase 1.8 single mounted content tree (collapse `SearchPhase` / `PlaybackPhase` UI launcher loops): [.plans/phase-1.8-single-mounted-content-tree.md](.plans/phase-1.8-single-mounted-content-tree.md)
+- `Esc` / back-stack correctness across browse ↔ overlays ↔ playback (partial; root overlays landed)
+- Beta UI/provider hardening remainder (split `ink-shell`, central input routing, display honesty): [.plans/beta-ui-provider-runtime-hardening.md](.plans/beta-ui-provider-runtime-hardening.md)
 - `mpv` reopen reliability bug investigation
 - **Windows / cross-platform mpv IPC parity** (named pipes, bridge, docs, packaging clarity): [.plans/cross-platform-mpv-ipc-and-playback-parity.md](.plans/cross-platform-mpv-ipc-and-playback-parity.md)
 - **Series catalog end-state & upcoming episodes** (TMDB “coming soon”, honest anime next, autoplay/prefetch safety): [.plans/series-catalog-end-state-and-upcoming-episode-ux.md](.plans/series-catalog-end-state-and-upcoming-episode-ux.md)
@@ -101,15 +102,16 @@ Use this file as the planning index. It should stay short. Put implementation de
 | Repo infrastructure               | Completed     | [.plans/repo-infrastructure.md](.plans/repo-infrastructure.md)                                                       |
 | Design system and Discover        | Polish        | [.plans/kitsune-design-system-and-recommendations.md](.plans/kitsune-design-system-and-recommendations.md)           |
 | Presence integrations             | Polish        | [.plans/presence-integrations.md](.plans/presence-integrations.md)                                                   |
-| Catalog release schedules         | Planned       | [.plans/catalog-release-schedule-service.md](.plans/catalog-release-schedule-service.md)                             |
+| Catalog release schedules         | In Progress   | [.plans/catalog-release-schedule-service.md](.plans/catalog-release-schedule-service.md)                             |
 | Download/offline/onboarding       | Planned       | [.plans/download-offline-onboarding.md](.plans/download-offline-onboarding.md)                                       |
 | Provider reliability diagnostics  | Planned       | [.plans/provider-reliability-diagnostics-and-reporting.md](.plans/provider-reliability-diagnostics-and-reporting.md) |
 | Production recovery hardening     | Planned       | [.plans/production-recovery-hardening.md](.plans/production-recovery-hardening.md)                                   |
 | Production usage hardening        | Planned       | [.plans/production-readiness-usage-hardening.md](.plans/production-readiness-usage-hardening.md)                     |
 | Search/offline engines            | Planned       | [.plans/search-offline-continuation-engines.md](.plans/search-offline-continuation-engines.md)                       |
-| Beta UI/provider hardening        | Planned       | [.plans/beta-ui-provider-runtime-hardening.md](.plans/beta-ui-provider-runtime-hardening.md)                         |
+| Beta UI/provider hardening        | In Progress   | [.plans/beta-ui-provider-runtime-hardening.md](.plans/beta-ui-provider-runtime-hardening.md)                         |
 | Fullscreen root shell redesign    | In Progress   | [.plans/fullscreen-root-shell-redesign.md](.plans/fullscreen-root-shell-redesign.md)                                 |
 | Phase 1.8 mounted content tree    | In Progress   | [.plans/phase-1.8-single-mounted-content-tree.md](.plans/phase-1.8-single-mounted-content-tree.md)                   |
+| Shell responsiveness polish       | Completed     | [.plans/shell-responsiveness-and-polish-pass.md](.plans/shell-responsiveness-and-polish-pass.md)                     |
 | Phase 2 playback/media runtime    | In Progress   | [.plans/phase-2-playback-media-runtime.md](.plans/phase-2-playback-media-runtime.md)                                 |
 | Cross-platform mpv IPC parity     | Planned       | [.plans/cross-platform-mpv-ipc-and-playback-parity.md](.plans/cross-platform-mpv-ipc-and-playback-parity.md)         |
 | Kunai architecture hardening      | Planned       | [.plans/kunai-architecture-and-cache-hardening.md](.plans/kunai-architecture-and-cache-hardening.md)                 |
@@ -118,9 +120,9 @@ Use this file as the planning index. It should stay short. Put implementation de
 | Turborepo and package boundaries  | Phase 4G Prep | [.plans/turborepo-and-package-boundaries.md](.plans/turborepo-and-package-boundaries.md)                             |
 | Kunai V2 ecosystem and Debrid     | Planned       | [.plans/v2-ecosystem-and-debrid.md](.plans/v2-ecosystem-and-debrid.md)                                               |
 | Kunai V3 metadata and sync        | Planned       | [.plans/v3-metadata-and-sync.md](.plans/v3-metadata-and-sync.md)                                                     |
-| CLI UX overhaul                   | Planned       | [.plans/cli-ux-overhaul.md](.plans/cli-ux-overhaul.md)                                                               |
+| CLI UX overhaul                   | In Progress   | [.plans/cli-ux-overhaul.md](.plans/cli-ux-overhaul.md) — sequencing via persistent shell + fullscreen redesign       |
 | Persistent shell implementation   | In Progress   | [.plans/persistent-shell-implementation.md](.plans/persistent-shell-implementation.md)                               |
-| Ink UI migration                  | Planned       | [.plans/ink-migration.md](.plans/ink-migration.md)                                                                   |
+| Ink UI migration                  | Superseded    | [.plans/ink-migration.md](.plans/ink-migration.md) — baseline shipped; see plan-implementation-truth                 |
 | Provider hardening                | Planned       | [.plans/provider-hardening.md](.plans/provider-hardening.md)                                                         |
 | Resolve UX & Playwright lifecycle | Planned       | [.plans/resolve-ux-and-playwright-lifecycle.md](.plans/resolve-ux-and-playwright-lifecycle.md)                       |
 | Runtime entry consolidation       | Planned       | [.docs/architecture-v2.md](.docs/architecture-v2.md)                                                                 |
@@ -135,5 +137,9 @@ Use this file as the planning index. It should stay short. Put implementation de
 
 - Keep `roadmap.md` high-level and current
 - Give each major initiative its own file when it needs implementation detail
-- When a plan becomes stale, update or delete it instead of letting it drift
+- When a plan becomes stale, update or delete it instead of letting it drift — reconcile in [plan-implementation-truth.md](.plans/plan-implementation-truth.md)
 - When runtime ownership changes between `apps/cli/index.ts` and `apps/cli/src/main.ts`, update both this file and the persistent-shell plan in the same task
+
+## Milestone notes (continued)
+
+- **2026-05-16** — Plan/doc drift reconciliation: added [plan-implementation-truth.md](.plans/plan-implementation-truth.md); corrected roadmap statuses for Ink migration (superseded), CLI UX (in progress), beta UI + catalog schedule (in progress); marked shell responsiveness pass completed.

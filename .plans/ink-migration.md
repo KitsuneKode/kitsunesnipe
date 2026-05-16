@@ -1,8 +1,18 @@
 # Ink Migration Plan
 
-Status: Planned
+Status: **Superseded (baseline complete)**
 
-Use this only when actively working on the terminal UI rewrite. Keep roadmap-level status in [`roadmap.md`](./roadmap.md).
+Last reconciled: 2026-05-16
+
+The Ink-based shell is the default runtime UI (`apps/cli/src/app-shell/*`). This plan is kept as historical context for the original migration intent.
+
+**Remaining UI work** (do not re-run “add Ink” from scratch):
+
+- [fullscreen-root-shell-redesign.md](./fullscreen-root-shell-redesign.md) — layout/chrome convergence
+- [phase-1.8-single-mounted-content-tree.md](./phase-1.8-single-mounted-content-tree.md) — single mounted content tree
+- [plan-implementation-truth.md](./plan-implementation-truth.md) — plan vs code index
+
+Use this file only when auditing legacy ANSI paths or documenting risks (Kitty escape hatch, mpv stdio). Keep roadmap status in [`roadmap.md`](./roadmap.md).
 
 ## Goal
 

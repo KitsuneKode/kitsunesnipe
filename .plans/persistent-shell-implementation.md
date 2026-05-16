@@ -192,7 +192,7 @@ Tasks:
 
 Status:
 
-- not done yet
+- **partially done** (2026-05-16) — not a single reducer-driven tree yet; phase loops remain
 - browse and post-playback now use a root-owned content bridge instead of mounting through the normal helper-shell path
 - shell openings now render through one module-level Ink root host, so browse, playback, loading, and list surfaces swap root content instead of creating independent Ink roots
 - interactive shell screens now remain visible until the next screen replaces them, reducing blank gaps between browse, picker, and playback states
@@ -263,7 +263,7 @@ Tasks:
 
 Status:
 
-- partially done
+- **largely done for canonical runtime** (2026-05-16) — list-shell fallbacks remain for non-container paths
 - browse and post-playback now route provider, history, diagnostics, help, about, and settings through the root-owned overlay host
 - season, starting episode, episode, and subtitle flows now route through the same root-owned picker host when the canonical runtime container is available
 - post-playback episode selection now stays in-shell

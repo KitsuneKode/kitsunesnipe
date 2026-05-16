@@ -2,6 +2,8 @@
 
 Status: mostly completed; remaining work is verification and polish
 
+Last reconciled: 2026-05-16 — implementation table in [.docs/recommendations-and-discover.md](../.docs/recommendations-and-discover.md) is the behavior source of truth.
+
 This plan supersedes the previous generated execution plan, which was created before most implementation landed and still had stale unchecked boxes.
 
 ## Completed
