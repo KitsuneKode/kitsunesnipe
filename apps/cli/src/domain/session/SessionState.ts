@@ -8,6 +8,7 @@
 import type { PlaybackProblem } from "../playback/playback-problem";
 import type { EpisodeInfo, SearchResult, StreamInfo, TitleInfo } from "../types";
 import type { AppCommandId } from "./command-registry";
+import { fuzzyMatch } from "./fuzzy-match";
 import {
   DEFAULT_LAYOUT_PREFERENCES,
   DEFAULT_VIEWPORT,
@@ -715,9 +716,7 @@ function filterPickerOptions(
   const normalized = filterQuery.trim().toLowerCase();
   if (!normalized) return options;
   return options.filter((option) =>
-    `${option.label} ${option.detail ?? ""} ${option.badge ?? ""}`
-      .toLowerCase()
-      .includes(normalized),
+    fuzzyMatch(normalized, `${option.label} ${option.detail ?? ""} ${option.badge ?? ""}`),
   );
 }
 

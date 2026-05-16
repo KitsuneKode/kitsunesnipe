@@ -1,5 +1,6 @@
 import { useLineEditor } from "@/app-shell/line-editor";
 import type { Container } from "@/container";
+import { fuzzyMatch } from "@/domain/session/fuzzy-match";
 import type { SessionState } from "@/domain/session/SessionState";
 import type {
   AutoDownloadMode,
@@ -179,14 +180,12 @@ export function RootOverlayShell({
   const filteredProviderOptions = providerOptions.filter((option) => {
     const filter = filterQuery.trim().toLowerCase();
     if (filter.length === 0) return true;
-    return `${option.label} ${option.detail ?? ""}`.toLowerCase().includes(filter);
+    return fuzzyMatch(filter, `${option.label} ${option.detail ?? ""}`);
   });
   const filteredGenericPickerOptions = genericPickerOptions.filter((option) => {
     const filter = pickerFilterQuery.trim().toLowerCase();
     if (filter.length === 0) return true;
-    return `${option.label} ${option.detail ?? ""} ${option.badge ?? ""}`
-      .toLowerCase()
-      .includes(filter);
+    return fuzzyMatch(filter, `${option.label} ${option.detail ?? ""} ${option.badge ?? ""}`);
   });
   const filteredHistoryOptions =
     overlay.type === "history"
@@ -198,9 +197,10 @@ export function RootOverlayShell({
                 const isCompleted = entry.duration > 0 && entry.timestamp / entry.duration >= 0.95;
                 if (filter === "completed" && isCompleted) return true;
                 if (filter === "watching" && !isCompleted) return true;
-                return `${entry.title} ${entry.provider} s${entry.season}e${entry.episode}`
-                  .toLowerCase()
-                  .includes(filter);
+                return fuzzyMatch(
+                  filter,
+                  `${entry.title} ${entry.provider} s${entry.season}e${entry.episode}`,
+                );
               }
 
               const isCompleted = entry.duration > 0 && entry.timestamp / entry.duration >= 0.95;
@@ -236,7 +236,7 @@ export function RootOverlayShell({
     settingsPanel?.options.filter((option) => {
       const filter = filterQuery.trim().toLowerCase();
       if (filter.length === 0) return true;
-      return `${option.label} ${option.detail ?? ""}`.toLowerCase().includes(filter);
+      return fuzzyMatch(filter, `${option.label} ${option.detail ?? ""}`);
     }) ?? [];
   const title = getRootOverlayTitle(overlay);
   const subtitle = getRootOverlaySubtitle({
@@ -713,7 +713,7 @@ export function RootOverlayShell({
       return;
     }
     if (isRootChoiceOverlay(overlay)) {
-      if (overlay.type === "settings" && input.toLowerCase() === "s") {
+      if (overlay.type === "settings" && input === "\x13") {
         if (
           !settingsDraft ||
           settingsBusy ||
@@ -935,7 +935,7 @@ export function RootOverlayShell({
                 : overlay.type === "settings"
                   ? settingsChoice
                     ? "Settings choice  ·  Type to filter, Enter to apply, Esc returns"
-                    : "Settings  ·  Type to filter, Enter to edit, S saves, Esc closes"
+                    : "Settings  ·  Type to filter, Enter to edit, ^S saves, Esc closes"
                   : isRootMediaPickerOverlay(overlay)
                     ? `${title}  ·  Type to filter, Enter to select, Esc closes`
                     : `${title}  ·  Esc closes and returns to the previous shell state`

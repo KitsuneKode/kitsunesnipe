@@ -1,3 +1,4 @@
+import { fuzzyMatch } from "./fuzzy-match";
 import type { SessionState } from "./SessionState";
 
 export type AppCommandId =
@@ -378,7 +379,7 @@ export function suggestCommands(
   return pool.filter(
     (command) =>
       command.aliases.some((alias) => alias.includes(normalized)) ||
-      command.label.toLowerCase().includes(normalized),
+      fuzzyMatch(normalized, command.label),
   );
 }
 

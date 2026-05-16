@@ -1,3 +1,4 @@
+import { fuzzyMatch } from "./fuzzy-match";
 import type { PickerModel, PickerModelOption, PickerModelRow } from "./PickerModel";
 
 export type BuildPickerModelInput<TValue extends string = string> = {
@@ -50,7 +51,7 @@ function filterPickerOptions<TValue extends string>(
   return options.filter((option) =>
     [option.label, option.detail, option.group, ...(option.keywords ?? [])]
       .filter((value): value is string => Boolean(value))
-      .some((value) => value.toLowerCase().includes(normalized)),
+      .some((value) => fuzzyMatch(normalized, value)),
   );
 }
 
