@@ -1,46 +1,47 @@
 export const tokens = {
   // Backgrounds — 4-step warm-black surface scale
-  bg: "#0e0b08",
-  surface: "#181310",
-  surfaceElevated: "#221c16",
-  surfaceActive: "#2c231a",
-  border: "#2e2520",
+  // Tinted toward amber for cohesion; never pure neutral
+  bg: "#110e0b",
+  surface: "#1a1612",
+  surfaceElevated: "#241e18",
+  surfaceActive: "#2e251e",
+  border: "#332a22",
   borderDim: "#1e1a15",
 
-  // Primary brand — fox amber
-  amber: "#ff9c3a",
-  amberSoft: "#ffb870",
-  amberDim: "#7a4600",
-  amberGlow: "rgba(255,156,58,0.11)",
+  // Primary brand — fox amber, slightly desaturated for premium feel
+  amber: "#f0a050",
+  amberSoft: "#ffbf80",
+  amberDim: "#7a4a10",
+  amberGlow: "rgba(240,160,80,0.10)",
 
-  // Anime / secondary accent — hot pink
-  pink: "#ff3d82",
-  pinkSoft: "#ff7aaa",
-  pinkDim: "#7a1038",
-  pinkGlow: "rgba(255,61,130,0.11)",
+  // Anime / secondary accent — hot pink, used sparingly
+  pink: "#ff4d8a",
+  pinkSoft: "#ff85aa",
+  pinkDim: "#7a1538",
+  pinkGlow: "rgba(255,77,138,0.10)",
 
-  // Status
-  teal: "#3de0c4",
-  tealDim: "#1a5a4c",
-  green: "#7fd46b",
+  // Status — muted teal, less neon than before
+  teal: "#5ad4b5",
+  tealDim: "#1e6050",
+  green: "#7bc96e",
   greenDim: "#2a5a22",
-  red: "#ff5a5a",
-  yellow: "#f5c842",
+  red: "#ff6666",
+  yellow: "#f0c850",
 
-  // Informational — soft blue for badges, counts, and status text
-  info: "#5a9cf5",
-  infoDim: "#2a4070",
+  // Informational — quieter blue, recedes when not needed
+  info: "#6a9fd8",
+  infoDim: "#2a4468",
 
   // Discovery / recommendation accent — soft violet
-  lavender: "#b8a9e8",
-  lavenderDim: "#4a3d6a",
+  lavender: "#c4b5e8",
+  lavenderDim: "#4e4068",
 
-  // Text scale — 5 steps for hierarchy
-  text: "#f0e6d9",
-  textDim: "#c4b5a5",
-  muted: "#8a7d70",
-  dim: "#5a504a",
-  faint: "#3a322c",
+  // Text scale — warm cream, softer at extremes
+  text: "#e8ddd0",
+  textDim: "#c8bba8",
+  muted: "#95887a",
+  dim: "#5c5248",
+  faint: "#3c342c",
 } as const;
 
 export type TokenName = keyof typeof tokens;

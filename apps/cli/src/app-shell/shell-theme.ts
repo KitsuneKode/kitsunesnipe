@@ -32,6 +32,7 @@ export const palette = {
   gray: tokens.dim,
 
   text: tokens.text,
+  textDim: tokens.textDim,
   muted: tokens.muted,
   dim: tokens.dim,
 } as const;
