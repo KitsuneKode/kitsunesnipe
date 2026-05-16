@@ -320,11 +320,40 @@ export class PresenceServiceImpl implements PresenceService {
   }
 
   private async sendHeartbeat(): Promise<void> {
-    if (!this.discordClient || !this.lastActivityPayload) return;
+    if (!this.discordClient) {
+      if (this.unavailableUntilRestart && Date.now() >= this.unavailableRetryAtMs) {
+        this.unavailableUntilRestart = false;
+        void this.tryReconnect();
+      }
+      return;
+    }
+    if (!this.lastActivityPayload) return;
     try {
       await this.discordClient.setActivity(this.lastActivityPayload);
     } catch {
-      // Heartbeat failures are best-effort; don't spam diagnostics.
+      this.markUnavailable("Discord connection lost", new Error("heartbeat failure"));
+    }
+  }
+
+  private async tryReconnect(): Promise<void> {
+    this.stopHeartbeat();
+    if (this.discordClient) {
+      try {
+        await this.discordClient.destroy();
+      } catch {
+        // ignore destroy errors
+      }
+      this.discordClient = null;
+    }
+    this.connectPromise = null;
+    this.unavailableUntilRestart = false;
+    const client = await this.ensureDiscordClient();
+    if (!client || !this.lastActivityPayload) return;
+    try {
+      await client.setActivity(this.lastActivityPayload);
+      this.startHeartbeat();
+    } catch {
+      this.markUnavailable("Discord reconnect failed", new Error("reconnect failure"));
     }
   }
 }
