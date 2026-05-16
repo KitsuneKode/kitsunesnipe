@@ -1,6 +1,6 @@
 # Provider And Player Harness Test Matrix
 
-Status: planned
+Status: implemented baseline
 
 ## Goal
 
@@ -42,3 +42,8 @@ Battle-test playback recovery against real-world user and provider behavior with
 - Default test path remains deterministic and fast.
 - Live tests are useful for reality checks but not required for every commit.
 - Every recovery policy branch has at least one deterministic test.
+
+## Implemented Baseline
+
+- `apps/cli/test/unit/harness/provider-fallback-harness.test.ts` locks fallback candidate behavior across compatible media kinds, known-down providers, manual mode, and explicit down-provider selection.
+- `apps/cli/test/unit/harness/playback-recovery-harness.test.ts` locks slow-but-moving playback, network-read-dead refresh guidance, and long user pauses.

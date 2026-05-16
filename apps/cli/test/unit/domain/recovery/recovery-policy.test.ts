@@ -87,4 +87,15 @@ describe("RecoveryPolicy", () => {
       }).decision,
     ).toBe("proceed-with-warning");
   });
+
+  test("limited network avoids provider health penalty for stream expiry symptoms", () => {
+    const decision = decideRecovery({
+      ...base,
+      network: "limited",
+      failureClass: "expired-stream",
+    });
+
+    expect(decision.decision).toBe("ask-user");
+    expect(decision.providerHealthPenalty).toBe(false);
+  });
 });

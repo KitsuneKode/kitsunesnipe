@@ -154,6 +154,13 @@ export function decideRecovery(input: RecoveryPolicyInput): RecoveryPolicyDecisi
   }
 
   if (
+    input.network === "limited" &&
+    (input.failureClass === "network" || input.failureClass === "expired-stream")
+  ) {
+    return decision("ask-user", "manual-or-ambiguous", true, false);
+  }
+
+  if (
     input.mode !== "manual" &&
     input.failureClass &&
     AUTO_FALLBACK_FAILURES.has(input.failureClass) &&
