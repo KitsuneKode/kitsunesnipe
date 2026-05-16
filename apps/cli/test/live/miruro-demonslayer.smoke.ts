@@ -4,6 +4,7 @@ import {
   buildProviderSmokePayload,
   createProviderSmokeProfile,
   providerSmokeError,
+  resolveProviderSmokeStream,
 } from "./provider-smoke";
 
 createProviderSmokeProfile("miruro");
@@ -31,16 +32,25 @@ const title: TitleInfo = {
 };
 
 let resolveError: unknown = null;
-const stream = await provider
-  .resolveStream({
+let failureCodes: readonly string[] = [];
+const { stream } = await resolveProviderSmokeStream({
+  container,
+  providerId: "miruro",
+  mode: "anime",
+  request: {
     title,
     episode: { season: 1, episode },
     audioPreference: container.config.animeLanguageProfile.audio,
     subtitlePreference: container.config.animeLanguageProfile.subtitle,
+  },
+})
+  .then((resolved) => {
+    failureCodes = resolved.result.failures.map((failure) => failure.code);
+    return resolved;
   })
   .catch((error) => {
     resolveError = error;
-    return null;
+    return { stream: null };
   });
 
 const payload = {
@@ -52,6 +62,7 @@ const payload = {
     stream,
   }),
   ...(resolveError ? providerSmokeError(resolveError) : {}),
+  failureCodes,
   animeLang: container.config.animeLang,
   cacheCleared: clearCache,
 };

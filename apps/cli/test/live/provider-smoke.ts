@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { StreamInfo, TitleInfo } from "@/domain/types";
+import type { StreamRequest } from "@/services/providers/Provider";
+import { providerResolveResultToStreamInfo } from "@/services/providers/provider-result-adapter";
+import { streamRequestToResolveInput } from "@/services/providers/stream-request-adapter";
+import type { ProviderResolveResult } from "@kunai/types";
 
 export type ProviderSmokePayload = {
   readonly ok: boolean;
@@ -79,6 +83,49 @@ export function buildProviderSmokePayload({
     runtime: stream?.providerResolveResult?.trace.runtime ?? null,
     cacheHit: stream?.providerResolveResult?.trace.cacheHit ?? null,
     failureCodes: stream?.providerResolveResult?.failures.map((failure) => failure.code) ?? [],
+  };
+}
+
+export async function resolveProviderSmokeStream({
+  container,
+  providerId,
+  request,
+  mode,
+}: {
+  readonly container: {
+    readonly engine: {
+      get(providerId: string):
+        | {
+            resolve(
+              input: ReturnType<typeof streamRequestToResolveInput>,
+              context: {
+                now: () => string;
+                signal?: AbortSignal;
+              },
+            ): Promise<ProviderResolveResult>;
+          }
+        | undefined;
+    };
+  };
+  readonly providerId: string;
+  readonly request: StreamRequest;
+  readonly mode: "series" | "anime";
+}): Promise<{ readonly stream: StreamInfo | null; readonly result: ProviderResolveResult }> {
+  const module = container.engine.get(providerId);
+  if (!module) {
+    throw new Error(`Missing provider module: ${providerId}`);
+  }
+
+  const result = await module.resolve(streamRequestToResolveInput(request, mode), {
+    now: () => new Date().toISOString(),
+  });
+  return {
+    result,
+    stream: providerResolveResultToStreamInfo({
+      result,
+      title: request.title.name,
+      subtitlePreference: request.subtitlePreference,
+    }),
   };
 }
 

@@ -4,6 +4,7 @@ import {
   buildProviderSmokePayload,
   createProviderSmokeProfile,
   providerSmokeError,
+  resolveProviderSmokeStream,
 } from "./provider-smoke";
 
 createProviderSmokeProfile("vidking");
@@ -32,16 +33,25 @@ const title: TitleInfo = {
 };
 
 let resolveError: unknown = null;
-const stream = await provider
-  .resolveStream({
+let failureCodes: readonly string[] = [];
+const { stream } = await resolveProviderSmokeStream({
+  container,
+  providerId: "vidking",
+  mode: "series",
+  request: {
     title,
     episode: { season, episode },
     audioPreference: container.config.seriesLanguageProfile.audio,
     subtitlePreference: container.config.seriesLanguageProfile.subtitle,
+  },
+})
+  .then((resolved) => {
+    failureCodes = resolved.result.failures.map((failure) => failure.code);
+    return resolved;
   })
   .catch((error) => {
     resolveError = error;
-    return null;
+    return { stream: null };
   });
 
 const payload = {
@@ -53,6 +63,7 @@ const payload = {
     stream,
   }),
   ...(resolveError ? providerSmokeError(resolveError) : {}),
+  failureCodes,
   provider: "vidking",
   subtitleUrl: stream?.subtitle ?? null,
   subtitleSource: stream?.subtitleSource ?? null,

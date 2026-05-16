@@ -4,6 +4,7 @@ import {
   buildProviderSmokePayload,
   createProviderSmokeProfile,
   providerSmokeError,
+  resolveProviderSmokeStream,
 } from "./provider-smoke";
 
 createProviderSmokeProfile("allanime");
@@ -78,16 +79,25 @@ const title = {
 
 const episodes = provider.listEpisodes ? await provider.listEpisodes({ title }) : null;
 let resolveError: unknown = null;
-const stream = await provider
-  .resolveStream({
+let failureCodes: readonly string[] = [];
+const { stream } = await resolveProviderSmokeStream({
+  container,
+  providerId: provider.metadata.id,
+  mode: "anime",
+  request: {
     title,
     episode: { season: 1, episode: 1 },
     audioPreference: config.animeLanguageProfile.audio,
     subtitlePreference: config.animeLanguageProfile.subtitle,
+  },
+})
+  .then((resolved) => {
+    failureCodes = resolved.result.failures.map((failure) => failure.code);
+    return resolved;
   })
   .catch((error) => {
     resolveError = error;
-    return null;
+    return { stream: null };
   });
 
 const payload = {
@@ -104,6 +114,7 @@ const payload = {
   episodeOptions: episodes?.length ?? 0,
   firstEpisodes: episodes?.slice(0, 3).map((episode) => episode.label) ?? [],
   ...(resolveError ? providerSmokeError(resolveError) : {}),
+  failureCodes,
   subtitleUrl: stream?.subtitle ?? null,
 };
 
