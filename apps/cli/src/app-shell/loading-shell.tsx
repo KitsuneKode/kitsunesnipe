@@ -1,8 +1,10 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import React from "react";
 
+import { InlineDotMatrixLoader } from "./dot-matrix-loader";
 import { requestHardExit } from "./graceful-exit";
 import {
+  getLoadingDisclosure,
   getLoadingShellTimerPolicy,
   getProviderResolveWaitPresentation,
   normalizeLoadingIssue,
@@ -18,9 +20,10 @@ import { APP_LABEL, palette } from "./shell-theme";
 import type { FooterAction, LoadingShellState, ShellPanelLine } from "./types";
 import { usePosterPreview } from "./use-poster-preview";
 
-const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const MEMORY_PANEL_AUTO_HIDE_MS = 8_000;
 
+/** Legacy Braille spinner for surfaces that need a string. */
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 export function useSpinner(active = true) {
   const [frame, setFrame] = React.useState(0);
   React.useEffect(() => {
@@ -203,7 +206,6 @@ export const LoadingShell = React.memo(function LoadingShell({
     runtimeHealthVisible: memoryPanelVisible || state.operation !== "playing",
   });
   const elapsed = useElapsed(timerPolicy.trackElapsed);
-  const spinner = useSpinner(timerPolicy.animate);
   const memoryLine = useRuntimeMemoryLine(timerPolicy.memoryRefreshMs);
   const runtimeHealthLine = useRuntimeHealthLine(
     timerPolicy.runtimeHealthRefreshMs,
@@ -367,6 +369,11 @@ export const LoadingShell = React.memo(function LoadingShell({
     latestIssue: loadingIssue,
     stageDetail: state.stageDetail,
   });
+  const disclosure = getLoadingDisclosure(
+    elapsed,
+    Boolean(loadingIssue),
+    state.progress !== undefined,
+  );
 
   const fallbackLabel = state.fallbackProviderName
     ? `fallback ${state.fallbackProviderName}`
@@ -471,8 +478,6 @@ export const LoadingShell = React.memo(function LoadingShell({
           { key: "?", label: "help", action: "help" },
         ];
 
-  const sepWidth = Math.min(40, terminalColumns - 4);
-
   const statusItems = React.useMemo(() => {
     const items: { label: string; tone: "neutral" | "info" | "success" | "warning" | "error" }[] =
       [];
@@ -527,14 +532,19 @@ export const LoadingShell = React.memo(function LoadingShell({
 
               {/* Primary operation */}
               <Box marginTop={1}>
-                <Text color={palette.teal}>{spinner} </Text>
+                <InlineDotMatrixLoader
+                  variant="flux-columns"
+                  active={timerPolicy.animate}
+                  onColor={palette.teal}
+                />
+                <Text color={palette.teal}> </Text>
                 <Text bold color="white">
                   {state.stageDetail || stageLabel(activeStage)}
                 </Text>
               </Box>
 
-              {/* Provider context */}
-              {providerDetail && (
+              {/* Provider context — revealed after 2s so the user isn't overwhelmed */}
+              {disclosure.showProvider && providerDetail && (
                 <Box marginTop={1}>
                   <Text color={palette.gray} dimColor>
                     {providerDetail}
@@ -542,8 +552,8 @@ export const LoadingShell = React.memo(function LoadingShell({
                 </Box>
               )}
 
-              {/* Subtitle status */}
-              {state.subtitleStatus && (
+              {/* Subtitle status — revealed after 2s */}
+              {disclosure.showSubtitleStatus && state.subtitleStatus && (
                 <Box marginTop={1}>
                   <Text color={subtitleReady ? palette.green : palette.amber}>
                     {state.subtitleStatus}
@@ -551,45 +561,43 @@ export const LoadingShell = React.memo(function LoadingShell({
                 </Box>
               )}
 
-              {/* Separator */}
-              <Box marginY={1}>
-                <Text color={palette.gray} dimColor>
-                  {"─".repeat(sepWidth)}
-                </Text>
-              </Box>
+              {/* Spacer instead of separator for calmer visual rhythm */}
+              {(disclosure.showDiagnostics || disclosure.showProgress) && <Box marginY={1} />}
 
-              {/* Diagnostics strip */}
-              <Box flexDirection="column">
-                {state.trace && (
-                  <Text color={palette.gray} dimColor>
-                    {state.trace}
-                  </Text>
-                )}
-                {shouldShowLoadingElapsed(state.operation, elapsed) && (
-                  <Text color={palette.gray} dimColor>
-                    {formatElapsed(elapsed)} elapsed
-                  </Text>
-                )}
-                {memoryPanelVisible && memoryLine && (
-                  <Text color={palette.gray} dimColor>
-                    Memory: {memoryLine}
-                  </Text>
-                )}
-                {runtimeHealthLine && (
-                  <Text
-                    color={
-                      !runtimeHealthLine.tone || runtimeHealthLine.tone === "neutral"
-                        ? palette.gray
-                        : palette[runtimeHealthLine.tone as keyof typeof palette]
-                    }
-                  >
-                    {runtimeHealthLine.label}: {runtimeHealthLine.detail}
-                  </Text>
-                )}
-              </Box>
+              {/* Diagnostics strip — revealed after 5s */}
+              {disclosure.showDiagnostics && (
+                <Box flexDirection="column">
+                  {state.trace && (
+                    <Text color={palette.gray} dimColor>
+                      {state.trace}
+                    </Text>
+                  )}
+                  {shouldShowLoadingElapsed(state.operation, elapsed) && (
+                    <Text color={palette.gray} dimColor>
+                      {formatElapsed(elapsed)} elapsed
+                    </Text>
+                  )}
+                  {memoryPanelVisible && memoryLine && (
+                    <Text color={palette.gray} dimColor>
+                      Memory: {memoryLine}
+                    </Text>
+                  )}
+                  {runtimeHealthLine && (
+                    <Text
+                      color={
+                        !runtimeHealthLine.tone || runtimeHealthLine.tone === "neutral"
+                          ? palette.gray
+                          : palette[runtimeHealthLine.tone as keyof typeof palette]
+                      }
+                    >
+                      {runtimeHealthLine.label}: {runtimeHealthLine.detail}
+                    </Text>
+                  )}
+                </Box>
+              )}
 
               {/* Progress bar or wait message */}
-              {state.progress !== undefined ? (
+              {disclosure.showProgress && state.progress !== undefined ? (
                 <Box marginTop={1}>
                   <Text>
                     {"█".repeat(Math.floor(state.progress / 2.5))}
@@ -597,16 +605,16 @@ export const LoadingShell = React.memo(function LoadingShell({
                   </Text>
                   <Text color={palette.teal}> {Math.round(state.progress)}%</Text>
                 </Box>
-              ) : (
+              ) : disclosure.showElapsed ? (
                 <Box marginTop={1}>
-                  <Text color={palette.gray} dimColor>
+                  <Text color={palette.dim} dimColor>
                     {waitPresentation.message}
                   </Text>
                 </Box>
-              )}
+              ) : null}
 
-              {/* Issue warning */}
-              {loadingIssue && (
+              {/* Issue warning — always visible immediately if present */}
+              {disclosure.showIssue && loadingIssue && (
                 <Box marginTop={1}>
                   <Text color={palette.amber}>⚠ {loadingIssue}</Text>
                 </Box>

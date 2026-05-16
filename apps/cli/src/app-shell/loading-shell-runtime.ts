@@ -178,3 +178,39 @@ export function normalizeProviderDetail(detail: string | null | undefined): stri
   if (!trimmed) return null;
   return trimmed.replace(/^provider:\s*/i, "");
 }
+
+// ── Progressive disclosure for loading shell ─────────────────────────────
+
+export type LoadingDisclosureState = {
+  readonly showProvider: boolean;
+  readonly showProgress: boolean;
+  readonly showElapsed: boolean;
+  readonly showDiagnostics: boolean;
+  readonly showIssue: boolean;
+  readonly showSubtitleStatus: boolean;
+};
+
+/**
+ * Returns what information should be visible in the loading shell based on
+ * elapsed time. The goal is to start calm and reveal more as the wait extends.
+ *
+ * Gates:
+ * - 0-2s:  stage label + dot matrix only
+ * - 2s+:   add provider detail + progress (if available) + subtitle status
+ * - 5s+:   add elapsed timer + diagnostics trace + memory
+ * - Issue:  immediately surface warning regardless of elapsed time
+ */
+export function getLoadingDisclosure(
+  elapsedSeconds: number,
+  hasIssue: boolean,
+  hasProgress: boolean,
+): LoadingDisclosureState {
+  return {
+    showProvider: elapsedSeconds >= 2,
+    showProgress: hasProgress,
+    showElapsed: elapsedSeconds >= 5,
+    showDiagnostics: elapsedSeconds >= 5,
+    showIssue: hasIssue,
+    showSubtitleStatus: elapsedSeconds >= 2,
+  };
+}
