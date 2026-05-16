@@ -54,8 +54,9 @@ import {
 import { ResultEnrichmentService } from "./services/catalog/ResultEnrichmentService";
 import { TimelineService } from "./services/catalog/TimelineService";
 import {
+  buildDebugSessionInstructions,
   DebugTraceReporter,
-  parseTraceCategories,
+  resolveTraceCategories,
 } from "./services/diagnostics/DebugTraceReporter";
 import type { DiagnosticsService } from "./services/diagnostics/DiagnosticsService";
 import { DiagnosticsServiceImpl } from "./services/diagnostics/DiagnosticsServiceImpl";
@@ -140,6 +141,10 @@ export interface Container {
   readonly shellChrome: ShellChrome;
   /** Startup capability checks captured before container bootstrap. */
   readonly capabilitySnapshot: CapabilitySnapshot | null;
+  /** JSONL diagnostics trace path when --debug-json or --debug-session is active. */
+  readonly debugTracePath?: string;
+  /** Human-readable startup notes for developer debug sessions only. */
+  readonly debugSessionInstructions?: readonly string[];
 }
 
 export function effectiveFooterHints(
@@ -163,6 +168,7 @@ export interface ContainerOptions {
   capabilitySnapshot?: CapabilitySnapshot | null;
   appVersion?: string;
   debugJson?: boolean;
+  debugSession?: boolean;
 }
 
 /**
@@ -198,12 +204,27 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
   const scheduleCache = new ScheduleCacheRepository(cacheDb);
   const downloadJobs = new DownloadJobsRepository(dataDb);
   const diagnosticsStore = new DiagnosticsStoreImpl();
-  const traceReporter = options?.debugJson
+  const traceCategories = resolveTraceCategories({
+    explicit: process.env.KUNAI_TRACE,
+    debugSession: options?.debugSession,
+  });
+  const debugTracePath =
+    options?.debugJson || options?.debugSession
+      ? join(paths.dataDir, "traces", `kunai-trace-${Date.now()}.jsonl`)
+      : undefined;
+  const traceReporter = debugTracePath
     ? new DebugTraceReporter({
-        filePath: join(paths.dataDir, "traces", `kunai-trace-${Date.now()}.jsonl`),
-        categories: parseTraceCategories(process.env.KUNAI_TRACE),
+        filePath: debugTracePath,
+        categories: traceCategories,
       })
     : undefined;
+  const debugSessionInstructions =
+    options?.debugSession && debugTracePath
+      ? buildDebugSessionInstructions({
+          tracePath: debugTracePath,
+          categories: traceCategories,
+        })
+      : undefined;
   const diagnosticsService = new DiagnosticsServiceImpl({
     store: diagnosticsStore,
     logger,
@@ -337,6 +358,8 @@ export async function createContainer(options?: ContainerOptions): Promise<Conta
     updateService,
     shellChrome,
     capabilitySnapshot,
+    debugTracePath,
+    debugSessionInstructions,
   };
 
   logger.info("Container initialized", {

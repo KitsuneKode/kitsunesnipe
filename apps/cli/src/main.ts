@@ -45,6 +45,7 @@ export function parseArgs(argv: string[]): {
   anime: boolean;
   debug: boolean;
   debugJson: boolean;
+  debugSession: boolean;
   zen: boolean;
   mpv: MpvRuntimeOptions;
   minimal: boolean;
@@ -66,6 +67,7 @@ export function parseArgs(argv: string[]): {
     anime: boolean;
     debug: boolean;
     debugJson: boolean;
+    debugSession: boolean;
     zen: boolean;
     mpv: MpvRuntimeOptions;
     minimal: boolean;
@@ -82,6 +84,7 @@ export function parseArgs(argv: string[]): {
     anime: false,
     debug: false,
     debugJson: false,
+    debugSession: false,
     zen: false,
     mpv: {},
     minimal: false,
@@ -121,6 +124,10 @@ export function parseArgs(argv: string[]): {
     } else if (arg === "--debug-json") {
       args.debug = true;
       args.debugJson = true;
+    } else if (arg === "--debug-session") {
+      args.debug = true;
+      args.debugJson = true;
+      args.debugSession = true;
     } else if (arg === "--setup") {
       args.setup = true;
     } else if (arg === "--offline") {
@@ -342,6 +349,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
   const container = await createContainer({
     debug: args.debug,
     debugJson: args.debugJson,
+    debugSession: args.debugSession,
     mpv: args.mpv,
     shellChrome: args.shellChrome,
     capabilitySnapshot,
@@ -419,6 +427,25 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
       stdinIsTTY: process.stdin.isTTY,
       stdoutIsTTY: process.stdout.isTTY,
     });
+  }
+
+  if (args.debugSession) {
+    container.diagnosticsService.record({
+      category: "session",
+      operation: "debug-session",
+      message: "Developer debug session started",
+      context: {
+        tracePath: container.debugTracePath,
+        shellChrome: args.shellChrome,
+        mode: initialMode,
+        provider: initialMode === "anime" ? config.animeProvider : config.provider,
+        search: Boolean(bootstrapQuery),
+        directTitle: Boolean(bootstrapTitle),
+      },
+    });
+    for (const line of container.debugSessionInstructions ?? []) {
+      console.error(line);
+    }
   }
 
   // Launch the persistent state-driven UI

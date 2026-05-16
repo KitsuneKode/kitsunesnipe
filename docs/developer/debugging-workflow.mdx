@@ -48,6 +48,14 @@ Use scoped JSON traces for reproducible provider/playback bugs:
 KUNAI_TRACE=provider,playback,cache bun run dev -- -S "Dune" --debug-json
 ```
 
+For a full developer repro session, use:
+
+```sh
+bun run dev -- -S "Dune" --debug-session
+```
+
+`--debug-session` keeps normal playback behavior, enables structured JSONL tracing, records the trace path in diagnostics, and prints the local trace path on stderr. Set `KUNAI_TRACE=provider,cache` when you want a narrower trace than the default provider/playback/cache/network/subtitle set.
+
 Useful categories include:
 
 - `provider`
@@ -78,7 +86,7 @@ Compare live smoke output against the provider attempt timeline and cache proven
 Use Bun inspect when stepping through orchestration:
 
 ```sh
-bun --inspect-brk apps/cli/src/main.ts --debug
+bun --inspect-brk apps/cli/src/main.ts --debug-session -S "Dune"
 ```
 
 Attach Chrome DevTools or VS Code to the printed inspector URL. Prefer breakpoints in service/domain code over Ink render functions.
@@ -92,6 +100,8 @@ Good breakpoint targets:
 - cache health checks
 - player result classification
 - offline library source selection
+
+After reproducing with breakpoints, run `/export-diagnostics` before exiting the shell. The exported bundle points at the debug trace path, while the trace JSONL keeps the scoped event stream for diffing between runs.
 
 ## Debugging By Symptom
 

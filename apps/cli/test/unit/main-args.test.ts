@@ -33,6 +33,16 @@ test("parseArgs supports structured debug traces", () => {
 
   expect(args.debug).toBe(true);
   expect(args.debugJson).toBe(true);
+  expect(args.debugSession).toBe(false);
+});
+
+test("parseArgs supports developer debug session mode", () => {
+  const args = parseArgs(["--debug-session", "-S", "Dune"]);
+
+  expect(args.debug).toBe(true);
+  expect(args.debugJson).toBe(true);
+  expect(args.debugSession).toBe(true);
+  expect(args.search).toBe("Dune");
 });
 
 test("parseArgs supports zen startup as minimal quick playback", () => {

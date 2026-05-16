@@ -1456,7 +1456,7 @@ async function handleExportDiagnostics(container: Container): Promise<"handled">
     category: "ui",
     operation: "export-diagnostics",
     message: "Diagnostics exported to file",
-    context: { path: fileName },
+    context: { path: fileName, tracePath: container.debugTracePath },
   });
   return "handled";
 }
@@ -1497,7 +1497,7 @@ async function handleReportIssue(container: Container): Promise<"handled"> {
     container.diagnosticsStore.record({
       category: "ui",
       message: "Diagnostics report bundle exported",
-      context: { path: fileName, issueTitle: draft.title },
+      context: { path: fileName, issueTitle: draft.title, tracePath: container.debugTracePath },
     });
     await openIssueUrl(draft.issueUrl);
     return "handled";

@@ -3,7 +3,11 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { DebugTraceReporter } from "@/services/diagnostics/DebugTraceReporter";
+import {
+  buildDebugSessionInstructions,
+  DebugTraceReporter,
+  resolveTraceCategories,
+} from "@/services/diagnostics/DebugTraceReporter";
 
 describe("DebugTraceReporter", () => {
   test("writes redacted JSONL events for selected categories", async () => {
@@ -39,5 +43,32 @@ describe("DebugTraceReporter", () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+
+  test("debug session provides default trace categories when KUNAI_TRACE is not set", () => {
+    expect([...resolveTraceCategories({ debugSession: true })!]).toEqual([
+      "provider",
+      "playback",
+      "cache",
+      "network",
+      "subtitle",
+    ]);
+  });
+
+  test("explicit trace categories override debug session defaults", () => {
+    expect([
+      ...resolveTraceCategories({ explicit: "provider,cache", debugSession: true })!,
+    ]).toEqual(["provider", "cache"]);
+  });
+
+  test("builds concise debug session instructions with exportable trace path", () => {
+    const lines = buildDebugSessionInstructions({
+      tracePath: "/tmp/kunai-trace.jsonl",
+      categories: new Set(["provider", "playback"]),
+    });
+
+    expect(lines.join("\n")).toContain("/tmp/kunai-trace.jsonl");
+    expect(lines.join("\n")).toContain("provider,playback");
+    expect(lines.join("\n")).toContain("/export-diagnostics");
   });
 });
