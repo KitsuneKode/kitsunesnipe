@@ -49,6 +49,7 @@ describe("OfflineLibraryService", () => {
     const service = new OfflineLibraryService({
       downloadService: {
         listCompleted: () => [older, newer],
+        markArtifactValidated: () => {},
       } as unknown as DownloadService,
       historyStore: {} as HistoryStore,
     });
@@ -67,6 +68,7 @@ describe("OfflineLibraryService", () => {
     const service = new OfflineLibraryService({
       downloadService: {
         listCompleted: () => [broken],
+        markArtifactValidated: () => {},
         deleteJob: () => {
           throw new Error("validation must not delete records");
         },

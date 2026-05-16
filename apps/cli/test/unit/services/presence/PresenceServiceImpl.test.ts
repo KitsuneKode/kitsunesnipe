@@ -68,12 +68,14 @@ describe("PresenceServiceImpl", () => {
     };
 
     expect(buildDiscordActivity(activity, "full")).toMatchObject({
-      details: "Breaking Bad S04E09",
-      state: "series · vidking",
+      details: "Breaking Bad",
+      state: "Season 4, Episode 9 · vidking",
+      type: 3,
     });
     expect(buildDiscordActivity(activity, "private")).toMatchObject({
       details: "Watching with Kunai",
-      state: "Playback active",
+      state: "Playing",
+      type: 3,
     });
   });
 
