@@ -35,9 +35,11 @@ import type { ResolvedAppCommand } from "./commands";
 import { COMMAND_CONTEXTS, resolveCommandContext } from "./commands";
 import { buildBrowseCompanionPanel, buildBrowseDetailsPanel } from "./details-panel";
 import { DiscoverShell, type DiscoverShellResult } from "./discover-shell";
+import { InlineDotMatrixLoader } from "./dot-matrix-loader";
 import { registerExitHandler, requestHardExit } from "./graceful-exit";
 import { deleteAllKittyImages } from "./image-pane";
-import { LoadingShell, useSpinner } from "./loading-shell";
+import { getPickerLayout } from "./layout-policy";
+import { LoadingShell } from "./loading-shell";
 import { OverlayPanel } from "./overlay-panel";
 import type { BrowseOverlay } from "./overlay-panel";
 import {
@@ -799,201 +801,191 @@ function AppRoot({ container }: { container: Container }) {
       flexDirection="column"
       width={shellWidth}
       height={shellHeight}
+      backgroundColor={palette.bg}
       paddingX={1}
       paddingY={0}
-      backgroundColor={palette.bg}
     >
-      <Box
-        flexDirection="column"
-        borderStyle="round"
-        borderColor={palette.gray}
-        width="100%"
-        height="100%"
-        paddingX={1}
-        paddingY={0}
-      >
-        <Box justifyContent="space-between">
-          <Text color={palette.amber}>{APP_LABEL}</Text>
-          <Text color={statusColor(rootStatusSummary.header.tone)}>
-            {container.config.minimalMode && currentViewLabel === "browse"
-              ? undefined
-              : rootStatusSummary.header.label}
+      <Box justifyContent="space-between">
+        <Text color={palette.amber}>{APP_LABEL}</Text>
+        <Text color={statusColor(rootStatusSummary.header.tone)}>
+          {container.config.minimalMode && currentViewLabel === "browse"
+            ? undefined
+            : rootStatusSummary.header.label}
+        </Text>
+      </Box>
+      <Box marginTop={0} flexWrap="wrap">
+        {rootStatusSummary.badges.map((badge) => (
+          <InlineBadge
+            key={`${badge.label}-${badge.tone}`}
+            label={truncateLine(badge.label, badge.label === state.currentTitle?.name ? 34 : 28)}
+            tone={badge.tone}
+          />
+        ))}
+      </Box>
+      {presenceBootLine ? (
+        <Box marginTop={0}>
+          <Text dimColor color={statusColor(presenceBootLine.tone)}>
+            {truncateLine(presenceBootLine.text, Math.max(36, shellWidth - 8))}
           </Text>
         </Box>
-        <Box marginTop={0} flexWrap="wrap">
-          {rootStatusSummary.badges.map((badge) => (
-            <InlineBadge
-              key={`${badge.label}-${badge.tone}`}
-              label={truncateLine(badge.label, badge.label === state.currentTitle?.name ? 34 : 28)}
-              tone={badge.tone}
+      ) : null}
+      <Box marginTop={1} flexDirection="column" flexGrow={1} justifyContent="space-between">
+        <Box flexDirection="column" flexGrow={1}>
+          {rootSurface === "error" ? (
+            <ErrorShell
+              message={state.playbackError || "An unknown error occurred"}
+              onResolve={() => {
+                stateManager.dispatch({ type: "CLEAR_PLAYBACK_PROBLEM" });
+                stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" });
+              }}
+              onRetry={() => {
+                stateManager.dispatch({ type: "CLEAR_PLAYBACK_PROBLEM" });
+                stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" });
+              }}
             />
-          ))}
+          ) : rootSurface === "playback" ? (
+            <LoadingShell
+              key={`playback-ep-${state.currentTitle?.id ?? "none"}:${state.currentEpisode?.season ?? 0}:${state.currentEpisode?.episode ?? 0}`}
+              state={{
+                title: state.currentTitle?.name || "Resolving...",
+                subtitle: playbackSubtitle,
+                operation:
+                  state.playbackStatus === "playing" ||
+                  state.playbackStatus === "buffering" ||
+                  state.playbackStatus === "seeking" ||
+                  state.playbackStatus === "stalled"
+                    ? "playing"
+                    : state.playbackStatus === "loading"
+                      ? "loading"
+                      : "resolving",
+                stage:
+                  state.playbackStatus === "playing" ||
+                  state.playbackStatus === "buffering" ||
+                  state.playbackStatus === "seeking" ||
+                  state.playbackStatus === "stalled"
+                    ? "starting-playback"
+                    : state.playbackStatus === "loading"
+                      ? "preparing-player"
+                      : "finding-stream",
+                stageDetail: state.playbackDetail ?? undefined,
+                details: state.playbackDetail ?? `Provider: ${state.provider}`,
+                providerName: activeProvider?.metadata.name ?? state.provider,
+                providerId: state.provider,
+                subtitleStatus:
+                  state.playbackStatus === "playing" ||
+                  state.playbackStatus === "buffering" ||
+                  state.playbackStatus === "seeking" ||
+                  state.playbackStatus === "stalled"
+                    ? playbackSubtitleStatus
+                    : undefined,
+                downloadStatus: downloadStatus ?? undefined,
+                cancellable: playbackCanCancel,
+                trace: playbackTrace,
+                showMemory: container.config.showMemory,
+                posterUrl: state.currentTitle?.posterUrl,
+                getRuntimeHealth: () =>
+                  state.playbackStatus === "playing" ||
+                  state.playbackStatus === "buffering" ||
+                  state.playbackStatus === "seeking" ||
+                  state.playbackStatus === "stalled"
+                    ? buildRuntimeHealthSnapshot({
+                        recentEvents: container.diagnosticsStore.getRecent(25),
+                        currentProvider: state.provider,
+                      }).network
+                    : buildRuntimeHealthSnapshot({
+                        recentEvents: container.diagnosticsStore.getRecent(25),
+                        currentProvider: state.provider,
+                      }).provider,
+                fallbackAvailable: state.resolveRetryCount > 0 && Boolean(fallbackProvider),
+                fallbackProviderName:
+                  fallbackProvider?.metadata.name ?? fallbackProvider?.metadata.id,
+                autoskipPaused: state.autoskipSessionPaused,
+                autoplayPaused: state.autoplaySessionPaused,
+                latestIssue: state.playbackNote,
+                currentPosition: playbackTelemetrySnapshot?.positionSeconds,
+                duration: playbackTelemetrySnapshot?.durationSeconds,
+                bufferHealth:
+                  state.playbackStatus === "stalled"
+                    ? "stalled"
+                    : state.playbackStatus === "buffering" ||
+                        playbackTelemetrySnapshot?.pausedForCache
+                      ? "buffering"
+                      : playbackTelemetrySnapshot
+                        ? "healthy"
+                        : undefined,
+                stopHint:
+                  state.playbackStatus === "playing" ||
+                  state.playbackStatus === "buffering" ||
+                  state.playbackStatus === "seeking" ||
+                  state.playbackStatus === "stalled"
+                    ? state.currentTitle?.type === "series"
+                      ? `q stop  ·  ${canGoNext ? "n next" : "n unavailable"}  ·  ${canGoPrevious ? "p previous" : "p unavailable"}  ·  ${state.stopAfterCurrent ? "x resume chain" : "x stop after current"}`
+                      : "q stop"
+                    : undefined,
+                controlHint:
+                  state.playbackStatus === "playing" ||
+                  state.playbackStatus === "buffering" ||
+                  state.playbackStatus === "seeking" ||
+                  state.playbackStatus === "stalled"
+                    ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  u ${state.autoskipSessionPaused ? "resume autoskip" : "pause autoskip"}  ·  e episodes  ·  k streams  ·  d download  ·  r recover`
+                    : undefined,
+                commands: resolveCommandContext(state, "activePlayback"),
+                footerMode: "detailed",
+                audioTrack: state.stream?.audioLanguages?.length
+                  ? state.stream.audioLanguages.join(", ")
+                  : undefined,
+                subtitleTrack: playbackSubtitleStatus,
+                nextEpisodeLabel: state.episodeNavigation.nextLabel,
+                previousEpisodeLabel: state.episodeNavigation.previousLabel,
+                hasNextEpisode: state.episodeNavigation.hasNext,
+                hasPreviousEpisode: state.episodeNavigation.hasPrevious,
+                onCommandAction: onCommandAction,
+              }}
+              onCancel={onCancel}
+              onStop={onStop}
+              onNext={canGoNext ? onNextHandler : undefined}
+              onPrevious={canGoPrevious ? onPreviousHandler : undefined}
+              onRecover={onRecover}
+              onFallback={onFallback}
+              onPickStreams={onPickStreams}
+              onPickEpisode={state.currentTitle?.type === "series" ? onPickEpisode : undefined}
+              onReloadSubtitles={onReloadSubtitles}
+              onSkipSegment={onSkipSegment}
+              onToggleAutoplay={canToggleAutoplay ? onToggleAutoplay : undefined}
+              onToggleAutoskip={onToggleAutoskip}
+              onStopAfterCurrent={canStopAfterCurrent ? onStopAfterCurrent : undefined}
+              onPickSource={onPickSource}
+              onPickQuality={onPickQuality}
+              onReturnToSearch={onReturnToSearch}
+            />
+          ) : rootSurface === "root-content" && rootContent ? (
+            <Box key={rootContent.id} flexGrow={1}>
+              {rootContent.element}
+            </Box>
+          ) : rootSurface === "root-overlay" && rootOverlay ? (
+            <RootOverlayShell
+              overlay={rootOverlay}
+              state={state}
+              container={container}
+              onRedraw={clearShellScreen}
+            />
+          ) : screen ? (
+            <Box key={screen.id}>{screen.element}</Box>
+          ) : (
+            <RootIdleShell state={state} />
+          )}
         </Box>
-        {presenceBootLine ? (
-          <Box marginTop={0}>
-            <Text dimColor color={statusColor(presenceBootLine.tone)}>
-              {truncateLine(presenceBootLine.text, Math.max(36, shellWidth - 8))}
-            </Text>
+
+        {rootSurface === "root-content" && rootOverlay ? (
+          <Box marginTop={1}>
+            <RootOverlayShell
+              overlay={rootOverlay}
+              state={state}
+              container={container}
+              onRedraw={clearShellScreen}
+            />
           </Box>
         ) : null}
-        <Box marginTop={1} flexDirection="column" flexGrow={1} justifyContent="space-between">
-          <Box flexDirection="column" flexGrow={1}>
-            {rootSurface === "error" ? (
-              <ErrorShell
-                message={state.playbackError || "An unknown error occurred"}
-                onResolve={() => {
-                  stateManager.dispatch({ type: "CLEAR_PLAYBACK_PROBLEM" });
-                  stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" });
-                }}
-                onRetry={() => {
-                  stateManager.dispatch({ type: "CLEAR_PLAYBACK_PROBLEM" });
-                  stateManager.dispatch({ type: "SET_PLAYBACK_STATUS", status: "idle" });
-                }}
-              />
-            ) : rootSurface === "playback" ? (
-              <LoadingShell
-                key={`playback-ep-${state.currentTitle?.id ?? "none"}:${state.currentEpisode?.season ?? 0}:${state.currentEpisode?.episode ?? 0}`}
-                state={{
-                  title: state.currentTitle?.name || "Resolving...",
-                  subtitle: playbackSubtitle,
-                  operation:
-                    state.playbackStatus === "playing" ||
-                    state.playbackStatus === "buffering" ||
-                    state.playbackStatus === "seeking" ||
-                    state.playbackStatus === "stalled"
-                      ? "playing"
-                      : state.playbackStatus === "loading"
-                        ? "loading"
-                        : "resolving",
-                  stage:
-                    state.playbackStatus === "playing" ||
-                    state.playbackStatus === "buffering" ||
-                    state.playbackStatus === "seeking" ||
-                    state.playbackStatus === "stalled"
-                      ? "starting-playback"
-                      : state.playbackStatus === "loading"
-                        ? "preparing-player"
-                        : "finding-stream",
-                  stageDetail: state.playbackDetail ?? undefined,
-                  details: state.playbackDetail ?? `Provider: ${state.provider}`,
-                  providerName: activeProvider?.metadata.name ?? state.provider,
-                  providerId: state.provider,
-                  subtitleStatus:
-                    state.playbackStatus === "playing" ||
-                    state.playbackStatus === "buffering" ||
-                    state.playbackStatus === "seeking" ||
-                    state.playbackStatus === "stalled"
-                      ? playbackSubtitleStatus
-                      : undefined,
-                  downloadStatus: downloadStatus ?? undefined,
-                  cancellable: playbackCanCancel,
-                  trace: playbackTrace,
-                  showMemory: container.config.showMemory,
-                  posterUrl: state.currentTitle?.posterUrl,
-                  getRuntimeHealth: () =>
-                    state.playbackStatus === "playing" ||
-                    state.playbackStatus === "buffering" ||
-                    state.playbackStatus === "seeking" ||
-                    state.playbackStatus === "stalled"
-                      ? buildRuntimeHealthSnapshot({
-                          recentEvents: container.diagnosticsStore.getRecent(25),
-                          currentProvider: state.provider,
-                        }).network
-                      : buildRuntimeHealthSnapshot({
-                          recentEvents: container.diagnosticsStore.getRecent(25),
-                          currentProvider: state.provider,
-                        }).provider,
-                  fallbackAvailable: state.resolveRetryCount > 0 && Boolean(fallbackProvider),
-                  fallbackProviderName:
-                    fallbackProvider?.metadata.name ?? fallbackProvider?.metadata.id,
-                  autoskipPaused: state.autoskipSessionPaused,
-                  autoplayPaused: state.autoplaySessionPaused,
-                  latestIssue: state.playbackNote,
-                  currentPosition: playbackTelemetrySnapshot?.positionSeconds,
-                  duration: playbackTelemetrySnapshot?.durationSeconds,
-                  bufferHealth:
-                    state.playbackStatus === "stalled"
-                      ? "stalled"
-                      : state.playbackStatus === "buffering" ||
-                          playbackTelemetrySnapshot?.pausedForCache
-                        ? "buffering"
-                        : playbackTelemetrySnapshot
-                          ? "healthy"
-                          : undefined,
-                  stopHint:
-                    state.playbackStatus === "playing" ||
-                    state.playbackStatus === "buffering" ||
-                    state.playbackStatus === "seeking" ||
-                    state.playbackStatus === "stalled"
-                      ? state.currentTitle?.type === "series"
-                        ? `q stop  ·  ${canGoNext ? "n next" : "n unavailable"}  ·  ${canGoPrevious ? "p previous" : "p unavailable"}  ·  ${state.stopAfterCurrent ? "x resume chain" : "x stop after current"}`
-                        : "q stop"
-                      : undefined,
-                  controlHint:
-                    state.playbackStatus === "playing" ||
-                    state.playbackStatus === "buffering" ||
-                    state.playbackStatus === "seeking" ||
-                    state.playbackStatus === "stalled"
-                      ? `${canToggleAutoplay ? (state.autoplaySessionPaused ? "a resume autoplay" : "a pause autoplay") : "a unavailable"}  ·  u ${state.autoskipSessionPaused ? "resume autoskip" : "pause autoskip"}  ·  e episodes  ·  k streams  ·  d download  ·  r recover`
-                      : undefined,
-                  commands: resolveCommandContext(state, "activePlayback"),
-                  footerMode: "detailed",
-                  audioTrack: state.stream?.audioLanguages?.length
-                    ? state.stream.audioLanguages.join(", ")
-                    : undefined,
-                  subtitleTrack: playbackSubtitleStatus,
-                  nextEpisodeLabel: state.episodeNavigation.nextLabel,
-                  previousEpisodeLabel: state.episodeNavigation.previousLabel,
-                  hasNextEpisode: state.episodeNavigation.hasNext,
-                  hasPreviousEpisode: state.episodeNavigation.hasPrevious,
-                  onCommandAction: onCommandAction,
-                }}
-                onCancel={onCancel}
-                onStop={onStop}
-                onNext={canGoNext ? onNextHandler : undefined}
-                onPrevious={canGoPrevious ? onPreviousHandler : undefined}
-                onRecover={onRecover}
-                onFallback={onFallback}
-                onPickStreams={onPickStreams}
-                onPickEpisode={state.currentTitle?.type === "series" ? onPickEpisode : undefined}
-                onReloadSubtitles={onReloadSubtitles}
-                onSkipSegment={onSkipSegment}
-                onToggleAutoplay={canToggleAutoplay ? onToggleAutoplay : undefined}
-                onToggleAutoskip={onToggleAutoskip}
-                onStopAfterCurrent={canStopAfterCurrent ? onStopAfterCurrent : undefined}
-                onPickSource={onPickSource}
-                onPickQuality={onPickQuality}
-                onReturnToSearch={onReturnToSearch}
-              />
-            ) : rootSurface === "root-content" && rootContent ? (
-              <Box key={rootContent.id} flexGrow={1}>
-                {rootContent.element}
-              </Box>
-            ) : rootSurface === "root-overlay" && rootOverlay ? (
-              <RootOverlayShell
-                overlay={rootOverlay}
-                state={state}
-                container={container}
-                onRedraw={clearShellScreen}
-              />
-            ) : screen ? (
-              <Box key={screen.id}>{screen.element}</Box>
-            ) : (
-              <RootIdleShell state={state} />
-            )}
-          </Box>
-
-          {rootSurface === "root-content" && rootOverlay ? (
-            <Box marginTop={1}>
-              <RootOverlayShell
-                overlay={rootOverlay}
-                state={state}
-                container={container}
-                onRedraw={clearShellScreen}
-              />
-            </Box>
-          ) : null}
-        </Box>
       </Box>
     </Box>
   );
@@ -1207,11 +1199,7 @@ function PlaybackShell({
         />
       ) : (
         <>
-          <Box>
-            <Text color={palette.gray} dimColor>
-              {"─".repeat(Math.max(24, playbackViewport.columns - 8))}
-            </Text>
-          </Box>
+          <Box marginTop={1} />
           <Box flexDirection={showPosterCompanion ? "row" : "column"} marginTop={1} flexGrow={1}>
             <Box
               flexDirection="column"
@@ -1499,13 +1487,14 @@ function ListShell<T>({
   const selectedOption = filteredOptions[index];
 
   const { ultraCompact, tooSmall, minColumns, minRows, maxVisibleRows: maxVisible } = viewport;
-  const innerWidth = Math.max(24, viewport.columns - 8);
-  const showSelectionCompanion = !tooSmall && !ultraCompact && viewport.columns >= 152;
-  const companionWidth = showSelectionCompanion ? Math.max(34, Math.floor(innerWidth * 0.32)) : 0;
-  const listWidth = showSelectionCompanion
-    ? Math.max(42, innerWidth - companionWidth - 3)
-    : innerWidth;
-  const rowWidth = Math.max(20, listWidth - 4);
+  const pickerLayout = getPickerLayout(viewport.columns, viewport.rows);
+  const {
+    innerWidth,
+    listWidth,
+    companionWidth,
+    rowWidth,
+    showCompanion: showSelectionCompanion,
+  } = pickerLayout;
   const selectedLabel = selectedOption?.label ?? "Nothing selected";
   const selectedDetail =
     selectedOption?.detail ??
@@ -1821,7 +1810,6 @@ function BrowseShell<T>({
   onSubmit: (value: T) => void;
   onCancel: () => void;
 }) {
-  const spinner = useSpinner();
   const viewport = useDebouncedViewportPolicy("browse", {
     forceCompact: _settings?.minimalMode,
   });
@@ -2126,14 +2114,21 @@ function BrowseShell<T>({
     ultraCompact,
     tooSmall,
     wideBrowse,
+    mediumBrowse,
     minColumns,
     minRows,
     maxVisibleRows: maxVisible,
   } = viewport;
   const effectiveFooterMode = "minimal";
   const innerWidth = Math.max(24, viewport.columns - 8);
-  const previewWidth = wideBrowse ? Math.max(28, Math.floor(innerWidth * 0.3)) : innerWidth;
-  const listWidth = wideBrowse ? Math.max(48, innerWidth - previewWidth - 4) : innerWidth;
+  // Tiered companion widths: wideBrowse gets 30%, mediumBrowse gets 28%, compact gets full width below list
+  const previewWidth = wideBrowse
+    ? Math.max(28, Math.floor(innerWidth * 0.3))
+    : mediumBrowse
+      ? Math.max(26, Math.floor(innerWidth * 0.28))
+      : innerWidth;
+  const listWidth =
+    wideBrowse || mediumBrowse ? Math.max(48, innerWidth - previewWidth - 4) : innerWidth;
   const rowWidth = Math.max(20, listWidth - 4);
   const windowStart = getWindowStart(selectedIndex, options.length, maxVisible);
   const windowEnd = Math.min(windowStart + maxVisible, options.length);
@@ -2144,10 +2139,9 @@ function BrowseShell<T>({
     ultraCompact ? 1 : 2,
   );
   const showCompanion =
-    wideBrowse &&
+    (wideBrowse || mediumBrowse) &&
     !compact &&
     Boolean(
-      poster.kind !== "none" ||
       companionPanel.title ||
       companionPanel.metaLine ||
       previewBodyLines.some((line) => line.trim().length > 0) ||
@@ -2304,19 +2298,22 @@ function BrowseShell<T>({
   });
 
   return (
-    <Box flexDirection="column" flexGrow={1} paddingX={1}>
+    <Box flexDirection="column" flexGrow={1}>
       <Box flexDirection="column" flexGrow={1}>
         <Box justifyContent="space-between">
           <BrowseTitle mode={mode} />
-          <Text color={searchState === "error" ? palette.red : palette.info}>
-            {searchState === "loading"
-              ? `${spinner} searching`
-              : searchState === "error"
-                ? "search failed"
-                : searchState === "ready" && options.length > 0
-                  ? `${options.length} results`
-                  : "ready"}
-          </Text>
+          <Box>
+            {searchState === "loading" ? (
+              <>
+                <InlineDotMatrixLoader variant="flux-columns" active onColor={palette.teal} />
+                <Text color={palette.teal}> searching</Text>
+              </>
+            ) : searchState === "error" ? (
+              <Text color={palette.red}>search failed</Text>
+            ) : searchState === "ready" && options.length > 0 ? (
+              <Text color={palette.muted}>{options.length} results</Text>
+            ) : null}
+          </Box>
         </Box>
         {!ultraCompact && resultSubtitle ? (
           <Text color={palette.muted}>{resultSubtitle}</Text>
@@ -2457,13 +2454,14 @@ function BrowseShell<T>({
                 flexDirection="column"
                 width={previewWidth}
               >
-                {poster.kind !== "none" ? (
+                {/* Poster only in wideBrowse; mediumBrowse skips it for space */}
+                {wideBrowse && poster.kind !== "none" ? (
                   <Box flexDirection="column" marginBottom={1}>
                     <Text>{poster.placeholder}</Text>
                   </Box>
-                ) : selectedOption?.previewImageUrl ? (
+                ) : wideBrowse && selectedOption?.previewImageUrl ? (
                   <Box marginBottom={1}>
-                    <Text color={posterState === "loading" ? palette.info : palette.gray} dimColor>
+                    <Text color={posterState === "loading" ? palette.info : palette.dim} dimColor>
                       {posterState === "loading" ? "Loading artwork…" : "Artwork unavailable"}
                     </Text>
                   </Box>

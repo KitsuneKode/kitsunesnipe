@@ -1,3 +1,4 @@
+import { getPickerLayout } from "@/app-shell/layout-policy";
 import { useLineEditor } from "@/app-shell/line-editor";
 import { mountRootContent } from "@/app-shell/root-content-state";
 import { ShellFooter, ResizeBlocker } from "@/app-shell/shell-primitives";
@@ -56,14 +57,9 @@ function ChecklistShell<T>({
 
   const selectedOption = filteredOptions[index];
 
-  const { ultraCompact, tooSmall, minColumns, minRows, maxVisibleRows: maxVisible } = viewport;
-  const innerWidth = Math.max(24, viewport.columns - 8);
-  const showSelectionCompanion = !tooSmall && !ultraCompact && viewport.columns >= 152;
-  const companionWidth = showSelectionCompanion ? Math.max(34, Math.floor(innerWidth * 0.32)) : 0;
-  const listWidth = showSelectionCompanion
-    ? Math.max(42, innerWidth - companionWidth - 3)
-    : innerWidth;
-  const rowWidth = Math.max(20, listWidth - 4);
+  const { tooSmall, minColumns, minRows, maxVisibleRows: maxVisible } = viewport;
+  const pickerLayout = getPickerLayout(viewport.columns, viewport.rows);
+  const { listWidth, rowWidth, showCompanion: showSelectionCompanion } = pickerLayout;
 
   const windowStart = getWindowStart(index, filteredOptions.length, maxVisible);
   const windowEnd = Math.min(windowStart + maxVisible, filteredOptions.length);
