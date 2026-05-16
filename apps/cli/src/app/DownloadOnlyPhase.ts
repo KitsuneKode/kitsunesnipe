@@ -54,14 +54,20 @@ export class DownloadOnlyPhase implements Phase<DownloadOnlyInput, "queued" | "b
       return { status: "success", value: "back" };
     }
 
-    let episodes = await pickEpisodesToDownload({
-      title: input.title,
-      isAnime,
-      animeEpisodes: animeEpisodes ?? undefined,
-      container,
-    });
+    let episodes: readonly EpisodeInfo[] | null;
 
-    if (!episodes) {
+    if (input.title.type === "movie") {
+      episodes = [{ season: 1, episode: 1 }];
+    } else {
+      episodes = await pickEpisodesToDownload({
+        title: input.title,
+        isAnime,
+        animeEpisodes: animeEpisodes ?? undefined,
+        container,
+      });
+    }
+
+    if (!episodes || episodes.length === 0) {
       const single = await pickSingleDownloadEpisodeFallback({
         title: input.title,
         isAnime,

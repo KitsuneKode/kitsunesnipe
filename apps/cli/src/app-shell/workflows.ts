@@ -1599,7 +1599,11 @@ export async function enqueueCurrentPlaybackDownload({
   reason: string;
 }): Promise<boolean> {
   const state = container.stateManager.getState();
-  if (!state.currentTitle || !state.currentEpisode || !state.stream) {
+  if (!state.currentTitle || !state.currentEpisode) {
+    container.stateManager.dispatch({
+      type: "SET_PLAYBACK_FEEDBACK",
+      note: "Select a title first before downloading",
+    });
     return false;
   }
 
@@ -1625,7 +1629,7 @@ export async function enqueueCurrentPlaybackDownload({
     const job = await container.downloadService.enqueue({
       title: state.currentTitle,
       episode: state.currentEpisode,
-      stream: state.stream,
+      ...(state.stream ? { stream: state.stream } : {}),
       providerId: state.provider,
       mode: state.mode,
       posterUrl: state.currentTitle.posterUrl,
