@@ -58,7 +58,6 @@ import {
 } from "./shell-command-ui";
 import { footerActionFromCommand, getCommandLabel, InputField, ShellFrame } from "./shell-frame";
 import {
-  Badge,
   BrowseTitle,
   ContextStrip,
   DetailLine,
@@ -1672,8 +1671,8 @@ function ListShell<T>({
           <ResizeBlocker minColumns={minColumns} minRows={minRows} />
         ) : (
           <>
-            <Text color={palette.gray}>
-              {`Selected ${filteredOptions.length > 0 ? index + 1 : 0} of ${filteredOptions.length}  ·  Showing ${filteredOptions.length} of ${options.length}`}
+            <Text color={palette.gray} dimColor>
+              {`${filteredOptions.length > 0 ? index + 1 : 0} of ${filteredOptions.length}`}
             </Text>
             <Box
               flexDirection={showSelectionCompanion ? "row" : "column"}
@@ -1723,22 +1722,13 @@ function ListShell<T>({
                       <Box flexDirection="column" marginBottom={1}>
                         <Text>{poster.placeholder}</Text>
                       </Box>
-                    ) : selectedOption?.previewImageUrl ? (
+                    ) : selectedOption?.previewImageUrl && posterState === "loading" ? (
                       <Box marginBottom={1}>
-                        <Text
-                          color={posterState === "loading" ? palette.info : palette.gray}
-                          dimColor
-                        >
-                          {posterState === "loading" ? "Loading artwork…" : "Artwork unavailable"}
+                        <Text color={palette.info} dimColor>
+                          Loading artwork…
                         </Text>
                       </Box>
                     ) : null}
-                    <Box>
-                      <Badge label={confirmed ? "selected" : "highlighted"} tone="success" />
-                      {normalizedFilter.length > 0 ? (
-                        <Badge label={`filter ${normalizedFilter}`} tone="accent" />
-                      ) : null}
-                    </Box>
                     <Text bold color="white">
                       {truncateLine(
                         selectedLabel,
@@ -1751,9 +1741,6 @@ function ListShell<T>({
                           {line}
                         </Text>
                       ))}
-                    </Box>
-                    <Box marginTop={1}>
-                      <Text color={palette.gray}>{subtitle}</Text>
                     </Box>
                   </LocalSection>
                 </Box>

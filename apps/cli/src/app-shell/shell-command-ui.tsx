@@ -185,20 +185,14 @@ export function CommandPalette({
   };
 
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      borderColor={palette.amber}
-      paddingX={1}
-      paddingY={0}
-      marginTop={1}
-      width={width}
-    >
-      <Text color={palette.amber} bold>
-        Command
-      </Text>
+    <Box flexDirection="column" marginTop={1} width={width}>
+      <Box>
+        <Text color={palette.gray} dimColor>
+          {"─".repeat(contentWidth)}
+        </Text>
+      </Box>
       <Box marginTop={0}>
-        <Text color="white">/</Text>
+        <Text color={palette.teal}>/</Text>
         <LineEditorText
           value={input}
           cursor={cursor}
@@ -207,7 +201,7 @@ export function CommandPalette({
           maxWidth={Math.max(8, contentWidth - 2)}
         />
       </Box>
-      <Text color={palette.gray}>
+      <Text color={palette.gray} dimColor>
         Tab autocomplete · ↑↓ choose · Enter run
         {matches.length > visibleMatches.length ? ` · ${matches.length} commands` : ""}
       </Text>
