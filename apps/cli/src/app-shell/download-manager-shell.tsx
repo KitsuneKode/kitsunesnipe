@@ -186,20 +186,24 @@ export function DownloadManagerContent({
             : job.status === "aborted"
               ? palette.muted
               : palette.amber;
+    // Proportional columns: name takes ~45%, progress is fixed 28, meta takes remainder
+    const nameWidth = Math.max(20, Math.min(40, Math.floor(shellWidth * 0.45)));
+    const progressWidth = 28;
+    const metaWidth = Math.max(8, shellWidth - nameWidth - progressWidth - 4);
     return (
       <Box key={job.id} flexDirection="row">
         <Text color={isSelected ? palette.teal : palette.gray}>{isSelected ? "❯ " : "  "}</Text>
-        <Box width={shellWidth > 80 ? 40 : 25}>
+        <Box width={nameWidth}>
           <Text color={isSelected ? "white" : undefined} bold={isSelected}>
-            {truncateLine(nameStr, shellWidth > 80 ? 38 : 23)}
+            {truncateLine(nameStr, nameWidth - 2)}
           </Text>
         </Box>
-        <Box width={28}>
+        <Box width={progressWidth}>
           <Text color={statusColor}>{progressCore}</Text>
         </Box>
-        <Box flexGrow={1}>
+        <Box width={metaWidth}>
           <Text color={palette.muted} dimColor>
-            {progressMeta}
+            {truncateLine(progressMeta, metaWidth)}
           </Text>
         </Box>
         {isConfirming(index) ? (

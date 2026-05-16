@@ -4,7 +4,8 @@ import type { RecommendationSection } from "@/services/recommendations/Recommend
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
 
-import { EmptyState, ResizeBlocker, ShellFooter } from "./shell-primitives";
+import { DotMatrixLoader, InlineDotMatrixLoader } from "./dot-matrix-loader";
+import { ResizeBlocker, ShellFooter } from "./shell-primitives";
 import { palette } from "./shell-theme";
 import { useDebouncedViewportPolicy } from "./use-viewport-policy";
 
@@ -164,27 +165,30 @@ export function DiscoverShell({
             ⬡ Discover
           </Text>
           {refreshing ? (
-            <Text color={palette.teal}>◌ refreshing</Text>
+            <Box>
+              <InlineDotMatrixLoader variant="echo-ring" active onColor={palette.teal} />
+              <Text color={palette.teal}> refreshing</Text>
+            </Box>
           ) : refreshError ? (
             <Text color={palette.red}>refresh failed</Text>
           ) : null}
         </Box>
         {refreshError ? (
           <Box marginTop={1}>
-            <Text color={palette.red}>{refreshError}</Text>
-            <Text color={palette.muted} dimColor>
+            <Text color={palette.amber}>{refreshError}</Text>
+            <Text color={palette.dim} dimColor>
               Press r to retry
             </Text>
           </Box>
         ) : null}
         <Box marginTop={1} flexDirection="column" flexGrow={1}>
           {visibleSections.length === 0 ? (
-            <EmptyState
-              icon="⬡"
-              title="Loading recommendations"
-              subtitle="Fetching personalized suggestions from your watch history"
-              hint="Press r to refresh manually"
-            />
+            <Box flexDirection="column" flexGrow={1} justifyContent="center" alignItems="center">
+              <DotMatrixLoader variant="echo-ring" active onColor={palette.amber} />
+              <Box marginTop={1}>
+                <Text color={palette.muted}>Loading recommendations…</Text>
+              </Box>
+            </Box>
           ) : (
             visibleSections.map((section, idx) => (
               <DiscoverSectionView

@@ -1,7 +1,8 @@
 import { DownloadManagerContent } from "@/app-shell/download-manager-shell";
-import { EmptyState, InlineBadge } from "@/app-shell/shell-primitives";
+import { EmptyState, InlineBadge, ResizeBlocker, ShellFooter } from "@/app-shell/shell-primitives";
 import { truncateLine } from "@/app-shell/shell-text";
 import { palette } from "@/app-shell/shell-theme";
+import { useDebouncedViewportPolicy } from "@/app-shell/use-viewport-policy";
 import { buildPickerActionContext } from "@/app-shell/workflows";
 import type { Container } from "@/container";
 import { createOfflineLibraryEngine } from "@/domain/offline/OfflineLibraryEngine";
@@ -22,6 +23,7 @@ export function LibraryShell({
   const [tab, setTab] = useState<TabId>(initialView);
   const [downloadsEnabled, setDownloadsEnabled] = useState(container.config.downloadsEnabled);
   const [autoDownload, setAutoDownload] = useState(container.config.autoDownload);
+  const viewport = useDebouncedViewportPolicy("picker");
 
   useInput((input) => {
     if (input === "1" || input === "l") {
@@ -52,6 +54,10 @@ export function LibraryShell({
       return;
     }
   });
+
+  if (viewport.tooSmall) {
+    return <ResizeBlocker minColumns={viewport.minColumns} minRows={viewport.minRows} />;
+  }
 
   return (
     <Box flexDirection="column" flexGrow={1}>
@@ -88,11 +94,17 @@ export function LibraryShell({
         )}
       </Box>
 
-      <Box marginTop={1}>
-        <Text color={palette.muted} dimColor>
-          ↑↓ select · x delete · p protect · Enter browse · d toggle · a cycle auto · Esc close
-        </Text>
-      </Box>
+      <ShellFooter
+        taskLabel="Library"
+        mode="minimal"
+        actions={[
+          { key: "↑↓", label: "select", action: "search" },
+          { key: "enter", label: "browse", action: "search" },
+          { key: "d", label: "toggle dl", action: "search" },
+          { key: "a", label: "cycle auto", action: "search" },
+          { key: "esc", label: "close", action: "quit" },
+        ]}
+      />
     </Box>
   );
 }
