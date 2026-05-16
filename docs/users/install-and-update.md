@@ -38,4 +38,16 @@ The update panel shows install-method-aware guidance:
 
 You can snooze automatic checks for seven days or disable them from the update panel. Manual `/update` remains available.
 
+## Release Notes
+
+Every published package should include:
+
+- a Changesets-generated version bump in `apps/cli/package.json`
+- a human-readable entry in `apps/cli/CHANGELOG.md`
+- `bun run typecheck`, `bun run lint`, `bun run fmt:check`, and `bun run test` passing locally
+- `bun run pkg:check` passing before publish
+- `bun run release:dry-run` passing before the final `bun run release`
+
+For support reports after an update, run `/report-issue` from Kunai. For developer reproduction, launch with `--debug-session`, reproduce the issue, then run `/export-diagnostics`.
+
 More flag details live in [`../../.docs/cli-reference.md`](../../.docs/cli-reference.md).

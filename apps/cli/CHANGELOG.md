@@ -1,5 +1,22 @@
 # @kitsunekode/kunai
 
+## 0.2.0
+
+### Minor Changes
+
+- Ship the production-readiness playback and diagnostics pass.
+
+  Highlights:
+  - Route playback recovery through a shared policy so guided, manual, and fallback-first modes behave predictably.
+  - Detect slow-but-still-healthy playback separately from dead streams, avoiding premature provider cycling while keeping refresh/fallback actions available.
+  - Make provider fallback smarter by filtering incompatible media kinds, skipping known-down providers automatically, and allowing explicit provider selections to try once.
+  - Improve cache safety with shorter stale windows, stale health validation, abortable health checks, provider validation for prefetched streams, and better prefetch handoff.
+  - Add network-aware offline suggestions that avoid blaming providers for local connectivity problems.
+  - Add recovery mode settings, redacted diagnostics export/report issue drafts, and `--debug-session` for developer repro traces and breakpoint workflows.
+  - Cache downloaded poster artwork locally with deduped in-flight work so offline library previews preserve the online feel without hidden network work.
+  - Add deterministic provider/player harness coverage and document opt-in live provider smoke checks.
+  - Polish command/browse picker behavior, fuzzy ranking, aliases, command highlight styling, and responsive poster previews.
+
 ## 0.1.3
 
 ### Patch Changes

@@ -81,7 +81,10 @@ Download workflow shortcuts:
 ## Diagnostics
 
 - Use `--debug` for verbose logs
+- Use `--debug-json` to write scoped JSONL diagnostics traces
+- Use `--debug-session` for a developer repro session with trace path and breakpoint guidance
 - Use `/ export-diagnostics` inside Kunai for a redacted report snapshot
+- Use `/ report-issue` to export a redacted bundle and open a prefilled GitHub issue draft
 
 ## Caveats
 
